@@ -37,38 +37,76 @@ var multiwidthRunes = [...]rune{
 	'\U0000A7B0', // 42928: Ʞ => ʞ
 	'\U0000A7B1', // 42929: Ʇ => ʇ
 	'\U0000A7B2', // 42930: Ʝ => ʝ
-	// '\U0000A7C5', // 42949: Ʂ => ʂ
-	// '\U0000A7C5', // 42949: Ʂ => ʂ
-	// '\U0000A7C5', // 42949: Ʂ => ʂ
-	// '\U0000A7C5', // 42949: Ʂ => ʂ
-	// '\U0000A7C5', // 42949: Ʂ => ʂ
-	'\U0000A7AE', // 42926: Ɪ => ɪ
-	// '\U0000A7B0', // 42928: Ʞ => ʞ
-	// '\U0000A7B1', // 42929: Ʇ => ʇ
-	// '\U0000A7B2', // 42930: Ʝ => ʝ
 }
 
-// var multiwidthRunes = [...]rune{
-// 	'\U00000130' /* 'İ' */, '\U00000131' /* 'ı' */, '\U0000017F', /* 'ſ' */
-// 	'\U0000023A' /* 'Ⱥ' */, '\U0000023E' /* 'Ⱦ' */, '\U0000023F', /* 'ȿ' */
-// 	'\U00000240' /* 'ɀ' */, '\U00000250' /* 'ɐ' */, '\U00000251', /* 'ɑ' */
-// 	'\U00000252' /* 'ɒ' */, '\U0000025C' /* 'ɜ' */, '\U00000261', /* 'ɡ' */
-// 	'\U00000265' /* 'ɥ' */, '\U00000266' /* 'ɦ' */, '\U0000026A', /* 'ɪ' */
-// 	'\U0000026B' /* 'ɫ' */, '\U0000026C' /* 'ɬ' */, '\U00000271', /* 'ɱ' */
-// 	'\U0000027D' /* 'ɽ' */, '\U00000282' /* 'ʂ' */, '\U00000287', /* 'ʇ' */
-// 	'\U0000029D' /* 'ʝ' */, '\U0000029E' /* 'ʞ' */, '\U00001C80', /* 'ᲀ' */
-// 	'\U00001C81' /* 'ᲁ' */, '\U00001C82' /* 'ᲂ' */, '\U00001C83', /* 'ᲃ' */
-// 	'\U00001C84' /* 'ᲄ' */, '\U00001C85' /* 'ᲅ' */, '\U00001C86', /* 'ᲆ' */
-// 	'\U00001C87' /* 'ᲇ' */, '\U00001E9E' /* 'ẞ' */, '\U00001FBE', /* 'ι' */
-// 	'\U00002126' /* 'Ω' */, '\U0000212A' /* 'K' */, '\U0000212B', /* 'Å' */
-// 	'\U00002C62' /* 'Ɫ' */, '\U00002C64' /* 'Ɽ' */, '\U00002C65', /* 'ⱥ' */
-// 	'\U00002C66' /* 'ⱦ' */, '\U00002C6D' /* 'Ɑ' */, '\U00002C6E', /* 'Ɱ' */
-// 	'\U00002C6F' /* 'Ɐ' */, '\U00002C70' /* 'Ɒ' */, '\U00002C7E', /* 'Ȿ' */
-// 	'\U00002C7F' /* 'Ɀ' */, '\U0000A78D' /* 'Ɥ' */, '\U0000A7AA', /* 'Ɦ' */
-// 	'\U0000A7AB' /* 'Ɜ' */, '\U0000A7AC' /* 'Ɡ' */, '\U0000A7AD', /* 'Ɬ' */
-// 	'\U0000A7AE' /* 'Ɪ' */, '\U0000A7B0' /* 'Ʞ' */, '\U0000A7B1', /* 'Ʇ' */
-// 	'\U0000A7B2', /* 'Ʝ' */
+// func TestMultiwidthRunes(t *testing.T) {
+// 	for _, r := range multiwidthRunes {
+// 		if !utf8.ValidRune(r) {
+// 			t.Errorf("%U %c\n", r, r)
+// 		} else {
+// 			fmt.Printf("%U %c\n", r, r)
+// 		}
+// 	}
 // }
+
+// All multi-width runes
+var multiwidthRunesMap = map[rune]bool{
+	'\U00000130': true,
+	'\U00000131': true,
+	'\U0000017F': true,
+	'\U0000023A': true,
+	'\U0000023E': true,
+	'\U0000023F': true,
+	'\U00000240': true,
+	'\U00000250': true,
+	'\U00000251': true,
+	'\U00000252': true,
+	'\U0000025C': true,
+	'\U00000261': true,
+	'\U00000265': true,
+	'\U00000266': true,
+	'\U0000026A': true,
+	'\U0000026B': true,
+	'\U0000026C': true,
+	'\U00000271': true,
+	'\U0000027D': true,
+	'\U00000282': true,
+	'\U00000287': true,
+	'\U0000029D': true,
+	'\U0000029E': true,
+	'\U00001C80': true,
+	'\U00001C81': true,
+	'\U00001C82': true,
+	'\U00001C83': true,
+	'\U00001C84': true,
+	'\U00001C85': true,
+	'\U00001C86': true,
+	'\U00001C87': true,
+	'\U00001E9E': true,
+	'\U00001FBE': true,
+	'\U00002126': true,
+	'\U0000212A': true,
+	'\U0000212B': true,
+	'\U00002C62': true,
+	'\U00002C64': true,
+	'\U00002C65': true,
+	'\U00002C66': true,
+	'\U00002C6D': true,
+	'\U00002C6E': true,
+	'\U00002C6F': true,
+	'\U00002C70': true,
+	'\U00002C7E': true,
+	'\U00002C7F': true,
+	'\U0000A78D': true,
+	'\U0000A7AA': true,
+	'\U0000A7AB': true,
+	'\U0000A7AC': true,
+	'\U0000A7AD': true,
+	'\U0000A7AE': true,
+	'\U0000A7B0': true,
+	'\U0000A7B1': true,
+	'\U0000A7B2': true,
+}
 
 var foldableRunes []rune
 
@@ -88,42 +126,113 @@ func init() {
 	copy(foldableRunes, runes)
 }
 
-var unicodeCategories = func() []*unicode.RangeTable {
-	tabs := make([]*unicode.RangeTable, 0, len(unicode.Categories))
-	for _, tab := range unicode.Categories {
-		tabs = append(tabs, tab)
-	}
-	return tabs
-}()
+var unicodeCategories = []*unicode.RangeTable{
+	// unicode.Cc,     // Cc is the set of Unicode characters in category Cc (Other, control).
+	unicode.Cf,     // Cf is the set of Unicode characters in category Cf (Other, format).
+	unicode.Co,     // Co is the set of Unicode characters in category Co (Other, private use).
+	unicode.Cs,     // Cs is the set of Unicode characters in category Cs (Other, surrogate).
+	unicode.Digit,  // Digit is the set of Unicode characters with the "decimal digit" property.
+	unicode.Nd,     // Nd is the set of Unicode characters in category Nd (Number, decimal digit).
+	unicode.Letter, // Letter/L is the set of Unicode letters, category L.
+	unicode.L,
+	unicode.Lm,    // Lm is the set of Unicode characters in category Lm (Letter, modifier).
+	unicode.Lo,    // Lo is the set of Unicode characters in category Lo (Letter, other).
+	unicode.Lower, // Lower is the set of Unicode lower case letters.
+	unicode.Ll,    // Ll is the set of Unicode characters in category Ll (Letter, lowercase).
+	unicode.Mark,  // Mark/M is the set of Unicode mark characters, category M.
+	unicode.M,
+	unicode.Mc,     // Mc is the set of Unicode characters in category Mc (Mark, spacing combining).
+	unicode.Me,     // Me is the set of Unicode characters in category Me (Mark, enclosing).
+	unicode.Mn,     // Mn is the set of Unicode characters in category Mn (Mark, nonspacing).
+	unicode.Nl,     // Nl is the set of Unicode characters in category Nl (Number, letter).
+	unicode.No,     // No is the set of Unicode characters in category No (Number, other).
+	unicode.Number, // Number/N is the set of Unicode number characters, category N.
+	unicode.N,
+	// unicode.Other, // Other/C is the set of Unicode control and special characters, category C.
+	// unicode.C,
+	unicode.Pc,    // Pc is the set of Unicode characters in category Pc (Punctuation, connector).
+	unicode.Pd,    // Pd is the set of Unicode characters in category Pd (Punctuation, dash).
+	unicode.Pe,    // Pe is the set of Unicode characters in category Pe (Punctuation, close).
+	unicode.Pf,    // Pf is the set of Unicode characters in category Pf (Punctuation, final quote).
+	unicode.Pi,    // Pi is the set of Unicode characters in category Pi (Punctuation, initial quote).
+	unicode.Po,    // Po is the set of Unicode characters in category Po (Punctuation, other).
+	unicode.Ps,    // Ps is the set of Unicode characters in category Ps (Punctuation, open).
+	unicode.Punct, // Punct/P is the set of Unicode punctuation characters, category P.
+	unicode.P,
+	unicode.Sc,    // Sc is the set of Unicode characters in category Sc (Symbol, currency).
+	unicode.Sk,    // Sk is the set of Unicode characters in category Sk (Symbol, modifier).
+	unicode.Sm,    // Sm is the set of Unicode characters in category Sm (Symbol, math).
+	unicode.So,    // So is the set of Unicode characters in category So (Symbol, other).
+	unicode.Space, // Space/Z is the set of Unicode space characters, category Z.
+	unicode.Z,
+	unicode.Symbol, // Symbol/S is the set of Unicode symbol characters, category S.
+	unicode.S,
+	unicode.Title, // Title is the set of Unicode title case letters.
+	unicode.Lt,    // Lt is the set of Unicode characters in category Lt (Letter, titlecase).
+	unicode.Upper, // Upper is the set of Unicode upper case letters.
+	unicode.Lu,    // Lu is the set of Unicode characters in category Lu (Letter, uppercase).
+	unicode.Zl,    // Zl is the set of Unicode characters in category Zl (Separator, line).
+	unicode.Zp,    // Zp is the set of Unicode characters in category Zp (Separator, paragraph).
+	unicode.Zs,    // Zs is the set of Unicode characters in category Zs (Separator, space).
+}
 
-func validUnicode(r rune) bool {
-	return unicode.In(r, unicodeCategories...)
+// WARN: ignoring 'K' and 'İ' for now
+func validRune(r rune) bool {
+	return utf8.ValidRune(r) && r != utf8.RuneError && r != 'K' && r != 'İ'
+}
+
+func randNonControlRune(rr *rand.Rand) (r rune) {
+	var lo, hi, stride uint32
+	tab := unicodeCategories[rr.Intn(len(unicodeCategories))]
+	if len(tab.R32) == 0 || rr.Intn(2) < 1 {
+		rt := tab.R16[rr.Intn(len(tab.R16))]
+		lo = uint32(rt.Lo)
+		hi = uint32(rt.Hi)
+		stride = uint32(rt.Stride)
+	} else {
+		rt := tab.R32[rr.Intn(len(tab.R32))]
+		lo = rt.Lo
+		hi = rt.Hi
+		stride = rt.Stride
+	}
+	d := hi - lo
+	if d == 0 {
+		r = rune(lo)
+	} else {
+		m := uint32(rand.Intn(int((hi-lo)/stride) + 1))
+		r = rune(lo) + rune(stride*m)
+	}
+	return r
 }
 
 func randRune(rr *rand.Rand) (r rune) {
-	for i := 0; ; i++ {
+	for {
 		switch f := rr.Float64(); {
 		case f < 0.1:
 			r = multiwidthRunes[rr.Intn(len(multiwidthRunes))]
 		case f < 0.3:
 			r = foldableRunes[rr.Intn(len(foldableRunes))]
 		case f < 0.6:
-			for {
-				r = rune(rr.Intn(unicode.MaxRune))
-				if validUnicode(r) {
-					break
-				}
-			}
+			r = randNonControlRune(rr)
 		default:
-			r = rune(rand.Intn('~' - ' '))
+			r = rune(rand.Intn('~'-' '+1)) + ' '
 		}
-		if validUnicode(r) {
+		if validRune(r) {
 			return r
 		}
-		if i > 1024 {
-			panic("Failed to generate a vaild unicode rune")
-		}
 	}
+}
+
+func TestRandRune(t *testing.T) {
+	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
+		// This test is executed between 50 and 400 times
+		for i := 0; i < 40; i++ {
+			r := randRune(rr)
+			if !unicode.In(r, unicodeCategories...) {
+				t.Errorf("Invalid: %q (%U)", string(r), r)
+			}
+		}
+	})
 }
 
 func randString(rr *rand.Rand, n int) string {
@@ -161,7 +270,7 @@ func generateStringFn(t *testing.T, rr *rand.Rand, n int, fn func(s string) bool
 	for i := 0; !fn(s); i++ {
 		s = randString(rr, n)
 		if i >= 512 {
-			t.Fatal("failed to generates string")
+			t.Fatal("failed to generate string")
 		}
 	}
 	return s
@@ -181,7 +290,7 @@ func replaceChar(rr *rand.Rand, s string) string {
 }
 
 func runRandomTest(t *testing.T, fn func(t *testing.T, rr *rand.Rand)) {
-	crint := func() int64 {
+	randInt := func() int64 {
 		i, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 		if err != nil {
 			t.Fatal(err)
@@ -191,13 +300,21 @@ func runRandomTest(t *testing.T, fn func(t *testing.T, rr *rand.Rand)) {
 	for _, seed := range []int64{
 		1,
 		time.Now().UnixNano(),
-		crint(),
-		crint(),
+		randInt(),
+		randInt(),
 	} {
 		t.Run(fmt.Sprintf("%d", seed), func(t *testing.T) {
-			fn(t, rand.New(rand.NewSource(seed)))
+			t.Parallel()
+			n := 400
+			if testing.Short() {
+				n = 50
+			}
+			rr := rand.New(rand.NewSource(seed))
+			for i := 0; i < n; i++ {
+				fn(t, rr)
+			}
 		})
-		if t.Failed() {
+		if t.Failed() && testing.Short() {
 			return
 		}
 	}
@@ -211,13 +328,23 @@ func indexReference(s, sep string) int {
 		return -1
 	}
 
-	l0 := unicode.ToLower(rp[0])
-	n := len(rs) - len(rp) + 1
-	for i := 0; i < n; i++ {
-		r := rs[0]
-		if unicode.ToLower(r) == l0 {
-			// WARN: this appears to be broken for multiwidth runes
-			if strings.HasPrefix(strings.ToLower(string(rs[i:])), strings.ToLower(sep)) {
+	runesHasPrefix := func(s, prefix []rune) bool {
+		if len(s) >= len(prefix) {
+			for i := 0; i < len(prefix); i++ {
+				if unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	}
+
+	sp := unicode.ToLower(rp[0])
+	for i := 0; i < len(rs); i++ {
+		sr := rs[i]
+		if sr == sp || unicode.ToLower(sr) == sp {
+			if runesHasPrefix(rs[i:], rp) {
 				return len(string(rs[:i]))
 			}
 		}
@@ -254,7 +381,7 @@ func generateIndexArgs(t *testing.T, rr *rand.Rand) (s, sep string, out int) {
 		return s, sep, o
 	}
 	sep = randString(rr, intn(len(s)/2)+1)
-	for strings.Index(lower, strings.ToLower(sep)) != -1 {
+	if strings.Contains(lower, strings.ToLower(sep)) {
 		sep = randString(rr, intn(len(s)/2)+1)
 	}
 	return s, sep, -1
@@ -262,22 +389,19 @@ func generateIndexArgs(t *testing.T, rr *rand.Rand) (s, sep string, out int) {
 
 func TestIndexFuzz(t *testing.T) {
 	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
-		for i := 0; i < 200; i++ {
-			s, sep, out := generateIndexArgs(t, rr)
-			got := Index(s, sep)
-			if got != out {
-				t.Errorf("Index\n"+
-					"S:    %q\n"+
-					"Sep:  %q\n"+
-					"Got:  %d\n"+
-					"Want: %d\n"+
-					"\n"+
-					"S:    %s\n"+
-					"Sep:  %s\n"+
-					"\n",
-					s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
-				// t.Errorf("Index(%q, %q) = %d; want: %d", s, sep, got, out)
-			}
+		s, sep, out := generateIndexArgs(t, rr)
+		got := Index(s, sep)
+		if got != out {
+			t.Errorf("Index\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
 		}
 	})
 }
@@ -291,47 +415,85 @@ func generateHasPrefixArgs(t *testing.T, rr *rand.Rand) (s, prefix string, match
 	}
 
 	check := func(s, prefix string) bool {
-		srs := []rune(s)
-		prs := []rune(prefix)
-		if len(srs) < len(prs) {
+		rs := []rune(s)
+		rp := []rune(prefix)
+		if len(rs) < len(rp) {
 			return false
 		}
-		for i := range prs {
-			if unicode.ToLower(srs[i]) != unicode.ToLower(prs[i]) {
+		for i := range rp {
+			if unicode.ToLower(rs[i]) != unicode.ToLower(rp[i]) {
 				return false
 			}
 		}
 		return true
 	}
 
-	ns := rr.Intn(60) + 4
-	s = randString(rr, ns)
-	np := intn(len(s)-1) + 1
-	prefix = randCase(rr, s[:np])
+	// WARN: just changed this and it might be wrong
 
-	// Generate match
-	if rr.Float64() < 0.5 {
-		for i := 0; !check(s, prefix); i++ {
-			prefix = randCase(rr, s[:np])
-			if i > 128 {
-				return generateHasPrefixArgs(t, rr)
+	for n := 128; n > 0; n-- {
+		ns := rr.Intn(60) + 4
+		s = randString(rr, ns)
+		np := intn(len(s)-1) + 1
+		prefix = randCase(rr, s[:np])
+
+		// Generate match
+		replace := rr.Float64() < 0.5
+		for i := 0; i < 128; i++ {
+			if check(s, prefix) {
+				return s, prefix, true
+			}
+			if replace {
+				prefix = replaceChar(rr, prefix)
+			} else {
+				prefix = randCase(rr, s[:np])
 			}
 		}
-		return s, prefix, true
 	}
-	prefix = replaceChar(rr, prefix)
-	return s, prefix, false
+	panic("Failed to generate a vaild HasPrefix args")
 }
 
 func TestHasPrefixFuzz(t *testing.T) {
 	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
-		for i := 0; i < 200; i++ {
-			// WARN WARN WARN: test Exhausted
-			s, prefix, out := generateHasPrefixArgs(t, rr)
-			got, _ := hasPrefixUnicode(s, prefix)
-			if got != out {
-				t.Errorf("hasPrefixUnicode(%q, %q) = %t; want: %t", s, prefix, got, out)
+		// WARN: test if the subject is exhausted
+		s, prefix, out := generateHasPrefixArgs(t, rr)
+		got, _ := hasPrefixUnicode(s, prefix)
+		if got != out {
+			t.Errorf("hasPrefixUnicode(%q, %q) = %t; want: %t", s, prefix, got, out)
+		}
+	})
+}
+
+// WARN: check returned index !!!
+func TestIndexNonASCIIFuzz(t *testing.T) {
+	isASCII := func(s string) bool {
+		for i := 0; i < len(s); i++ {
+			if s[i] >= utf8.RuneSelf {
+				return false
 			}
 		}
+		return true
+	}
+
+	test := func(t *testing.T, name string, gen func(*rand.Rand, int) string) {
+		t.Run(name, func(t *testing.T) {
+			runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
+				s := gen(rr, rr.Intn(128))
+				want := isASCII(s)
+				got := IndexNonASCII(s) == -1
+				if got != want {
+					t.Errorf("IndexNonASCII(%q) = %t want: %t", s, got, want)
+				}
+			})
+		})
+	}
+
+	test(t, "Unicode", randString)
+
+	test(t, "ASCII", func(rr *rand.Rand, n int) string {
+		b := make([]byte, n)
+		for i := range b {
+			b[i] = byte(rand.Intn('~' - ' '))
+		}
+		return string(b)
 	})
 }

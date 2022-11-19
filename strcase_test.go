@@ -1,11 +1,13 @@
 package strcase
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/charlievieth/strcase/internal/cstr"
@@ -163,6 +165,15 @@ var indexTests = []IndexTest{
 	{"123abc☻", "ABC☻", 3},
 }
 
+// These tests fail with strcasestr.
+var unicodeIndexTests = []IndexTest{
+	// Map Kelvin 'K' (U+212A) to lowercase latin 'k'.
+	{"abcK@", "k@", 3},
+
+	// Map "Latin capital letter I with dot above" 'İ' to lowercase latin 'i'.
+	{"abcİ@", "i@", 3},
+}
+
 // Execute f on each test case.  funcName should be the name of f; it's used
 // in failure reports.
 func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, testCases []IndexTest, noError bool) {
@@ -200,7 +211,8 @@ func TestIndexReference(t *testing.T) {
 }
 
 func TestIndex(t *testing.T) {
-	runIndexTests(t, Index, "Index", indexTests, false)
+	tests := append(indexTests, unicodeIndexTests...)
+	runIndexTests(t, Index, "Index", tests, false)
 }
 
 func TestIndexUnicode(t *testing.T) {
@@ -246,6 +258,8 @@ func TestIndexUnicode(t *testing.T) {
 	}
 }
 
+// TODO: use these
+//
 // Evil strings I discovered fuzzing
 var variableWidthIndexTests = []IndexTest{
 	{
@@ -273,6 +287,11 @@ var variableWidthIndexTests = []IndexTest{
 		sep: "\U00024b8a\u2c65I\u7c12\u313a/a\u2c64\u017f=",
 		out: 0,
 	},
+	{
+		s:   "\U0002024a\u0130\U000f3d86?\x11\ua3c5\U0010ab43\U000310a0\u4d8d\x03\U00016907L\U00024e04F\U000f5bb7",
+		sep: "i\U000f3d86?\x11\ua3c5\U0010ab43\U000310a0\u4d8d\x03\U00016907l\U00024e04f",
+		out: 4,
+	},
 }
 
 // WARN: DEV ONLY
@@ -285,16 +304,19 @@ func TestIndexXXX(t *testing.T) {
 	// S:    "\U000210b4T1\u2126\u2c6e\U00022c89\U000f9204\U000f2fb3\U0010baa5\U0002cd3bS\ud64d\u025c2E"
 	// Sep:  "\U000210b4t1\u03c9\u0271\U00022c89\U000f9204"
 	tests := []IndexTest{
+		// {
+		// 	s:   "\u9ae7[\x17\U0002315a,T\u212a@\x03WH",
+		// 	sep: "k@",
+		// 	out: 11,
+		// },
 		{
-			s:   strings.ToLower(string(multiwidthRunes[:])),
-			sep: strings.ToUpper(string(multiwidthRunes[:])),
-			out: 0,
+			s:   "\u11cf\U0001f232\u6ed1\u1e9ez",
+			sep: "滑ß",
+			out: 7,
 		},
 
-		// {strings.Repeat("ox", 128) + "yox", "oα" + strings.Repeat("ox", maxLen/len("ox")), -1},
-		// {"oxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoyox", "oα" + strings.Repeat("ox", 16), -1},
+		// "\u9ae7[\x17\U0002315a,T\u212a@\x03WH"
 	}
-	// "x0ⱭⱭⱭⱭⱭ234567890ⱭⱭⱭⱭⱭ234x0ⱭⱭⱭⱭⱭ234567890ⱭⱭⱭⱭⱭ2345","0ⱭⱭⱭⱭⱭ234567890ⱭⱭⱭⱭⱭ2345"
 
 	runIndexTests(t, indexReference, "IndexReference", tests, false)
 	runIndexTests(t, Index, "Index", tests, false)
@@ -458,6 +480,37 @@ func TestHasPrefixUnicode(t *testing.T) {
 	}
 }
 
+func TestToUpperLower(t *testing.T) {
+	{
+		u, l, m := toUpperLower('ß')
+		t.Fatal(string(u), string(l), m, string(unicode.ToUpper(l)))
+	}
+	fails := 0
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		l := unicode.ToLower(r)
+		u := unicode.ToUpper(r)
+		ok := l != u
+		uu, ll, found := toUpperLower(r)
+		if l != ll || u != uu || ok != found {
+			t.Errorf("toUpperLower(%c) = %c, %c, %t want: %c, %c, %t",
+				r, ll, uu, found, l, u, ok)
+			fails++
+		}
+		if fails >= 50 {
+			t.Fatal("Too many errors:", fails)
+		}
+	}
+	r := 'ß'
+	u, l, _ := toUpperLower(r)
+	if u != r {
+		t.Fatal("NO")
+	}
+	if l != 'ß' {
+		t.Fatal("NO")
+	}
+	_ = l
+}
+
 // func TestBruteForceIndexASCII(t *testing.T) {
 // 	for _, test := range indexTests {
 // 		if len(test.s) > maxLen || len(test.sep) > maxBruteForce || test.sep == "" {
@@ -555,18 +608,6 @@ func BenchmarkIndexByte(b *testing.B) {
 	}
 }
 
-func BenchmarkIndex(b *testing.B) {
-	if got := Index(benchmarkString, "v"); got != 17 {
-		b.Fatalf("wrong index: expected 17, got=%d", got)
-	}
-	for i := 0; i < b.N; i++ {
-		// WARN
-		Index(benchmarkString, "v")
-		// cstr.Strcasestr(benchmarkString, "v")
-	}
-}
-
-// |0123456789abcdefghijklmnopqrstu_wxyzABCDEFGHIJKLMNOPQRSTU_WXYZ|
 const _s = "|0123456789abcdefghijklmnopqrstu_wxyzABCDEFGHIJKLMNOPQRSTU_WXYZ|" // 64
 
 const benchmarkStringLong = "" +
@@ -574,12 +615,6 @@ const benchmarkStringLong = "" +
 	"V" +
 	_s + _s + _s + _s + _s + _s + _s + _s + // 512
 	"v"
-
-// var benchmarkStringLong = strings.Repeat("some_text=some||", 1024/len("some_text=some||")) + benchmarkString
-// var benchmarkStringLong = strings.Repeat("some_text=some||", 512/len("some_text=some||")) +
-// 	"V" +
-// 	strings.Repeat("some_text=some||", 512/len("some_text=some||")) +
-// 	benchmarkString
 
 func BenchmarkIndexByteLong(b *testing.B) {
 	const ch = 'V'
@@ -591,11 +626,48 @@ func BenchmarkIndexByteLong(b *testing.B) {
 	}
 }
 
-// WARN: remove
-func BenchmarkEqualASCII(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		equalASCII(_s, _s)
+// WARN
+var benchStdLib = flag.Bool("stdlib", false, "Use strings.Index in benchmarks (for comparison)")
+
+// func init() {
+// 	benchStdLib = flag.Bool("benchStdLib", false, "Use strings.Index in benchmarks (for comparison)")
+// }
+
+func benchmarkIndex(b *testing.B, s, substr string) {
+	if *benchStdLib {
+		s := strings.ToLower(s)
+		substr := strings.ToLower(substr)
+		for i := 0; i < b.N; i++ {
+			strings.Index(s, substr)
+		}
+	} else {
+		for i := 0; i < b.N; i++ {
+			Index(s, substr)
+		}
 	}
+
+	// b.Run("Case", func(b *testing.B) {
+	// 	for i := 0; i < b.N; i++ {
+	// 		Index(s, substr)
+	// 	}
+	// })
+	// if testing.Short() {
+	// 	return
+	// }
+	// b.Run("Std", func(b *testing.B) {
+	// 	s := strings.ToLower(s)
+	// 	substr := strings.ToLower(substr)
+	// 	for i := 0; i < b.N; i++ {
+	// 		strings.Index(s, substr)
+	// 	}
+	// })
+}
+
+func BenchmarkIndex(b *testing.B) {
+	if got := Index(benchmarkString, "v"); got != 17 {
+		b.Fatalf("wrong index: expected 17, got=%d", got)
+	}
+	benchmarkIndex(b, benchmarkString, "v")
 }
 
 func makeBenchInputHard() string {
@@ -618,26 +690,15 @@ func makeBenchInputHard() string {
 var benchInputHard = makeBenchInputHard()
 
 func benchmarkIndexHard(b *testing.B, sep string) {
-	for i := 0; i < b.N; i++ {
-		// WARN
-		Index(benchInputHard, sep)
-		// cstr.Strcasestr(benchInputHard, sep)
-
-		// strings.Index(strings.ToLower(benchInputHard), strings.ToLower(sep))
-	}
+	// if !testing.Short() {
+	// 	b.Run("Lower", func(b *testing.B) {
+	// 		for i := 0; i < b.N; i++ {
+	// 			strings.Index(strings.ToLower(benchInputHard), strings.ToLower(sep))
+	// 		}
+	// 	})
+	// }
+	benchmarkIndex(b, benchInputHard, sep)
 }
-
-// func benchmarkLastIndexHard(b *testing.B, sep string) {
-// 	for i := 0; i < b.N; i++ {
-// 		LastIndex(benchInputHard, sep)
-// 	}
-// }
-
-// func benchmarkCountHard(b *testing.B, sep string) {
-// 	for i := 0; i < b.N; i++ {
-// 		Count(benchInputHard, sep)
-// 	}
-// }
 
 func BenchmarkIndexHard1(b *testing.B) { benchmarkIndexHard(b, "<>") }
 func BenchmarkIndexHard2(b *testing.B) { benchmarkIndexHard(b, "</pre>") }
@@ -646,22 +707,12 @@ func BenchmarkIndexHard4(b *testing.B) {
 	benchmarkIndexHard(b, "<pre><b>hello</b><strong>world</strong></pre>")
 }
 
-// func BenchmarkLastIndexHard1(b *testing.B) { benchmarkLastIndexHard(b, "<>") }
-// func BenchmarkLastIndexHard2(b *testing.B) { benchmarkLastIndexHard(b, "</pre>") }
-// func BenchmarkLastIndexHard3(b *testing.B) { benchmarkLastIndexHard(b, "<b>hello world</b>") }
-
-// func BenchmarkCountHard1(b *testing.B) { benchmarkCountHard(b, "<>") }
-// func BenchmarkCountHard2(b *testing.B) { benchmarkCountHard(b, "</pre>") }
-// func BenchmarkCountHard3(b *testing.B) { benchmarkCountHard(b, "<b>hello world</b>") }
-
 var benchInputTorture = strings.Repeat("ABC", 1<<10) + "123" + strings.Repeat("ABC", 1<<10)
 var benchNeedleTorture = strings.Repeat("ABC", 1<<10+1)
 
 func BenchmarkIndexTorture(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		// WARN
-		Index(benchInputTorture, benchNeedleTorture)
-		// cstr.Strcasestr(benchInputTorture, benchNeedleTorture)
+		benchmarkIndex(b, benchInputTorture, benchNeedleTorture)
 	}
 }
 
@@ -670,18 +721,24 @@ func BenchmarkIndexPeriodic(b *testing.B) {
 	for _, skip := range [...]int{2, 4, 8, 16, 32, 64} {
 		b.Run(fmt.Sprintf("IndexPeriodic%d", skip), func(b *testing.B) {
 			s := strings.Repeat("a"+strings.Repeat(" ", skip-1), 1<<16/skip)
-			for i := 0; i < b.N; i++ {
-				// WARN
-				Index(s, key)
-				// cstr.Strcasestr(s, key)
-			}
+			benchmarkIndex(b, s, key)
+		})
+	}
+}
+
+func BenchmarkIndexPeriodicUnicode(b *testing.B) {
+	key := "αa"
+	for _, skip := range [...]int{2, 4, 8, 16, 32, 64} {
+		b.Run(fmt.Sprintf("IndexPeriodic%d", skip), func(b *testing.B) {
+			s := strings.Repeat("α"+strings.Repeat(" ", skip-1), 1<<16/skip)
+			// s := strings.Repeat("Α"+strings.Repeat(" ", skip-1), 1<<16/skip)
+			benchmarkIndex(b, s, key)
 		})
 	}
 }
 
 func BenchmarkIndexNonASCII(b *testing.B) {
 	const str = "xx0123456789012345678901234567890123456789012345678901234567890120123456789012345678901234567890123456xxx"
-
 	for i := 0; i < b.N; i++ {
 		IndexNonASCII(str)
 	}
@@ -722,5 +779,11 @@ func BenchmarkBruteForceIndexUnicode(b *testing.B) {
 		if bruteForceIndexUnicode(s, sep) == -1 {
 			b.Fatal("WAT")
 		}
+	}
+}
+
+func BenchmarkIsASCII(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		isASCII(benchmarkString)
 	}
 }
