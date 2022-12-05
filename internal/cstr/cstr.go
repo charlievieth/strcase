@@ -8,9 +8,10 @@ package cstr
 #include <stddef.h>
 #include <string.h>
 #include <strings.h> // strcasecmp
-#include <locale.h>
+#include <ctype.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <locale.h>
 #include <assert.h>
 
 static void cstr_init_locale(void) {
