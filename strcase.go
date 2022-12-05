@@ -1,4 +1,7 @@
+// Package strings is a case-insensitive implementation of the strings package.
 package strcase
+
+//go:generate go run gen.go
 
 import (
 	"io"
@@ -18,7 +21,7 @@ import (
 //     whatever).
 
 // WARN: DEV ONLY
-const debug = true
+const debug = false
 
 // const debug = true
 
@@ -210,8 +213,6 @@ func hasPrefixUnicode(s, prefix string) (bool, bool) {
 	// 	return true, len(s) == len(prefix)
 	// }
 
-	// TODO: use optimized code from Compare()
-
 	// ASCII fast path
 	i := 0
 	for ; i < len(s) && i < len(prefix); i++ {
@@ -304,48 +305,6 @@ func bruteForceIndexASCII(s, substr string) int {
 	return -1
 }
 
-// TODO: pass the first decoded rune
-func bruteForceIndexUnicode_OLD(s, substr string) int {
-	if len(substr) == 0 {
-		return 0 // WARN: this should never happen
-	}
-
-	// WARN WARN WARN
-	// if utf8.RuneCountInString(substr) < 2 {
-	// 	panic("BAD")
-	// }
-
-	c0, sz := utf8.DecodeRuneInString(substr)
-	if sz == len(substr) {
-		return IndexRune(s, c0) // WARN: this should never happen
-	}
-	// c1, _ := utf8.DecodeRuneInString(substr[sz:])
-
-	c0 = unicode.ToLower(c0)
-	// c1 = unicode.ToLower(c1)
-
-	for i, r1 := range s {
-		if 'A' <= r1 && r1 <= 'Z' {
-			r1 += 'a' - 'A'
-		} else if r1 > unicode.MaxASCII {
-			r1 = unicode.To(unicode.LowerCase, r1)
-		}
-		if r1 == c0 {
-			// TODO: skip first rune since we know it matches
-
-			// match, noMore := hasPrefixUnicode(s[i+utf8.RuneLen(x):], substr[sz:])
-			match, noMore := hasPrefixUnicode(s[i:], substr[:])
-			if match {
-				return i
-			}
-			if noMore {
-				break
-			}
-		}
-	}
-	return -1
-}
-
 // toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
 func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	if r <= unicode.MaxASCII {
@@ -407,25 +366,8 @@ func hasFolds(sr rune) bool {
 	return n > 2
 }
 
-//go:generate go run gen.go
-
 func mustLower(r rune) bool {
 	return unicode.Is(_MustLower, r)
-	// return unicode.In(r, _MustLower)
-
-	// Runes where `r != ToUpper(ToLower(r))`
-	switch r {
-	case 'İ', 'I', 'Θ', 'ß', 'Ω', 'K', 'Å', 'i', 'θ', 'ω', 'k', 'å':
-		return true
-	default:
-		rr := unicode.SimpleFold(r)
-		n := 1
-		for rr != r && n < 3 {
-			n++
-			rr = unicode.SimpleFold(rr)
-		}
-		return n > 2
-	}
 }
 
 // WARN WARN WARN: do something like this (but make it work)
@@ -568,6 +510,7 @@ func equalASCII(s, t string) bool {
 func cutover(n int) int {
 	// FIXME: our cutoff is probably different since our algo is not optimized
 
+	// WARN: this is much slower on arm64 - test on amd64
 	if runtime.GOARCH == "amd64" {
 		// 1 error per 8 characters, plus a few slop to start.
 		return (n + 16) / 8
@@ -575,6 +518,7 @@ func cutover(n int) int {
 	}
 	// arm64
 	// 1 error per 16 characters, plus a few slop to start.
+
 	return 4 + n>>4
 	// return (n + 16) / 8
 }
@@ -649,77 +593,13 @@ func indexASCII(s, substr string) int {
 	return -1
 }
 
-func shortIndexUnicode(s, substr string) int {
-	c0, size := utf8.DecodeRuneInString(substr)
-	c1, _ := utf8.DecodeRuneInString(substr[size:])
-	// TODO: check if c0 and c1 are not-letters and thus don't need to use
-	// caseless comparisons.
-	c0 = unicode.ToLower(c0)
-	c1 = unicode.ToLower(c1)
-
-	// TODO: stop iteration earlier
-
-	i := 0
-	fails := 0
-	for i < len(s) {
-		var r0 rune
-		var n0 int
-		if s[i] < utf8.RuneSelf {
-			r0, n0 = rune(s[i]), 1
-		} else {
-			r0, n0 = utf8.DecodeRuneInString(s[i:])
-		}
-		if r0 != c0 && unicode.ToLower(r0) != c0 {
-			o, sz := indexRune(s[i+n0:], c0)
-			if o < 0 {
-				return -1
-			}
-			i += o + n0
-			n0 = sz // The rune we matched on might not be the same size as c0
-		}
-
-		// WARN
-		if i+n0 >= len(s) {
-			return -1
-		}
-
-		var r1 rune
-		if s[i+n0] < utf8.RuneSelf {
-			r1 = rune(s[i+n0])
-		} else {
-			r1, _ = utf8.DecodeRuneInString(s[i+n0:])
-		}
-		if r1 == c1 || unicode.ToLower(r1) == c1 {
-			match, exhausted := hasPrefixUnicode(s[i:], substr)
-			if match {
-				return i
-			}
-			if exhausted {
-				return -1
-			}
-		}
-		fails++
-		i += n0
-		// WARN: this needs to be tuned since the brute force performance
-		// is very different than the stdlibs.
-		if fails > cutover(i) {
-			r := bruteForceIndexUnicode(s[i:], substr)
-			if r >= 0 {
-				return r + i
-			}
-			return -1
-		}
-	}
-	return -1
-}
-
 // WARN WARN WARN WARN WARN WARN WARN
 //
 // something here is very slow
 // no brute force cutover
 //
 // WARN WARN WARN WARN WARN WARN WARN
-func shortIndexUnicode_NEW(s, substr string) int {
+func shortIndexUnicode(s, substr string) int {
 	u0, sz0 := utf8.DecodeRuneInString(substr)
 	if sz0 == len(substr) {
 		return IndexRune(s, u0) // WARN: this should never happen
@@ -813,7 +693,7 @@ func indexRune2(s string, lower, upper rune) (n, sz int) {
 	return n, sz
 }
 
-func indexUnicode_NEW(s, substr string) int {
+func indexUnicode(s, substr string) int {
 	u0, sz0 := utf8.DecodeRuneInString(substr)
 	if sz0 == len(substr) {
 		return IndexRune(s, u0) // WARN: this should never happen
@@ -891,72 +771,6 @@ func indexUnicode_NEW(s, substr string) int {
 	return -1
 }
 
-// WARN: unused
-func indexUnicode(s, substr string) int {
-	c0, size := utf8.DecodeRuneInString(substr)
-	c1, _ := utf8.DecodeRuneInString(substr[size:])
-	c0 = unicode.ToLower(c0)
-	c1 = unicode.ToLower(c1)
-
-	i := 0
-	t := len(s) - (len(substr) / 2) + 1
-	fails := 0
-	for i < t {
-		var r0 rune
-		var n0 int
-		if s[i] < utf8.RuneSelf {
-			r0, n0 = rune(s[i]), 1
-		} else {
-			r0, n0 = utf8.DecodeRuneInString(s[i:])
-		}
-		if r0 != c0 && unicode.ToLower(r0) != c0 {
-			o, sz := indexRune(s[i+n0:t], c0)
-			if o < 0 {
-				return -1
-			}
-			i += o + n0
-			n0 = sz // The rune we matched on might not be the same size
-		}
-
-		if i+n0 >= len(s) {
-			return -1
-		}
-
-		var r1 rune
-		if s[i+n0] < utf8.RuneSelf {
-			r1 = rune(s[i+n0])
-		} else {
-			r1, _ = utf8.DecodeRuneInString(s[i+n0:])
-		}
-		if r1 == c1 || unicode.ToLower(r1) == c1 {
-			match, exhausted := hasPrefixUnicode(s[i:], substr)
-			if match {
-				return i
-			}
-			if exhausted {
-				return -1
-			}
-		}
-		i += n0
-		fails++
-
-		// WARN WARN WARN
-		//
-		// FIXME
-		//
-		// WARN WARN WARN
-		if fails >= 4+i>>4 /*&& i < t*/ {
-			// // See comment in ../bytes/bytes.go.
-			// j := indexRabinKarpUnicode(s[i:], substr)
-			// if j < 0 {
-			// 	return -1
-			// }
-			// return i + j
-		}
-	}
-	return -1
-}
-
 func Index(s, substr string) int {
 	// WARN WARN WARN
 	//
@@ -980,8 +794,16 @@ func Index(s, substr string) int {
 		if len(s) == 0 {
 			return 0
 		}
-		// TODO: optimize
-		return bruteForceIndexUnicode(s, substr)
+		// Match here is possible due to upper/lower case runes
+		// having different encoded sizes.
+		//
+		// Fast check to see if s contains the first character of substr.
+		i := IndexRune(s, r)
+		if i < 0 {
+			return -1
+		}
+		return bruteForceIndexUnicode(s[i:], substr)
+
 	case n <= maxLen: // WARN: 32 is for arm64 (see: bytealg.MaxLen)
 		if isASCII(substr) {
 			if len(s) <= maxBruteForce {
@@ -994,15 +816,15 @@ func Index(s, substr string) int {
 		if len(s) <= maxBruteForce {
 			return bruteForceIndexUnicode(s, substr)
 		}
-		return shortIndexUnicode_NEW(s, substr)
+		return shortIndexUnicode(s, substr)
 	}
 	if isASCII(substr) {
 		// return indexRabinKarp(s, substr)
 		return indexASCII(s, substr)
 	}
 	// WARN WARN WARN WARN WARN
-	// return shortIndexUnicode_NEW(s, substr)
-	return indexUnicode_NEW(s, substr)
+	// return shortIndexUnicode(s, substr)
+	return indexUnicode(s, substr)
 }
 
 // WARN: this breaks if there is a non-ASCII form of byte c
@@ -1175,17 +997,15 @@ func indexRabinKarp(s, substr string) int {
 	return -1
 }
 
-// FIXME: handle multi-width runes
 func indexRabinKarpUnicode(s, substr string) int {
 	// Rabin-Karp search
 	hashss, pow, n := hashStrUnicode(substr)
 	var h uint32
-	o := n  // rune count
 	sz := 0 // byte size of 'o' runes
 	for i, r := range s {
 		h = h*primeRK + uint32(unicode.ToLower(r))
-		o--
-		if o == 0 {
+		n--
+		if n == 0 {
 			sz = i + utf8.RuneLen(r)
 			break
 		}
@@ -1193,31 +1013,29 @@ func indexRabinKarpUnicode(s, substr string) int {
 	if h == hashss && HasPrefix(s, substr) {
 		return 0
 	}
-	j := 0
-	for i := sz; i < len(s); {
+	i := 0 // start of rolling hash
+	for j := sz; j < len(s); {
 		h *= primeRK
 		var s0, s1 rune
-		var size, n1 int
-		if s[i] < utf8.RuneSelf {
-			s0, size = rune(_lower[s[i]]), 1
+		var n0, n1 int
+		if s[j] < utf8.RuneSelf {
+			s0, n0 = rune(_lower[s[j]]), 1
 		} else {
-			s0, size = utf8.DecodeRuneInString(s[i:])
+			s0, n0 = utf8.DecodeRuneInString(s[j:])
 			s0 = unicode.ToLower(s0)
 		}
-		if s[j] < utf8.RuneSelf {
-			s1, n1 = rune(_lower[s[j]]), 1
+		if s[i] < utf8.RuneSelf {
+			s1, n1 = rune(_lower[s[i]]), 1
 		} else {
-			s1, n1 = utf8.DecodeRuneInString(s[j:])
+			s1, n1 = utf8.DecodeRuneInString(s[i:])
 			s1 = unicode.ToLower(s1)
 		}
 		h += uint32(s0)
 		h -= pow * uint32(s1)
-		i += size
-		j += n1
-
-		// if h == hashss && Compare(s[j:i], substr) == 0 {
-		if h == hashss && HasPrefix(s[j:i], substr) {
-			return j
+		j += n0
+		i += n1
+		if h == hashss && HasPrefix(s[i:j], substr) {
+			return i
 		}
 	}
 	return -1

@@ -872,6 +872,19 @@ func BenchmarkIndex(b *testing.B) {
 	benchmarkIndex(b, s, "Kvaluex")
 }
 
+// TODO: rename
+func BenchmarkIndexNeedleLongerThanSubject(b *testing.B) {
+	const s = benchmarkString
+	b.Run("FirstRuneEqual", func(b *testing.B) {
+		substr := s + "-"
+		benchmarkIndex(b, s, substr)
+	})
+	b.Run("FirstRuneNotEqual", func(b *testing.B) {
+		substr := "-" + s
+		benchmarkIndex(b, s, substr)
+	})
+}
+
 func BenchmarkIndexRussian(b *testing.B) {
 	// https://ru.wikipedia.org/wiki/%D0%9C%D0%B0%D1%8F%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%B8%D0%B9,_%D0%92%D0%BB%D0%B0%D0%B4%D0%B8%D0%BC%D0%B8%D1%80_%D0%92%D0%BB%D0%B0%D0%B4%D0%B8%D0%BC%D0%B8%D1%80%D0%BE%D0%B2%D0%B8%D1%87
 
