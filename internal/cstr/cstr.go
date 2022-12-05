@@ -1,5 +1,5 @@
-//go:build cgo
-// +build cgo
+//go:build cgo && !windows
+// +build cgo,!windows
 
 package cstr
 
@@ -8,62 +8,25 @@ package cstr
 #include <stddef.h>
 #include <string.h>
 #include <strings.h> // strcasecmp
-#include <ctype.h>
 #include <wchar.h>
-#include <wctype.h>
 #include <locale.h>
 #include <assert.h>
 
-static void cstr_init_locale(void) {
-	setlocale(LC_ALL, "en_US.UTF-8");
-}
-
-#if !defined(__MINGW32__) && !defined(_WIN32) && !defined(__CYGWIN__)
-#  define HAVE_STRCASESTR
-#  define HAVE_WCSCASECMP
-#endif
-
-#ifndef HAVE_STRCASESTR
-static int cstr_strncasecmp(const char *l, const char *r, size_t n) {
-	if (!n--) {
+static int cstr_init_locale(void) {
+	if (setlocale(LC_ALL, "en_US.UTF-8")) {
 		return 0;
 	}
-	for (; *l && *r && n && (*l == *r || tolower(*l) == tolower(*r)); l++, r++, n--)
-		;
-	return tolower(*l) - tolower(*r);
+	return 1;
 }
-#endif // HAVE_STRCASESTR
-
-#ifndef HAVE_WCSCASECMP
-static int cstr_wcsncasecmp(const wchar_t *l, const wchar_t *r, size_t n) {
-	if (!n--)
-		return 0;
-	for (; *l && *r && n && (*l == *r || towlower(*l) == towlower(*r)); l++, r++, n--)
-		;
-	return towlower(*l) - towlower(*r);
-}
-#endif // HAVE_WCSCASECMP
 
 static ptrdiff_t cstr_strcasestr(const char *haystack, const char *needle) {
 	assert(haystack);
 	assert(needle);
-
-#ifdef HAVE_STRCASESTR
 	char *res = strcasestr(haystack, needle);
 	return res != NULL ? (ptrdiff_t)(res - haystack) : -1;
-#else
-	const char *h = haystack;
-	size_t nlen = strlen(needle);
-	for (; *h; h++) {
-		if (!cstr_strncasecmp(h, needle, nlen)) {
-			return (ptrdiff_t)(h - haystack);
-		}
-	}
-	return -1;
-#endif
 }
 
-int cstr_towc(const char *s, wchar_t **out, ssize_t *out_len) {
+static int cstr_towc(const char *s, wchar_t **out, ssize_t *out_len) {
 	assert(s);
 	assert(out);
 
@@ -91,41 +54,46 @@ int cstr_towc(const char *s, wchar_t **out, ssize_t *out_len) {
 	return 0;
 }
 
-int cstr_wcscasecmp(const char *s1, const char *s2) {
+static int cstr_wcscasecmp(const char *s1, const char *s2) {
+	int ret = -2;
 	wchar_t *w1, *w2 = NULL;
 	if (cstr_towc(s1, &w1, NULL) != 0) {
-		goto exit_error;
+		goto exit;
 	}
 	if (cstr_towc(s2, &w2, NULL) != 0) {
-		goto exit_error;
+		goto exit;
 	}
-#ifdef HAVE_WCSCASECMP
-	int ret = wcscasecmp(w1, w2);
-#else
-	int ret = cstr_wcsncasecmp(w1, w2, -1);
-#endif // HAVE_WCSCASECMP
-	free(w1);
-	free(w2);
-	return ret;
+	ret = wcscasecmp(w1, w2);
 
-exit_error:
+exit:
 	if (w1) {
 		free(w1);
 	}
 	if (w2) {
 		free(w2);
 	}
-	return -2;
+	return ret;
 }
 */
 import "C"
-import "unsafe"
+
+import (
+	"sync"
+	"unsafe"
+)
 
 const Enabled = true
 
-// TODO: do we need this?
-func init() {
-	C.cstr_init_locale()
+var initLocaleOnce sync.Once
+var initLocaleOk bool
+
+func initLocale() {
+	initLocaleOnce.Do(func() {
+		initLocaleOk = C.cstr_init_locale() == 0
+	})
+	if !initLocaleOk {
+		panic("cstr: failed to set locale: \"en_US.UTF-8\"")
+	}
 }
 
 func clamp(i int) int {
@@ -139,6 +107,7 @@ func clamp(i int) int {
 }
 
 func Strcasecmp(s, t string) int {
+	initLocale()
 	cs := C.CString(s)
 	ct := C.CString(t)
 	ret := int(C.strcasecmp(cs, ct))
@@ -148,6 +117,7 @@ func Strcasecmp(s, t string) int {
 }
 
 func Wcscasecmp(s, t string) int {
+	initLocale()
 	cs := C.CString(s)
 	ct := C.CString(t)
 	ret := int(C.cstr_wcscasecmp(cs, ct))
@@ -160,6 +130,7 @@ func Wcscasecmp(s, t string) int {
 }
 
 func Strcasestr(haystack, needle string) int {
+	initLocale()
 	hp := C.CString(haystack)
 	np := C.CString(needle)
 	n := int(C.cstr_strcasestr(hp, np))

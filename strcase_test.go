@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -42,7 +43,16 @@ var CompareTests = []CompareTest{
 	{"αabd", "αABC", 1},
 }
 
+func requireCstr(t testing.TB) {
+	if !cstr.Enabled {
+		t.Skipf("cstr: package not available on platform: %s/%s",
+			runtime.GOOS, runtime.GOARCH)
+		panic("unreachable")
+	}
+}
+
 func TestCompareReference(t *testing.T) {
+	requireCstr(t)
 	for _, test := range CompareTests {
 		if hasUnicode(test.s) || hasUnicode(test.t) {
 			continue
@@ -231,6 +241,7 @@ func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, tes
 }
 
 func TestIndexReference(t *testing.T) {
+	requireCstr(t)
 	runIndexTests(t, cstr.Strcasestr, "Strcasestr", indexTests, false)
 }
 
@@ -307,6 +318,7 @@ func TestIndexUnicode(t *testing.T) {
 			})
 			// Make sure strcasestr returns the same result
 			t.Run("Strcasestr", func(t *testing.T) {
+				requireCstr(t)
 				runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
 			})
 			t.Run("RabinKarp", func(t *testing.T) {
@@ -383,7 +395,7 @@ func TestIndexXXX(t *testing.T) {
 	}
 
 	runIndexTests(t, indexReference, "IndexReference", tests, false)
-	runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
+	// runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
 	runIndexTests(t, Index, "Index", tests, false)
 }
 
