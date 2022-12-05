@@ -12,6 +12,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/rangetable"
 )
 
 var multiwidthRunes = [...]rune{
@@ -111,22 +113,12 @@ var multiwidthRunesMap = map[rune]bool{
 var foldableRunes []rune
 
 func init() {
-	var runes []rune
-	for _, r16 := range unicode.Letter.R16 {
-		for r := r16.Lo; r <= r16.Hi; r += r16.Stride {
-			runes = append(runes, rune(r))
-		}
-	}
-	for _, r32 := range unicode.Letter.R32 {
-		for r := r32.Lo; r <= r32.Hi; r += r32.Stride {
-			runes = append(runes, rune(r))
-		}
-	}
-	foldableRunes = make([]rune, len(runes))
-	copy(foldableRunes, runes)
+	rangetable.Visit(unicode.Letter, func(r rune) {
+		foldableRunes = append(foldableRunes, r)
+	})
 }
 
-var unicodeCategories = []*unicode.RangeTable{
+var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
 	// unicode.Cc,     // Cc is the set of Unicode characters in category Cc (Other, control).
 	unicode.Cf,     // Cf is the set of Unicode characters in category Cf (Other, format).
 	unicode.Co,     // Co is the set of Unicode characters in category Co (Other, private use).
@@ -174,16 +166,17 @@ var unicodeCategories = []*unicode.RangeTable{
 	unicode.Zl,    // Zl is the set of Unicode characters in category Zl (Separator, line).
 	unicode.Zp,    // Zp is the set of Unicode characters in category Zp (Separator, paragraph).
 	unicode.Zs,    // Zs is the set of Unicode characters in category Zs (Separator, space).
-}
+}...)
 
 // WARN: ignoring 'K' and 'İ' for now
 func validRune(r rune) bool {
+	// WARN: ignoring 'K' and 'İ' for now
 	return utf8.ValidRune(r) && r != utf8.RuneError && r != 'K' && r != 'İ'
 }
 
 func randNonControlRune(rr *rand.Rand) (r rune) {
 	var lo, hi, stride uint32
-	tab := unicodeCategories[rr.Intn(len(unicodeCategories))]
+	tab := unicodeCategories
 	if len(tab.R32) == 0 || rr.Intn(2) < 1 {
 		rt := tab.R16[rr.Intn(len(tab.R16))]
 		lo = uint32(rt.Lo)
@@ -205,6 +198,10 @@ func randNonControlRune(rr *rand.Rand) (r rune) {
 	return r
 }
 
+func randASCII(rr *rand.Rand) byte {
+	return byte(rand.Intn('~'-' '+1)) + ' '
+}
+
 func randRune(rr *rand.Rand) (r rune) {
 	for {
 		switch f := rr.Float64(); {
@@ -215,7 +212,7 @@ func randRune(rr *rand.Rand) (r rune) {
 		case f < 0.6:
 			r = randNonControlRune(rr)
 		default:
-			r = rune(rand.Intn('~'-' '+1)) + ' '
+			r = rune(randASCII(rr))
 		}
 		if validRune(r) {
 			return r
@@ -228,7 +225,7 @@ func TestRandRune(t *testing.T) {
 		// This test is executed between 50 and 400 times
 		for i := 0; i < 40; i++ {
 			r := randRune(rr)
-			if !unicode.In(r, unicodeCategories...) {
+			if !unicode.Is(unicodeCategories, r) {
 				t.Errorf("Invalid: %q (%U)", string(r), r)
 			}
 		}
@@ -245,12 +242,11 @@ func randString(rr *rand.Rand, n int) string {
 		if utf8.ValidString(s) {
 			return s
 		}
-		panic("WAT")
+		panic(fmt.Sprintf("Generated invalid string: %q", s))
 	}
 }
 
-func randCase(rr *rand.Rand, s string) string {
-	rs := []rune(s)
+func randCaseRunes(rr *rand.Rand, rs []rune) string {
 	for i, r := range rs {
 		if rr.Float64() < 0.50 {
 			if unicode.IsUpper(r) {
@@ -264,16 +260,8 @@ func randCase(rr *rand.Rand, s string) string {
 	return string(rs)
 }
 
-func generateStringFn(t *testing.T, rr *rand.Rand, n int, fn func(s string) bool) string {
-	t.Helper()
-	s := randString(rr, n)
-	for i := 0; !fn(s); i++ {
-		s = randString(rr, n)
-		if i >= 512 {
-			t.Fatal("failed to generate string")
-		}
-	}
-	return s
+func randCase(rr *rand.Rand, s string) string {
+	return randCaseRunes(rr, []rune(s))
 }
 
 func replaceChar(rr *rand.Rand, s string) string {
@@ -331,7 +319,7 @@ func indexReference(s, sep string) int {
 	runesHasPrefix := func(s, prefix []rune) bool {
 		if len(s) >= len(prefix) {
 			for i := 0; i < len(prefix); i++ {
-				if unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
+				if s[i] != prefix[i] && unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
 					return false
 				}
 			}
@@ -352,7 +340,7 @@ func indexReference(s, sep string) int {
 	return -1
 }
 
-func generateIndexArgs(t *testing.T, rr *rand.Rand) (s, sep string, out int) {
+func generateIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (s, sep string, out int) {
 	intn := func(n int) int {
 		if n <= 0 {
 			return 0
@@ -361,35 +349,72 @@ func generateIndexArgs(t *testing.T, rr *rand.Rand) (s, sep string, out int) {
 	}
 
 	ns := rr.Intn(16) + 1
-	s = generateStringFn(t, rr, ns, utf8.ValidString)
-	lower := strings.ToLower(s)
+	if ascii {
+		b := make([]byte, ns)
+		for i := range b {
+			b[i] = randASCII(rr)
+		}
+		s = string(b)
+	} else {
+		s = randString(rr, ns)
+	}
 
 	// Generate match
 	if rr.Float64() < 0.5 {
-		nsep := intn(len(s)-1) + 1
-		o := intn(len(s) - nsep)
-		sep = randCase(rr, s[o:o+nsep])
+		rs := []rune(s)
+		nsep := intn(len(rs)-1) + 1
+		o := intn(len(rs) - nsep)
+		sep = randCaseRunes(rr, rs[o:o+nsep])
 
-		// for i := 0; strings.Index(lower, strings.ToLower(sep)) == -1; i++ {
-		for i := 0; indexReference(s, sep) == -1; i++ {
-			o = intn(len(s) - nsep)
-			sep = randCase(rr, s[o:o+nsep])
-			if i > 128 {
-				return generateIndexArgs(t, rr)
+		for i := 0; i < 128; i++ {
+			if out = indexReference(s, sep); out != -1 {
+				return s, sep, out
 			}
+			o = intn(len(rs) - nsep)
+			sep = randCaseRunes(rr, rs[o:o+nsep])
 		}
-		return s, sep, o
+
+		t.Log("Failed to generate Index args: trying again...")
+		return generateIndexArgs(t, rr, ascii)
 	}
+
+	lower := strings.ToLower(s)
 	sep = randString(rr, intn(len(s)/2)+1)
-	if strings.Contains(lower, strings.ToLower(sep)) {
+	for strings.Contains(lower, strings.ToLower(sep)) {
 		sep = randString(rr, intn(len(s)/2)+1)
 	}
 	return s, sep, -1
 }
 
+// func BenchmarkGenerateIndexArgs(b *testing.B) {
+// 	rr := rand.New(rand.NewSource(1))
+// 	for i := 0; i < b.N; i++ {
+// 		generateIndexArgs(b, rr, false)
+// 	}
+// }
+
 func TestIndexFuzz(t *testing.T) {
 	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
-		s, sep, out := generateIndexArgs(t, rr)
+		s, sep, out := generateIndexArgs(t, rr, false)
+		got := Index(s, sep)
+		if got != out {
+			t.Errorf("Index\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
+		}
+	})
+}
+
+func TestIndexFuzzASCII(t *testing.T) {
+	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
+		s, sep, out := generateIndexArgs(t, rr, true)
 		got := Index(s, sep)
 		if got != out {
 			t.Errorf("Index\n"+
@@ -433,8 +458,9 @@ func generateHasPrefixArgs(t *testing.T, rr *rand.Rand) (s, prefix string, match
 	for n := 128; n > 0; n-- {
 		ns := rr.Intn(60) + 4
 		s = randString(rr, ns)
-		np := intn(len(s)-1) + 1
-		prefix = randCase(rr, s[:np])
+		rs := []rune(s)
+		np := intn(len(rs)-1) + 1
+		prefix = randCaseRunes(rr, rs[:np])
 
 		// Generate match
 		replace := rr.Float64() < 0.5

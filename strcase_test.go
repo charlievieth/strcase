@@ -3,14 +3,18 @@ package strcase
 import (
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/charlievieth/reonce/recache"
 	"github.com/charlievieth/strcase/internal/cstr"
+	"golang.org/x/text/unicode/rangetable"
 )
 
 type CompareTest struct {
@@ -23,12 +27,19 @@ var CompareTests = []CompareTest{
 	{"a", "a", 0},
 	{"a", "ab", -1},
 	{"ab", "a", 1},
+	{"ABC", "abd", -1},
+	{"abc", "ABD", -1},
+	{"abd", "ABC", 1},
 	{"123abc", "123ABC", 0},
 	{"αβδ", "ΑΒΔ", 0},
+	{"ΑΒΔ", "αβδ", 0},
 	{"αβδa", "ΑΒΔ", 1},
 	{"αβδ", "ΑΒΔa", -1},
 	{"αβa", "ΑΒΔ", -1},
+	{"ΑΒΔ", "αβa", 1},
 	{"αβδ", "ΑΒa", 1},
+	{"αabc", "αABD", -1},
+	{"αabd", "αABC", 1},
 }
 
 func TestCompareReference(t *testing.T) {
@@ -39,6 +50,12 @@ func TestCompareReference(t *testing.T) {
 		got := cstr.Strcasecmp(test.s, test.t)
 		if got != test.out {
 			t.Errorf("Strcasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
+		}
+	}
+	for _, test := range CompareTests {
+		got := cstr.Wcscasecmp(test.s, test.t)
+		if got != test.out {
+			t.Errorf("Wcscasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
 		}
 	}
 }
@@ -172,6 +189,13 @@ var unicodeIndexTests = []IndexTest{
 
 	// Map "Latin capital letter I with dot above" 'İ' to lowercase latin 'i'.
 	{"abcİ@", "i@", 3},
+
+	// WARN: dev only
+	//
+	// Test with a unicode prefix in the substr to make sure the unicode
+	// implementation is correct.
+	{"abc☻K@", "☻k@", 3},
+	{"abc☻İ@", "☻i@", 3},
 }
 
 // Execute f on each test case.  funcName should be the name of f; it's used
@@ -210,9 +234,41 @@ func TestIndexReference(t *testing.T) {
 	runIndexTests(t, cstr.Strcasestr, "Strcasestr", indexTests, false)
 }
 
+// WARN: do we need this??
+// For compat
+func TestIndexRegex(t *testing.T) {
+	fn := func(s, sep string) int {
+		// WARN: dont need the cache here
+		re := recache.MustCompile(`(?i)` + regexp.QuoteMeta(sep))
+		x := re.FindIndex([]byte(s))
+		if len(x) == 2 {
+			return x[0]
+		}
+		return -1
+	}
+	runIndexTests(t, fn, "Regexp", indexTests, false)
+}
+
 func TestIndex(t *testing.T) {
 	tests := append(indexTests, unicodeIndexTests...)
 	runIndexTests(t, Index, "Index", tests, false)
+}
+
+// WARN: remove once work on Rabin-Karp is done
+func TestIndexRabinKarp(t *testing.T) {
+	var tests []IndexTest
+	for _, t := range indexTests {
+		if len(t.sep) == 0 || len(t.sep) >= len(t.s) {
+			continue
+		}
+		tests = append(tests, t)
+	}
+	t.Run("ASCII", func(t *testing.T) {
+		runIndexTests(t, indexRabinKarp, "indexRabinKarp", tests, false)
+	})
+	t.Run("Unicode", func(t *testing.T) {
+		runIndexTests(t, indexRabinKarpUnicode, "indexRabinKarpUnicode", tests, false)
+	})
 }
 
 func TestIndexUnicode(t *testing.T) {
@@ -245,7 +301,6 @@ func TestIndexUnicode(t *testing.T) {
 				test.s = r(test.s)
 				test.sep = r(test.sep)
 				tests[i] = test
-
 			}
 			t.Run("Index", func(t *testing.T) {
 				runIndexTests(t, Index, "Index", tests, false)
@@ -253,6 +308,15 @@ func TestIndexUnicode(t *testing.T) {
 			// Make sure strcasestr returns the same result
 			t.Run("Strcasestr", func(t *testing.T) {
 				runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
+			})
+			t.Run("RabinKarp", func(t *testing.T) {
+				var rtests []IndexTest
+				for _, t := range tests {
+					if len(t.sep) > 0 && len(t.sep) <= len(t.s) {
+						rtests = append(rtests, t)
+					}
+				}
+				runIndexTests(t, indexRabinKarpUnicode, "indexRabinKarpUnicode", rtests, false)
 			})
 		})
 	}
@@ -319,6 +383,7 @@ func TestIndexXXX(t *testing.T) {
 	}
 
 	runIndexTests(t, indexReference, "IndexReference", tests, false)
+	runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
 	runIndexTests(t, Index, "Index", tests, false)
 }
 
@@ -383,6 +448,161 @@ func TestIndexRune(t *testing.T) {
 	if allocs != 0 && testing.CoverMode() == "" {
 		t.Errorf("expected no allocations, got %f", allocs)
 	}
+}
+
+func rangeMapToRangeTable(maps ...map[string]*unicode.RangeTable) *unicode.RangeTable {
+	n := 0
+	for _, m := range maps {
+		n += len(m)
+	}
+	tabs := make([]*unicode.RangeTable, 0, n)
+	for _, m := range maps {
+		for _, t := range m {
+			tabs = append(tabs, t)
+		}
+	}
+	return rangetable.Merge(tabs...)
+}
+
+func printRangeTable(w io.Writer, name string, rt *unicode.RangeTable) {
+	fmt.Fprintf(w, "var %s = &unicode.RangeTable{\n", name)
+	if len(rt.R16) == 0 {
+		fmt.Fprintln(w, "\tR16: []unicode.Range16{},")
+	} else {
+		fmt.Fprintln(w, "\tR16: []unicode.Range16{")
+		for _, r := range rt.R16 {
+			// %#04x
+			// fmt.Fprintf(w, "\t\t{0x%x, 0x%x, %d},\n", r.Lo, r.Hi, r.Stride)
+			fmt.Fprintf(w, "\t\t{%#04x, %#04x, %d},\n", r.Lo, r.Hi, r.Stride)
+		}
+		fmt.Fprintln(w, "\t},")
+	}
+	if len(rt.R32) == 0 {
+		fmt.Fprintln(w, "\tR32: []unicode.Range32{},")
+	} else {
+		fmt.Fprintln(w, "\tR32: []unicode.Range32{")
+		for _, r := range rt.R32 {
+			fmt.Fprintf(w, "\t\t{%#06x, %#06x, %d},\n", r.Lo, r.Hi, r.Stride)
+		}
+		fmt.Fprintln(w, "\t},")
+	}
+	fmt.Fprintln(w, "}")
+}
+
+func BenchmarkMustLower(b *testing.B) {
+	// Αβδ
+	var runes = [4]rune{'Α', 'ß', 'å', '☺'}
+	for i := 0; i < b.N; i++ {
+		mustLower(runes[i%len(runes)])
+		// mustLower('☺')
+	}
+}
+
+func TestMustLower(t *testing.T) {
+	folds := func(sr rune) []rune {
+		r := unicode.SimpleFold(sr)
+		runes := make([]rune, 1, 2)
+		runes[0] = sr
+		for r != sr {
+			runes = append(runes, r)
+			r = unicode.SimpleFold(r)
+		}
+		return runes
+	}
+
+	var runes []rune
+	rangetable.Visit(unicodeCategories, func(r rune) {
+		if ff := folds(r); len(ff) > 2 {
+			runes = append(runes, ff...)
+			return
+		}
+		lr := unicode.ToLower(r)
+		if r >= utf8.RuneSelf && lr < utf8.RuneSelf {
+			runes = append(runes, r, lr, unicode.ToUpper(lr))
+		}
+	})
+
+	if len(runes) == 0 {
+		t.Fatal("Failed to generate any runes!")
+	}
+
+	fails := 0
+	// WARN: I think something is wrong here
+	runes = append(runes, 'ẞ', 'ß') // WARN
+	table := rangetable.New(runes...)
+	{
+		// printRangeTable(os.Stdout, "_MustLower", table)
+		// return
+	}
+
+	lower := make(map[rune]bool)
+	rangetable.Visit(table, func(r rune) { lower[r] = true })
+
+	rangetable.Visit(unicodeCategories, func(r rune) {
+		want := lower[r]
+		got := mustLower(r)
+		if want != got {
+			t.Errorf("mustLower(%[1]c) = %[2]t; want: %[3]t\n"+
+				"  lower: %[4]q (%[4]U) upper: %[5]q (%[5]U)",
+				r, got, want, unicode.ToLower(r), unicode.ToUpper(r))
+			fails++
+		}
+		if fails >= 50 {
+			t.Fatal("Too many errors:", fails)
+		}
+	})
+}
+
+// type byRune []rune
+//
+// func (r byRune) Len() int           { return len(r) }
+// func (r byRune) Less(i, j int) bool { return r[i] < r[j] }
+// func (r byRune) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+
+func allFolds() *unicode.RangeTable {
+	folds := func(sr rune) []rune {
+		r := unicode.SimpleFold(sr)
+		runes := make([]rune, 1, 2)
+		runes[0] = sr
+		for r != sr {
+			runes = append(runes, r)
+			r = unicode.SimpleFold(r)
+		}
+		return runes
+	}
+
+	runes := make([]rune, 0, 64)
+	rangetable.Visit(unicodeCategories, func(r rune) {
+		if ff := folds(r); len(ff) > 2 {
+			runes = append(runes, ff...)
+		}
+		if r >= utf8.RuneSelf && unicode.ToLower(r) < utf8.RuneSelf {
+			runes = append(runes, r)
+		}
+		// lr := unicode.ToLower(r)
+		// if r >= utf8.RuneSelf && lr < utf8.RuneSelf {
+		// 	runes = append(runes, r, lr, unicode.ToUpper(lr))
+		// }
+	})
+
+	return rangetable.New(runes...)
+}
+
+func TestHasFolds(t *testing.T) {
+
+	// folds := rangeMapToRangeTable(unicode.FoldScript)
+	fails := 0
+	rangetable.Visit(allFolds(), func(r rune) {
+		// WARN
+		// t.Logf("r: %c\n", r)
+		if !hasFolds(r) {
+			t.Errorf("hasFolds(%c) = %t", r, false)
+			fails++
+		}
+		if fails >= 50 {
+			t.Fatal("Too many errors:", fails)
+		}
+	})
 }
 
 func TestIndexNonASCII(t *testing.T) {
@@ -481,12 +701,8 @@ func TestHasPrefixUnicode(t *testing.T) {
 }
 
 func TestToUpperLower(t *testing.T) {
-	{
-		u, l, m := toUpperLower('ß')
-		t.Fatal(string(u), string(l), m, string(unicode.ToUpper(l)))
-	}
 	fails := 0
-	for r := rune(0); r <= unicode.MaxRune; r++ {
+	rangetable.Visit(unicodeCategories, func(r rune) {
 		l := unicode.ToLower(r)
 		u := unicode.ToUpper(r)
 		ok := l != u
@@ -499,16 +715,7 @@ func TestToUpperLower(t *testing.T) {
 		if fails >= 50 {
 			t.Fatal("Too many errors:", fails)
 		}
-	}
-	r := 'ß'
-	u, l, _ := toUpperLower(r)
-	if u != r {
-		t.Fatal("NO")
-	}
-	if l != 'ß' {
-		t.Fatal("NO")
-	}
-	_ = l
+	})
 }
 
 // func TestBruteForceIndexASCII(t *testing.T) {
@@ -554,6 +761,14 @@ func BenchmarkCompare(b *testing.B) {
 		}
 	})
 
+	b.Run("ASCII_Long", func(b *testing.B) {
+		const s = s1 + s1 + s1 + s1 + s1
+		const t = s2 + s2 + s2 + s2 + s2
+		for i := 0; i < b.N; i++ {
+			Compare(s, t)
+		}
+	})
+
 	b.Run("UnicodePrefix", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			Compare("αβδ"+s1, "ΑΒΔ"+s2)
@@ -568,6 +783,15 @@ func BenchmarkCompare(b *testing.B) {
 }
 
 const benchmarkString = "some_text=some☺value"
+
+func BenchmarkIndexRabinKarpUnicode(b *testing.B) {
+	if indexRabinKarpUnicode(benchmarkString, "☺value") == -1 {
+		b.Fatal("invalid")
+	}
+	for i := 0; i < b.N; i++ {
+		indexRabinKarpUnicode(benchmarkString, "☺value")
+	}
+}
 
 func BenchmarkIndexRune(b *testing.B) {
 	if got := IndexRune(benchmarkString, '☺'); got != 14 {
@@ -629,10 +853,6 @@ func BenchmarkIndexByteLong(b *testing.B) {
 // WARN
 var benchStdLib = flag.Bool("stdlib", false, "Use strings.Index in benchmarks (for comparison)")
 
-// func init() {
-// 	benchStdLib = flag.Bool("benchStdLib", false, "Use strings.Index in benchmarks (for comparison)")
-// }
-
 func benchmarkIndex(b *testing.B, s, substr string) {
 	if *benchStdLib {
 		s := strings.ToLower(s)
@@ -645,29 +865,52 @@ func benchmarkIndex(b *testing.B, s, substr string) {
 			Index(s, substr)
 		}
 	}
-
-	// b.Run("Case", func(b *testing.B) {
-	// 	for i := 0; i < b.N; i++ {
-	// 		Index(s, substr)
-	// 	}
-	// })
-	// if testing.Short() {
-	// 	return
-	// }
-	// b.Run("Std", func(b *testing.B) {
-	// 	s := strings.ToLower(s)
-	// 	substr := strings.ToLower(substr)
-	// 	for i := 0; i < b.N; i++ {
-	// 		strings.Index(s, substr)
-	// 	}
-	// })
 }
 
 func BenchmarkIndex(b *testing.B) {
-	if got := Index(benchmarkString, "v"); got != 17 {
-		b.Fatalf("wrong index: expected 17, got=%d", got)
+	s := strings.Repeat(strings.ReplaceAll(benchmarkString, "☺", "K" /* Kelvin */), 16) + "x"
+	benchmarkIndex(b, s, "Kvaluex")
+}
+
+func BenchmarkIndexRussian(b *testing.B) {
+	// https://ru.wikipedia.org/wiki/%D0%9C%D0%B0%D1%8F%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%B8%D0%B9,_%D0%92%D0%BB%D0%B0%D0%B4%D0%B8%D0%BC%D0%B8%D1%80_%D0%92%D0%BB%D0%B0%D0%B4%D0%B8%D0%BC%D0%B8%D1%80%D0%BE%D0%B2%D0%B8%D1%87
+
+	const text = `Владимир Маяковский родился в селе Багдади[10] Кутаисской
+	губернии Российской империи, в обедневшей дворянской семье[11] Владимира
+	Константиновича Маяковского (1857—1906), служившего лесничим третьего
+	разряда в Эриванской губернии, а с 1889 г. — в Багдатском лесничестве.
+	Маяковский вёл род от запорожских казаков, прадед отца поэта Кирилл
+	Маяковский был полковым есаулом Черноморских войск, что дало ему право
+	получить звание дворянина[12]. Мать поэта, Александра Алексеевна Павленко
+	(1867−1954), из рода кубанских казаков, родилась на Кубани, в станице
+	Терновской. В поэме «Владикавказ — Тифлис» 1924 года Маяковский называет
+	себя «грузином». О себе Маяковский сказал в 1927 году: «Родился я в
+	1894[13] году на Кавказе. Отец был казак, мать — украинка. Первый язык —
+	грузинский. Так сказать, между тремя культурами» (из интервью пражской
+	газете «Prager Presse»)[14]. Бабушка по отцовской линии, Ефросинья Осиповна
+	Данилевская, — двоюродная сестра автора исторических романов Г. П.
+	Данилевского, родом из запорожских казаков. У Маяковского было две сестры:
+	Людмила (1884—1972) и Ольга (1890—1949) и два брата: Константин (умер в
+	трёхлетнем возрасте от скарлатины) и Александр (умер во младенчестве).`
+
+	// if bruteForceIndexUnicode(text, "МЛАДЕНЧЕСТВЕ") == -1 {
+	// 	b.Fatal("NOPE")
+	// }
+	for i := 0; i < b.N; i++ {
+		// s := text
+		// substr := "МЛАДЕНЧЕСТВЕ"
+		// strings.Index(strings.ToLower(s), strings.ToLower(substr))
+		if Index(text, "МЛАДЕНЧЕСТВЕ") == -1 {
+			b.Fatal("FAIL")
+		}
+		// Index(text, "Δ"+"младенчестве")
+		// bruteForceIndexUnicode(text, "Δ"+"младенчестве")
+		// strings.Index(text, "младенчестве")
 	}
-	benchmarkIndex(b, benchmarkString, "v")
+
+	// младенчестве
+	// МЛАДЕНЧЕСТВЕ
+	// владимир маяковский
 }
 
 func makeBenchInputHard() string {
@@ -690,13 +933,6 @@ func makeBenchInputHard() string {
 var benchInputHard = makeBenchInputHard()
 
 func benchmarkIndexHard(b *testing.B, sep string) {
-	// if !testing.Short() {
-	// 	b.Run("Lower", func(b *testing.B) {
-	// 		for i := 0; i < b.N; i++ {
-	// 			strings.Index(strings.ToLower(benchInputHard), strings.ToLower(sep))
-	// 		}
-	// 	})
-	// }
 	benchmarkIndex(b, benchInputHard, sep)
 }
 
@@ -707,13 +943,20 @@ func BenchmarkIndexHard4(b *testing.B) {
 	benchmarkIndexHard(b, "<pre><b>hello</b><strong>world</strong></pre>")
 }
 
-var benchInputTorture = strings.Repeat("ABC", 1<<10) + "123" + strings.Repeat("ABC", 1<<10)
-var benchNeedleTorture = strings.Repeat("ABC", 1<<10+1)
+var (
+	benchInputTorture  = strings.Repeat("ABC", 1<<10) + "123" + strings.Repeat("ABC", 1<<10)
+	benchNeedleTorture = strings.Repeat("ABC", 1<<10+1)
+
+	benchInputTortureUnicode  = strings.Repeat("ΑΒΔ", 1<<10) + "123" + strings.Repeat("ΑΒΔ", 1<<10)
+	benchNeedleTortureUnicode = strings.Repeat("ΑΒΔ", 1<<10+1)
+)
 
 func BenchmarkIndexTorture(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		benchmarkIndex(b, benchInputTorture, benchNeedleTorture)
-	}
+	benchmarkIndex(b, benchInputTorture, benchNeedleTorture)
+}
+
+func BenchmarkIndexTortureUnicode(b *testing.B) {
+	benchmarkIndex(b, benchInputTortureUnicode, benchNeedleTortureUnicode)
 }
 
 func BenchmarkIndexPeriodic(b *testing.B) {
@@ -750,13 +993,13 @@ func BenchmarkIndexNonASCII(b *testing.B) {
 // 	}
 // }
 
-func BenchmarkHashPrefix(b *testing.B) {
+func BenchmarkHasPrefix(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hasPrefixUnicode(benchmarkString, benchmarkString)
 	}
 }
 
-func BenchmarkHashPrefixTests(b *testing.B) {
+func BenchmarkHasPrefixTests(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, test := range prefixTests {
 			hasPrefixUnicode(test.s, test.prefix)
@@ -764,7 +1007,7 @@ func BenchmarkHashPrefixTests(b *testing.B) {
 	}
 }
 
-func BenchmarkHashPrefixHard(b *testing.B) {
+func BenchmarkHasPrefixHard(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hasPrefixUnicode(benchInputHard, benchInputHard)
 	}
