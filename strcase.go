@@ -372,19 +372,9 @@ func mustLower(r rune) bool {
 
 // WARN WARN WARN: do something like this (but make it work)
 func bruteForceIndexUnicode(s, substr string) int {
-	if len(substr) == 0 {
-		return 0 // WARN: this should never happen
-	}
-
-	// WARN WARN WARN
-	// if utf8.RuneCountInString(substr) < 2 {
-	// 	panic("BAD")
-	// }
+	// NB: substr must contain at least 2 characters.
 
 	u0, sz0 := utf8.DecodeRuneInString(substr)
-	if sz0 == len(substr) {
-		return IndexRune(s, u0) // WARN: this should never happen
-	}
 	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
 	needle := substr[sz0+sz1:]
 
@@ -406,7 +396,6 @@ func bruteForceIndexUnicode(s, substr string) int {
 			r0, n0 = utf8.DecodeRuneInString(s[i:])
 		}
 		if r0 != u0 && r0 != l0 {
-			// WARN: this is wrong if u0 is lowercase
 			if !fold0 || unicode.ToLower(r0) != l0 {
 				i += n0
 				continue
@@ -426,40 +415,13 @@ func bruteForceIndexUnicode(s, substr string) int {
 		if r1 != u1 && r1 != l1 {
 			if !fold1 || unicode.ToLower(r1) != l1 {
 				i += n0
-				// if !fold0 && r1 != u0 && r1 != l0 {
-				// 	i += n1
-				// }
+				if !fold0 && r1 != u0 && r1 != l0 {
+					i += n1 // Skip 2 runes when possible
+				}
 				continue
 			}
-
-			// // WARN: this is wrong if u0 is lowercase
-			// if !fold1 {
-			// 	i += n0
-			// 	continue
-			// }
-			// if r1 = unicode.ToLower(r1); r1 != l1 {
-			// 	i += n0
-			// 	if r1 == l0 {
-			// 		i += n1
-			// 	}
-			// 	continue
-			// }
-
-			// if !fold1 || unicode.ToLower(r1) != l1 {
-			// 	i += n0
-			// 	continue
-			// }
-
-			// if rl1 := unicode.ToLower(r1); rl1 != l1 {
-			// 	i += n0
-			// 	// TODO: benchmark this
-			// 	if rl1 != l0 {
-			// 		panic("HERE")
-			// 		i += n1 // skip second byte
-			// 	}
-			// 	continue
-			// }
 		}
+
 		match, noMore := hasPrefixUnicode(s[i+n0+n1:], needle)
 		if match {
 			return i
@@ -469,28 +431,8 @@ func bruteForceIndexUnicode(s, substr string) int {
 		}
 		i += n0
 		if !fold0 && r1 != u0 && r1 != l0 {
-			i += n1
+			i += n1 // Skip 2 runes when possible
 		}
-		// if r1 == l0 {
-		// 	i += n1
-		// }
-
-		// if r1 != u1 && r1 != l1 && u1 != l1 {
-		// 	r1 = unicode.ToLower(r1)
-		// }
-		// if r1 == l1 {
-		// 	match, noMore := hasPrefixUnicode(s[i+n0+n1:], needle)
-		// 	if match {
-		// 		return i
-		// 	}
-		// 	if noMore {
-		// 		break
-		// 	}
-		// }
-		// i += n0
-		// // if r1 != l0 {
-		// // 	i += n1
-		// // }
 	}
 	return -1
 }
