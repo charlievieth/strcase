@@ -3,17 +3,16 @@ package strcase
 import (
 	"flag"
 	"fmt"
-	"io"
 	"math/rand"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/charlievieth/reonce/recache"
 	"github.com/charlievieth/strcase/internal/cstr"
 	"golang.org/x/text/unicode/rangetable"
 )
@@ -23,7 +22,7 @@ type CompareTest struct {
 	out  int
 }
 
-var CompareTests = []CompareTest{
+var compareTests = []CompareTest{
 	{"", "", 0},
 	{"a", "a", 0},
 	{"a", "ab", -1},
@@ -41,9 +40,10 @@ var CompareTests = []CompareTest{
 	{"αβδ", "ΑΒa", 1},
 	{"αabc", "αABD", -1},
 	{"αabd", "αABC", 1},
+	{strings.Repeat("\u212a", 8), strings.Repeat("k", 8), 0},
 }
 
-func requireCstr(t testing.TB) {
+func mustHaveCstr(t testing.TB) {
 	if !cstr.Enabled {
 		t.Skipf("cstr: package not available on platform: %s/%s",
 			runtime.GOOS, runtime.GOARCH)
@@ -51,27 +51,8 @@ func requireCstr(t testing.TB) {
 	}
 }
 
-func TestCompareReference(t *testing.T) {
-	requireCstr(t)
-	for _, test := range CompareTests {
-		if hasUnicode(test.s) || hasUnicode(test.t) {
-			continue
-		}
-		got := cstr.Strcasecmp(test.s, test.t)
-		if got != test.out {
-			t.Errorf("Strcasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
-		}
-	}
-	for _, test := range CompareTests {
-		got := cstr.Wcscasecmp(test.s, test.t)
-		if got != test.out {
-			t.Errorf("Wcscasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
-		}
-	}
-}
-
 func TestCompare(t *testing.T) {
-	for _, test := range CompareTests {
+	for _, test := range compareTests {
 		got := Compare(test.s, test.t)
 		if got != test.out {
 			t.Errorf("Compare(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
@@ -79,10 +60,47 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+func TestCompareReference(t *testing.T) {
+	mustHaveCstr(t)
+
+	t.Run("Strcasecmp", func(t *testing.T) {
+		for _, test := range compareTests {
+			if hasUnicode(test.s) || hasUnicode(test.t) {
+				continue
+			}
+			got := cstr.Strcasecmp(test.s, test.t)
+			if got != test.out {
+				t.Errorf("Strcasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
+			}
+		}
+	})
+
+	t.Run("Wcscasecmp", func(t *testing.T) {
+		for _, test := range compareTests {
+			got := cstr.Wcscasecmp(test.s, test.t)
+			if got != test.out {
+				t.Errorf("Wcscasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
+			}
+		}
+	})
+}
+
 type IndexTest struct {
 	s   string
 	sep string
 	out int
+}
+
+func filterIndexTests(fn func(t IndexTest) bool, tests ...[]IndexTest) []IndexTest {
+	var out []IndexTest
+	for _, a := range tests {
+		for _, t := range a {
+			if fn == nil || fn(t) {
+				out = append(out, t)
+			}
+		}
+	}
+	return out
 }
 
 var indexTests = []IndexTest{
@@ -206,78 +224,133 @@ var unicodeIndexTests = []IndexTest{
 	// implementation is correct.
 	{"abc☻K@", "☻k@", 3},
 	{"abc☻İ@", "☻i@", 3},
+
+	// Tests discovered with fuzzing
+	{"4=K ", "=\u212a", 1},
+}
+
+func init() {
+	// {strings.Repeat("\u212a", 8), strings.Repeat("k", 8), true, true},
+
+	for i := 0; i <= 64; i += 2 {
+		s0 := strings.Repeat("\u212a", i)
+		s1 := strings.Repeat("K", i)
+		unicodeIndexTests = append(unicodeIndexTests, IndexTest{s0, s1, 0}, IndexTest{s1, s0, 0})
+	}
 }
 
 // Execute f on each test case.  funcName should be the name of f; it's used
 // in failure reports.
 func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, testCases []IndexTest, noError bool) {
+	t.Helper()
 	for _, test := range testCases {
-		// t.Logf("%s(%q,%q)", funcName, test.s, test.sep) // WARN WARN WARN
 		actual := f(test.s, test.sep)
 		if actual != test.out {
 			errorf := t.Errorf
 			if noError {
 				errorf = t.Logf
 			}
-			if hasUnicode(test.s) || hasUnicode(test.sep) {
-				errorf("%s(%q,%q) = %v; want %v\n"+
-					"Args:\n"+
-					"  s:   %s\n"+
-					"  sep: %s\n"+
-					"Lower:\n"+
-					"  s:   %s\n"+
-					"  sep: %s\n",
-					funcName, test.s, test.sep, actual, test.out,
-					strconv.QuoteToASCII(test.s),
-					strconv.QuoteToASCII(test.sep),
-					strconv.QuoteToASCII(strings.ToLower(test.s)),
-					strconv.QuoteToASCII(strings.ToLower(test.sep)),
-				)
-			} else {
-				errorf("%s(%q,%q) = %v; want %v", funcName, test.s, test.sep, actual, test.out)
+			var foldable bool
+			for _, r := range test.sep {
+				_, foldable = _FoldMap[r]
+				if foldable {
+					break
+				}
 			}
+			errorf("IndexRune\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"Fold: %t\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"Lower:\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				test.s, test.sep, actual, test.out,
+				foldable,
+				strconv.QuoteToASCII(test.s),
+				strconv.QuoteToASCII(test.sep),
+				strconv.QuoteToASCII(strings.ToLower(test.s)),
+				strconv.QuoteToASCII(strings.ToLower(test.sep)),
+			)
+			// if hasUnicode(test.s) || hasUnicode(test.sep) {
+			// 	errorf("%s(%q,%q) = %v; want %v\n"+
+			// 		"Args:\n"+
+			// 		"  s:   %s\n"+
+			// 		"  sep: %s\n"+
+			// 		"Lower:\n"+
+			// 		"  s:   %s\n"+
+			// 		"  sep: %s\n",
+			// 		funcName, test.s, test.sep, actual, test.out,
+			// 		strconv.QuoteToASCII(test.s),
+			// 		strconv.QuoteToASCII(test.sep),
+			// 		strconv.QuoteToASCII(strings.ToLower(test.s)),
+			// 		strconv.QuoteToASCII(strings.ToLower(test.sep)),
+			// 	)
+			// } else {
+			// 	errorf("%s(%q,%q) = %v; want %v", funcName, test.s, test.sep, actual, test.out)
+			// }
 		}
 	}
 }
 
-func TestIndexReference(t *testing.T) {
-	requireCstr(t)
+// Test that Index and C's Strcasestr return the same result.
+func TestIndexStrcasestr(t *testing.T) {
+	mustHaveCstr(t)
 	runIndexTests(t, cstr.Strcasestr, "Strcasestr", indexTests, false)
 }
 
 // WARN: do we need this??
-// For compat
 func TestIndexRegex(t *testing.T) {
-	fn := func(s, sep string) int {
-		// WARN: dont need the cache here
-		re := recache.MustCompile(`(?i)` + regexp.QuoteMeta(sep))
-		x := re.FindIndex([]byte(s))
-		if len(x) == 2 {
-			return x[0]
+	index := func(s, sep string) int {
+		i := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(sep)).FindStringIndex(s)
+		if len(i) == 2 {
+			return i[0]
 		}
 		return -1
 	}
-	runIndexTests(t, fn, "Regexp", indexTests, false)
+	// Ignore 'İ' since it does not match under Unicode folding
+	filter := func(t IndexTest) bool {
+		return !strings.Contains(t.s, "İ") && !strings.Contains(t.sep, "İ")
+	}
+	tests := filterIndexTests(filter, indexTests, unicodeIndexTests)
+	runIndexTests(t, index, "Regexp", tests, false)
 }
 
 func TestIndex(t *testing.T) {
 	tests := append(indexTests, unicodeIndexTests...)
+
+	// Test that the Index tests are valid
+	reference := func(s, sep string) int {
+		return indexRunesReference([]rune(s), []rune(sep))
+	}
+	runIndexTests(t, reference, "IndexReference", tests, false)
+
+	if t.Failed() {
+		t.Fatal("Reference Index function failed: tests are invalid")
+	}
 	runIndexTests(t, Index, "Index", tests, false)
 }
 
 // WARN: remove once work on Rabin-Karp is done
 func TestIndexRabinKarp(t *testing.T) {
-	var tests []IndexTest
-	for _, t := range indexTests {
-		if len(t.sep) == 0 || len(t.sep) >= len(t.s) {
-			continue
-		}
-		tests = append(tests, t)
+	fn := func(t IndexTest) bool {
+		return len(t.sep) > 0 && len(t.s) > len(t.sep)
 	}
 	t.Run("ASCII", func(t *testing.T) {
+		tests := filterIndexTests(fn, indexTests)
 		runIndexTests(t, indexRabinKarp, "indexRabinKarp", tests, false)
 	})
 	t.Run("Unicode", func(t *testing.T) {
+		tests := filterIndexTests(fn,
+			indexTests,
+			unicodeIndexTests,
+			variableWidthIndexTests,
+		)
 		runIndexTests(t, indexRabinKarpUnicode, "indexRabinKarpUnicode", tests, false)
 	})
 }
@@ -318,16 +391,14 @@ func TestIndexUnicode(t *testing.T) {
 			})
 			// Make sure strcasestr returns the same result
 			t.Run("Strcasestr", func(t *testing.T) {
-				requireCstr(t)
+				mustHaveCstr(t)
 				runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
 			})
 			t.Run("RabinKarp", func(t *testing.T) {
-				var rtests []IndexTest
-				for _, t := range tests {
-					if len(t.sep) > 0 && len(t.sep) <= len(t.s) {
-						rtests = append(rtests, t)
-					}
+				fn := func(t IndexTest) bool {
+					return len(t.sep) > 0 && len(t.s) > len(t.sep)
 				}
+				rtests := filterIndexTests(fn, tests)
 				runIndexTests(t, indexRabinKarpUnicode, "indexRabinKarpUnicode", rtests, false)
 			})
 		})
@@ -368,35 +439,52 @@ var variableWidthIndexTests = []IndexTest{
 		sep: "i\U000f3d86?\x11\ua3c5\U0010ab43\U000310a0\u4d8d\x03\U00016907l\U00024e04f",
 		out: 4,
 	},
+	{
+		s:   "\U0002a433\u3577\U000230d6\U001024b4\u73f1\u56f0\U0002d7db\U0010e3ac\U000204ca\u2575~\u8825\U0002ba82\U0002c0e4\u743aK]",
+		sep: "\u743a\u212a",
+		out: 48,
+	},
+	{
+		s:   "z0\U0010640b\U0001f326k-k\U00100621\U000240ff\U000e013fl",
+		sep: "\u212a-\u212a",
+		out: 10,
+	},
 }
 
 // WARN: DEV ONLY
+
+// WARN: DEV ONLY
 func TestIndexXXX(t *testing.T) {
-	// S:    "𡂴T1ΩⱮ𢲉\U000f9204\U000f2fb3\U0010baa5𬴻S홍ɜ2E"
-	// Sep:  "𡂴t1ωɱ𢲉\U000f9204"
-	// Got:  -1
-	// Want: 0
+	// // TODO: we don't need to test this
+	// reference := func(s, sep string) int {
+	// 	return indexRunesReference([]rune(s), []rune(sep))
+	// }
+	// runIndexTests(t, reference, "IndexReference", tests, false)
 
-	// S:    "\U000210b4T1\u2126\u2c6e\U00022c89\U000f9204\U000f2fb3\U0010baa5\U0002cd3bS\ud64d\u025c2E"
-	// Sep:  "\U000210b4t1\u03c9\u0271\U00022c89\U000f9204"
+	// var itests []IndexTest
+	// for i := 0; i <= 8; i += 2 {
+	// 	s0 := strings.Repeat("\u212a", i)
+	// 	s1 := strings.Repeat("K", i)
+	// 	itests = append(itests, IndexTest{s0, s1, 0}, IndexTest{s1, s0, 0})
+	// }
+
 	tests := []IndexTest{
-		// {
-		// 	s:   "\u9ae7[\x17\U0002315a,T\u212a@\x03WH",
-		// 	sep: "k@",
-		// 	out: 11,
-		// },
 		{
-			s:   "\u11cf\U0001f232\u6ed1\u1e9ez",
-			sep: "滑ß",
-			out: 7,
+			"\u03b5;\uc444\u03f5\ua7ae\u3096\U00105ba6\U000f0789\U00107fe5\U00017257\U00020a6a\u0395\u0442(",
+			"\u03f5",
+			6,
 		},
-
-		// "\u9ae7[\x17\U0002315a,T\u212a@\x03WH"
 	}
 
-	runIndexTests(t, indexReference, "IndexReference", tests, false)
-	// runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
-	runIndexTests(t, Index, "Index", tests, false)
+	fn := func(s, sep string) int {
+		r, sz := utf8.DecodeRuneInString(sep)
+		if sz != len(sep) {
+			panic("invalid")
+		}
+		return IndexRune(s, r)
+	}
+
+	runIndexTests(t, fn, "IndexRune", tests, false)
 }
 
 func TestIndexCase(t *testing.T) {
@@ -441,14 +529,27 @@ func TestIndexRune(t *testing.T) {
 		{"Αβδ", 'α', 0}, // "ΑΒΔ"
 		{"αβδ", 'Α', 0}, // "ΑΒΔ"
 		{"αβδ", 'Δ', 4}, // "ΑΒΔ"
+
+		{"İ", 'İ', 0},
+		{"İ", 'i', 0},
+		{"i", 'İ', 0},
+		{"ai", 'İ', 1},
 	}
 	for _, tt := range tests {
 		if got := IndexRune(tt.in, tt.rune); got != tt.want {
-			t.Errorf("IndexRune(%q, %d) = %v; want %v", tt.in, tt.rune, got, tt.want)
+			t.Errorf("IndexRune(%q, %q) = %v; want %v", tt.in, tt.rune, got, tt.want)
 		}
 	}
 
-	haystack := "test世界"
+	rangetable.Visit(_MustLower, func(r rune) {
+		s := string(r)
+		i := IndexRune(s, r)
+		if i != 0 {
+			t.Errorf("IndexRune(%q, %q) = %v; want %v", s, r, i, 0)
+		}
+	})
+
+	haystack := "test世界İ"
 	allocs := testing.AllocsPerRun(1000, func() {
 		if i := IndexRune(haystack, 's'); i != 2 {
 			t.Fatalf("'s' at %d; want 2", i)
@@ -456,61 +557,19 @@ func TestIndexRune(t *testing.T) {
 		if i := IndexRune(haystack, '世'); i != 4 {
 			t.Fatalf("'世' at %d; want 4", i)
 		}
+		if i := IndexRune(haystack, 'İ'); i != 10 {
+			t.Fatalf("'İ' at %d; want 10", i)
+		}
 	})
 	if allocs != 0 && testing.CoverMode() == "" {
 		t.Errorf("expected no allocations, got %f", allocs)
 	}
 }
 
-func rangeMapToRangeTable(maps ...map[string]*unicode.RangeTable) *unicode.RangeTable {
-	n := 0
-	for _, m := range maps {
-		n += len(m)
-	}
-	tabs := make([]*unicode.RangeTable, 0, n)
-	for _, m := range maps {
-		for _, t := range m {
-			tabs = append(tabs, t)
-		}
-	}
-	return rangetable.Merge(tabs...)
-}
-
-func printRangeTable(w io.Writer, name string, rt *unicode.RangeTable) {
-	fmt.Fprintf(w, "var %s = &unicode.RangeTable{\n", name)
-	if len(rt.R16) == 0 {
-		fmt.Fprintln(w, "\tR16: []unicode.Range16{},")
-	} else {
-		fmt.Fprintln(w, "\tR16: []unicode.Range16{")
-		for _, r := range rt.R16 {
-			// %#04x
-			// fmt.Fprintf(w, "\t\t{0x%x, 0x%x, %d},\n", r.Lo, r.Hi, r.Stride)
-			fmt.Fprintf(w, "\t\t{%#04x, %#04x, %d},\n", r.Lo, r.Hi, r.Stride)
-		}
-		fmt.Fprintln(w, "\t},")
-	}
-	if len(rt.R32) == 0 {
-		fmt.Fprintln(w, "\tR32: []unicode.Range32{},")
-	} else {
-		fmt.Fprintln(w, "\tR32: []unicode.Range32{")
-		for _, r := range rt.R32 {
-			fmt.Fprintf(w, "\t\t{%#06x, %#06x, %d},\n", r.Lo, r.Hi, r.Stride)
-		}
-		fmt.Fprintln(w, "\t},")
-	}
-	fmt.Fprintln(w, "}")
-}
-
-func BenchmarkMustLower(b *testing.B) {
-	// Αβδ
-	var runes = [4]rune{'Α', 'ß', 'å', '☺'}
-	for i := 0; i < b.N; i++ {
-		mustLower(runes[i%len(runes)])
-		// mustLower('☺')
-	}
-}
-
+// WARN: do we need this since we generate the table ???
 func TestMustLower(t *testing.T) {
+	start := time.Now()
+
 	folds := func(sr rune) []rune {
 		r := unicode.SimpleFold(sr)
 		runes := make([]rune, 1, 2)
@@ -522,7 +581,7 @@ func TestMustLower(t *testing.T) {
 		return runes
 	}
 
-	var runes []rune
+	runes := make([]rune, 0, 128)
 	rangetable.Visit(unicodeCategories, func(r rune) {
 		if ff := folds(r); len(ff) > 2 {
 			runes = append(runes, ff...)
@@ -533,25 +592,19 @@ func TestMustLower(t *testing.T) {
 			runes = append(runes, r, lr, unicode.ToUpper(lr))
 		}
 	})
-
 	if len(runes) == 0 {
 		t.Fatal("Failed to generate any runes!")
 	}
 
 	fails := 0
+
 	// WARN: I think something is wrong here
 	runes = append(runes, 'ẞ', 'ß') // WARN
-	table := rangetable.New(runes...)
-	{
-		// printRangeTable(os.Stdout, "_MustLower", table)
-		// return
-	}
 
-	lower := make(map[rune]bool)
-	rangetable.Visit(table, func(r rune) { lower[r] = true })
+	table := rangetable.New(runes...)
 
 	rangetable.Visit(unicodeCategories, func(r rune) {
-		want := lower[r]
+		want := unicode.Is(table, r)
 		got := mustLower(r)
 		if want != got {
 			t.Errorf("mustLower(%[1]c) = %[2]t; want: %[3]t\n"+
@@ -563,52 +616,28 @@ func TestMustLower(t *testing.T) {
 			t.Fatal("Too many errors:", fails)
 		}
 	})
-}
 
-// type byRune []rune
-//
-// func (r byRune) Len() int           { return len(r) }
-// func (r byRune) Less(i, j int) bool { return r[i] < r[j] }
-// func (r byRune) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-
-func allFolds() *unicode.RangeTable {
-	folds := func(sr rune) []rune {
-		r := unicode.SimpleFold(sr)
-		runes := make([]rune, 1, 2)
-		runes[0] = sr
-		for r != sr {
-			runes = append(runes, r)
-			r = unicode.SimpleFold(r)
-		}
-		return runes
+	if testing.Verbose() {
+		t.Logf("duration: %s\n", time.Since(start))
 	}
 
-	runes := make([]rune, 0, 64)
-	rangetable.Visit(unicodeCategories, func(r rune) {
-		if ff := folds(r); len(ff) > 2 {
-			runes = append(runes, ff...)
+	// Special cases
+	special := []rune{'k', 'K', '\u212a'}
+	for _, r := range special {
+		if !mustLower(r) {
+			t.Errorf("mustLower(%[1]c) = %[2]t; want: %[3]t\n"+
+				"  lower: %[4]q (%[4]U) upper: %[5]q (%[5]U)",
+				r, false, true, unicode.ToLower(r), unicode.ToUpper(r))
 		}
-		if r >= utf8.RuneSelf && unicode.ToLower(r) < utf8.RuneSelf {
-			runes = append(runes, r)
-		}
-		// lr := unicode.ToLower(r)
-		// if r >= utf8.RuneSelf && lr < utf8.RuneSelf {
-		// 	runes = append(runes, r, lr, unicode.ToUpper(lr))
-		// }
-	})
+	}
 
-	return rangetable.New(runes...)
-}
-
-func TestHasFolds(t *testing.T) {
-
-	// folds := rangeMapToRangeTable(unicode.FoldScript)
-	fails := 0
-	rangetable.Visit(allFolds(), func(r rune) {
-		// WARN
-		// t.Logf("r: %c\n", r)
-		if !hasFolds(r) {
-			t.Errorf("hasFolds(%c) = %t", r, false)
+	// Foldable
+	fails = 0
+	rangetable.Visit(_Foldable, func(r rune) {
+		if !unicode.Is(_MustLower, r) {
+			t.Errorf("unicode.Is(_MustLower, %[1]c) = %[2]t; want: %[3]t\n"+
+				"  lower: %[4]q (%[4]U) upper: %[5]q (%[5]U)",
+				r, false, true, unicode.ToLower(r), unicode.ToUpper(r))
 			fails++
 		}
 		if fails >= 50 {
@@ -618,16 +647,6 @@ func TestHasFolds(t *testing.T) {
 }
 
 func TestIndexNonASCII(t *testing.T) {
-	reference := func(s string) int {
-		for i, r := range s {
-			if r >= utf8.RuneSelf {
-				return i
-			}
-		}
-		return -1
-	}
-	_ = reference
-
 	for _, test := range indexTests {
 		want := hasUnicode(test.s)
 		n := IndexNonASCII(test.s)
@@ -673,7 +692,12 @@ var prefixTests = []PrefixTest{
 	{"\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D a", "\u0251\u0251\u0251\u0251\u0251 A", true, true}, // shrinks one byte per char
 	{"a\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "A\u0251\u0251\u0251\u0251\u0251", true, true},   // shrinks one byte per char
 
-	// Test with runes that
+	// Handle large differences in encoded size ([kK]: 1 vs. 'K' (U+212A): 3 bytes).
+	{strings.Repeat("\u212a", 8), strings.Repeat("k", 8), true, true},
+	{strings.Repeat("k", 8), strings.Repeat("\u212a", 8), true, true},
+	{"k-k", "\u212a-\u212a", true, true},
+
+	// Test with variable width runes
 	{
 		strings.ToLower(string(multiwidthRunes[:])), // len: 36
 		strings.ToUpper(string(multiwidthRunes[:])), // len: 54
@@ -730,20 +754,6 @@ func TestToUpperLower(t *testing.T) {
 	})
 }
 
-// func TestBruteForceIndexASCII(t *testing.T) {
-// 	for _, test := range indexTests {
-// 		if len(test.s) > maxLen || len(test.sep) > maxBruteForce || test.sep == "" {
-// 			continue
-// 		}
-// 		out := bruteForceIndexASCII(test.s, test.sep)
-// 		if out != test.out {
-// 			t.Errorf("bruteForceIndexASCII(%q, %q) = %d; want %d", test.s, test.sep, out, test.out)
-// 		}
-// 	}
-// }
-
-// {"x012345678x0123456789", "0123456789", 11},
-
 func BenchmarkBruteForceIndexASCII(b *testing.B) {
 	if out := bruteForceIndexASCII("x012345678x0a2b4c6d8e", "0A2B4C6D8E"); out != 11 {
 		b.Fatalf("bruteForceIndexASCII(%q, %q) = %d; want %d", "x012345678x0123456789", "0123456789", out, 11)
@@ -756,7 +766,7 @@ func BenchmarkBruteForceIndexASCII(b *testing.B) {
 func BenchmarkCompare(b *testing.B) {
 	b.Run("Tests", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			for _, tt := range CompareTests {
+			for _, tt := range compareTests {
 				if out := Compare(tt.s, tt.t); out != tt.out {
 					b.Fatal("wrong result")
 				}
@@ -1036,6 +1046,34 @@ func BenchmarkHasPrefixHard(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hasPrefixUnicode(benchInputHard, benchInputHard)
 	}
+}
+
+func BenchmarkHasPrefixLonger(b *testing.B) {
+	prefix := strings.Repeat("\u212a", 32)
+	s := strings.Repeat("k", 32)
+	if !HasPrefix(s, prefix) {
+		b.Fatalf("HasPrefix(%q, %q) = false; want: true", s, prefix)
+	}
+
+	b.Run("Equal", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			HasPrefix(s, prefix)
+		}
+	})
+
+	b.Run("ShortCircuitSize", func(b *testing.B) {
+		prefix := prefix + "\u212a"
+		for i := 0; i < b.N; i++ {
+			hasPrefixUnicode(s, prefix)
+		}
+	})
+
+	b.Run("KelvinCheck", func(b *testing.B) {
+		s := s + "\u212a"
+		for i := 0; i < b.N; i++ {
+			strings.ContainsRune(s, '\u212a')
+		}
+	})
 }
 
 // WARN: DELETE ME

@@ -2,12 +2,16 @@ package strcase
 
 import (
 	crand "crypto/rand"
+	"flag"
 	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
+	"runtime"
+	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode"
@@ -40,16 +44,6 @@ var multiwidthRunes = [...]rune{
 	'\U0000A7B1', // 42929: Ʇ => ʇ
 	'\U0000A7B2', // 42930: Ʝ => ʝ
 }
-
-// func TestMultiwidthRunes(t *testing.T) {
-// 	for _, r := range multiwidthRunes {
-// 		if !utf8.ValidRune(r) {
-// 			t.Errorf("%U %c\n", r, r)
-// 		} else {
-// 			fmt.Printf("%U %c\n", r, r)
-// 		}
-// 	}
-// }
 
 // All multi-width runes
 var multiwidthRunesMap = map[rune]bool{
@@ -113,7 +107,10 @@ var multiwidthRunesMap = map[rune]bool{
 var foldableRunes []rune
 
 func init() {
-	rangetable.Visit(unicode.Letter, func(r rune) {
+	// WARN WARN WARN WARN WARN WARN WARN
+	// NEW
+	// WARN WARN WARN WARN WARN WARN WARN
+	rangetable.Visit(_Foldable, func(r rune) {
 		foldableRunes = append(foldableRunes, r)
 	})
 }
@@ -168,54 +165,77 @@ var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
 	unicode.Zs,    // Zs is the set of Unicode characters in category Zs (Separator, space).
 }...)
 
-// WARN: ignoring 'K' and 'İ' for now
-func validRune(r rune) bool {
-	// WARN: ignoring 'K' and 'İ' for now
-	return utf8.ValidRune(r) && r != utf8.RuneError && r != 'K' && r != 'İ'
-}
-
-func randNonControlRune(rr *rand.Rand) (r rune) {
-	var lo, hi, stride uint32
-	tab := unicodeCategories
-	if len(tab.R32) == 0 || rr.Intn(2) < 1 {
-		rt := tab.R16[rr.Intn(len(tab.R16))]
-		lo = uint32(rt.Lo)
-		hi = uint32(rt.Hi)
-		stride = uint32(rt.Stride)
-	} else {
-		rt := tab.R32[rr.Intn(len(tab.R32))]
-		lo = rt.Lo
-		hi = rt.Hi
-		stride = rt.Stride
-	}
-	d := hi - lo
-	if d == 0 {
-		r = rune(lo)
-	} else {
-		m := uint32(rand.Intn(int((hi-lo)/stride) + 1))
-		r = rune(lo) + rune(stride*m)
-	}
-	return r
-}
-
 func randASCII(rr *rand.Rand) byte {
-	return byte(rand.Intn('~'-' '+1)) + ' '
+	return byte(rr.Intn('~'-' '+1)) + ' '
+}
+
+var nonControlRunes = generateNonControlRunes()
+
+func generateNonControlRunes() []rune {
+	n := 0
+	rangetable.Visit(unicodeCategories, func(rune) {
+		n++
+	})
+	runes := make([]rune, 0, n)
+	rangetable.Visit(unicodeCategories, func(r rune) {
+		if r >= utf8.RuneSelf && r != utf8.RuneError && utf8.ValidRune(r) {
+			runes = append(runes, r)
+		}
+	})
+	return runes
+}
+
+func randNonControlRune(rr *rand.Rand) rune {
+	return nonControlRunes[rr.Intn(len(nonControlRunes))]
 }
 
 func randRune(rr *rand.Rand) (r rune) {
 	for {
 		switch f := rr.Float64(); {
-		case f < 0.1:
+		case f <= 0.1:
 			r = multiwidthRunes[rr.Intn(len(multiwidthRunes))]
-		case f < 0.3:
+		case f <= 0.2:
+			// WARN WARN WARN WARN WARN WARN WARN
+			// NEW
+			// WARN WARN WARN WARN WARN WARN WARN
 			r = foldableRunes[rr.Intn(len(foldableRunes))]
-		case f < 0.6:
+		case f <= 0.75:
 			r = randNonControlRune(rr)
 		default:
 			r = rune(randASCII(rr))
 		}
-		if validRune(r) {
-			return r
+		return r
+	}
+}
+
+func TestRandNonControlRune(t *testing.T) {
+	N := 5_000
+	if testing.Short() {
+		N = 500
+	}
+
+	seen := make(map[rune]struct{}, N)
+	rr := rand.New(rand.NewSource(1))
+	for i := 0; i < N; i++ {
+		r := randNonControlRune(rr)
+		if _, ok := seen[r]; !ok {
+			seen[r] = struct{}{}
+		}
+	}
+	ff := float64(len(seen)) / float64(N) * 100
+	if ff < 95.0 {
+		t.Errorf("Only generated %d/%d (%.2f%%) random runes: want: %.2f%%",
+			len(seen), N, ff, 95.0)
+	}
+
+	fails := 0
+	for r := range seen {
+		if r < utf8.RuneSelf {
+			t.Errorf("ASCII: %q", r)
+			fails++
+		}
+		if fails >= 50 {
+			t.Fatal("Too many errors:", fails)
 		}
 	}
 }
@@ -230,52 +250,135 @@ func TestRandRune(t *testing.T) {
 			}
 		}
 	})
-}
 
-func randString(rr *rand.Rand, n int) string {
-	rs := make([]rune, n)
-	for {
-		for i := range rs {
-			rs[i] = randRune(rr)
+	t.Run("Distribution", func(t *testing.T) {
+		N := 5_000
+		if testing.Short() {
+			N = 500
 		}
-		s := string(rs)
-		if utf8.ValidString(s) {
-			return s
-		}
-		panic(fmt.Sprintf("Generated invalid string: %q", s))
-	}
-}
 
-func randCaseRunes(rr *rand.Rand, rs []rune) string {
-	for i, r := range rs {
-		if rr.Float64() < 0.50 {
-			if unicode.IsUpper(r) {
-				r = unicode.ToLower(r)
-			} else {
-				r = unicode.ToUpper(r)
+		seen := make(map[rune]int, N)
+		rr := rand.New(rand.NewSource(1))
+		for i := 0; i < N; i++ {
+			seen[randRune(rr)]++
+		}
+		ff := float64(len(seen)) / float64(N) * 100
+		if ff < 55.0 {
+			t.Errorf("Only generated %d/%d (%.2f%%) random runes: want: %.1f%%",
+				len(seen), N, ff, 55.0)
+		}
+
+		// Leave this here for debugging
+		if false {
+			type RuneCount struct {
+				R rune
+				N int
 			}
-			rs[i] = r
+			runes := make([]RuneCount, 0, len(seen))
+			for r, n := range seen {
+				runes = append(runes, RuneCount{r, n})
+			}
+			sort.Slice(runes, func(i, j int) bool {
+				return runes[i].N >= runes[j].N
+			})
+			for i := 0; i < 10; i++ {
+				r := runes[i]
+				t.Logf("%d: %q: %d / %.2f%%\n", i, r.R, r.N,
+					(float64(r.N)/float64(len(runes)))*100)
+			}
+		}
+	})
+}
+
+func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
+	rs := make([]rune, n)
+	if ascii {
+		for i := range rs {
+			rs[i] = rune(randASCII(rr))
+		}
+		return rs
+	}
+
+	hard := -1
+	if rr.Float64() < 0.05 {
+		hard = intn(rr, len(rs)-4)
+	}
+
+	for i := 0; i < len(rs); i++ {
+		if i == hard {
+			for ; i < len(rs); i++ {
+				rs[i] = '\u212a'
+			}
+			continue
+		}
+		rs[i] = randRune(rr)
+	}
+	return rs
+}
+
+func randCaseRune(rr *rand.Rand, r rune, ascii bool) rune {
+	ff := rr.Float64()
+	switch {
+	case ascii:
+		if ff < 0.50 {
+			if 'a' <= r && r <= 'z' {
+				r -= 'a' - 'A'
+			} else if 'A' <= r && r <= 'Z' {
+				r += 'a' - 'A'
+			}
+		}
+	case ff < 0.3:
+		runes := make([]rune, 0, 3)
+		sr := unicode.SimpleFold(r)
+		for sr != r {
+			runes = append(runes, sr)
+			sr = unicode.SimpleFold(sr)
+		}
+		if len(runes) > 0 {
+			r = runes[rr.Intn(len(runes))]
+		}
+	case ff < 0.7:
+		if unicode.IsUpper(r) {
+			r = unicode.ToLower(r)
+		} else {
+			r = unicode.ToUpper(r)
 		}
 	}
-	return string(rs)
+	return r
 }
 
-func randCase(rr *rand.Rand, s string) string {
-	return randCaseRunes(rr, []rune(s))
+// TODO: replace usages to handle runes
+func randCaseRunes(rr *rand.Rand, rs []rune, ascii bool) (ro []rune) {
+	ro = make([]rune, len(rs))
+	copy(ro, rs)
+	for i, r := range rs {
+		ro[i] = randCaseRune(rr, r, ascii)
+	}
+	return ro
 }
 
-func replaceChar(rr *rand.Rand, s string) string {
-	rs := []rune(s)
-	for {
+func replaceOneRune(rr *rand.Rand, rs []rune, ascii bool) (ro []rune) {
+	for n := 0; n < 128; n++ {
 		i := rr.Intn(len(rs))
-		r := randRune(rr)
-		if unicode.ToLower(r) != unicode.ToLower(rs[i]) {
-			rs[i] = r
-			break
+		var r rune
+		if ascii {
+			r = rune(randASCII(rr))
+		} else {
+			r = randRune(rr)
+		}
+		if r != rs[i] && unicode.ToLower(r) != unicode.ToLower(rs[i]) {
+			ro = make([]rune, len(rs))
+			copy(ro, rs)
+			ro[i] = r
+			return ro
 		}
 	}
-	return string(rs)
+	panic("failed to generate a valid replacement")
 }
+
+// var randomRuns = flag.Int("fuzz-count", 0, "Number of random tests to execute.")
+
+var exhaustiveFuzz = flag.Bool("exhaustive", false, "Run exhaustive fuzz tests (slow).")
 
 func runRandomTest(t *testing.T, fn func(t *testing.T, rr *rand.Rand)) {
 	randInt := func() int64 {
@@ -285,21 +388,41 @@ func runRandomTest(t *testing.T, fn func(t *testing.T, rr *rand.Rand)) {
 		}
 		return i.Int64()
 	}
-	for _, seed := range []int64{
+	n := 500
+	if testing.Short() {
+		n = 50
+	}
+	seeds := []int64{
 		1,
 		time.Now().UnixNano(),
 		randInt(),
 		randInt(),
-	} {
+	}
+	if *exhaustiveFuzz {
+		if testing.Short() {
+			t.Fatal(`Cannot combine "-short" and "-exhaustive" flags`)
+		}
+		d := 500_000 * len(seeds)
+		numCPU := runtime.NumCPU()
+		if numCPU == 10 && runtime.GOOS == "darwin" {
+			numCPU = 8
+		}
+		for i := len(seeds); i < numCPU; i++ {
+			seeds = append(seeds, randInt())
+		}
+		n = d / len(seeds)
+	}
+	for _, seed := range seeds {
+		seed := seed
 		t.Run(fmt.Sprintf("%d", seed), func(t *testing.T) {
 			t.Parallel()
-			n := 400
-			if testing.Short() {
-				n = 50
-			}
+			start := time.Now()
 			rr := rand.New(rand.NewSource(seed))
 			for i := 0; i < n; i++ {
 				fn(t, rr)
+			}
+			if testing.Verbose() {
+				t.Logf("duration: %s", time.Since(start))
 			}
 		})
 		if t.Failed() && testing.Short() {
@@ -308,90 +431,84 @@ func runRandomTest(t *testing.T, fn func(t *testing.T, rr *rand.Rand)) {
 	}
 }
 
-// indexReference is a slow, but accurate case-insensitive version of strings.Index
-func indexReference(s, sep string) int {
-	rs := []rune(s)
-	rp := []rune(sep)
-	if len(rs) < len(rp) {
+// indexRunesReference is a slow, but accurate case-insensitive version of strings.Index
+func indexRunesReference(s, sep []rune) int {
+	runesHasPrefix := func(s, prefix []rune) bool {
+		if len(s) < len(prefix) {
+			return false
+		}
+		for i := 0; i < len(prefix); i++ {
+			// if s[i] != prefix[i] && unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
+			if unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// runeLen := func(s []rune) (n int) {
+	// 	for _, r := range s {
+	// 		if r < utf8.RuneSelf {
+	// 			n++
+	// 		} else {
+	// 			n += utf8.RuneLen(r)
+	// 		}
+	// 	}
+	// 	return n
+	// }
+
+	n := len(sep)
+	if n == 0 {
+		return 0
+	}
+	if n > len(s) {
 		return -1
 	}
-
-	runesHasPrefix := func(s, prefix []rune) bool {
-		if len(s) >= len(prefix) {
-			for i := 0; i < len(prefix); i++ {
-				if s[i] != prefix[i] && unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
-					return false
-				}
-			}
-			return true
-		}
-		return false
-	}
-
-	sp := unicode.ToLower(rp[0])
-	for i := 0; i < len(rs); i++ {
-		sr := rs[i]
+	sp := unicode.ToLower(sep[0])
+	for i := 0; i < len(s); i++ {
+		sr := s[i]
 		if sr == sp || unicode.ToLower(sr) == sp {
-			if runesHasPrefix(rs[i:], rp) {
-				return len(string(rs[:i]))
+			if runesHasPrefix(s[i:], sep) {
+				return len(string(s[:i]))
+				// return runeLen()
 			}
 		}
 	}
 	return -1
 }
 
-func generateIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (s, sep string, out int) {
-	intn := func(n int) int {
-		if n <= 0 {
-			return 0
-		}
-		return rr.Intn(n)
+func intn(rr *rand.Rand, n int) int {
+	if n <= 0 {
+		return 0
 	}
-
-	ns := rr.Intn(16) + 1
-	if ascii {
-		b := make([]byte, ns)
-		for i := range b {
-			b[i] = randASCII(rr)
-		}
-		s = string(b)
-	} else {
-		s = randString(rr, ns)
-	}
-
-	// Generate match
-	if rr.Float64() < 0.5 {
-		rs := []rune(s)
-		nsep := intn(len(rs)-1) + 1
-		o := intn(len(rs) - nsep)
-		sep = randCaseRunes(rr, rs[o:o+nsep])
-
-		for i := 0; i < 128; i++ {
-			if out = indexReference(s, sep); out != -1 {
-				return s, sep, out
-			}
-			o = intn(len(rs) - nsep)
-			sep = randCaseRunes(rr, rs[o:o+nsep])
-		}
-
-		t.Log("Failed to generate Index args: trying again...")
-		return generateIndexArgs(t, rr, ascii)
-	}
-
-	lower := strings.ToLower(s)
-	sep = randString(rr, intn(len(s)/2)+1)
-	for strings.Contains(lower, strings.ToLower(sep)) {
-		sep = randString(rr, intn(len(s)/2)+1)
-	}
-	return s, sep, -1
+	return rr.Intn(n)
 }
 
-// func BenchmarkGenerateIndexArgs(b *testing.B) {
-// 	rr := rand.New(rand.NewSource(1))
-// 	for i := 0; i < b.N; i++ {
-// 		generateIndexArgs(b, rr, false)
-// 	}
-// }
+func generateIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _sep string, out int) {
+
+	match := rr.Float64() < 0.5
+
+	for lim := 32; lim > 0; lim-- {
+		ns := rr.Intn(64) + 1
+		s := randRunes(rr, ns, ascii)
+		nsep := intn(rr, len(s)-1) + 1
+		o := intn(rr, len(s)-nsep)
+		for i := 0; i < 4; i++ {
+			sep := s[o : o+nsep]
+			if match {
+				sep = randCaseRunes(rr, sep, ascii)
+			} else {
+				sep = replaceOneRune(rr, sep, ascii)
+			}
+			out := indexRunesReference(s, sep)
+			if (match && out >= 0) || (!match && out == -1) {
+				return string(s), string(sep), out
+			}
+		}
+	}
+
+	panic("Failed to generate valid Index args")
+}
 
 func TestIndexFuzz(t *testing.T) {
 	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
@@ -431,95 +548,309 @@ func TestIndexFuzzASCII(t *testing.T) {
 	})
 }
 
-func generateHasPrefixArgs(t *testing.T, rr *rand.Rand) (s, prefix string, match bool) {
-	intn := func(n int) int {
-		if n <= 0 {
-			return 0
+func generateIndexRuneArgs(t testing.TB, rr *rand.Rand) (string, rune, int) {
+	// WARN WARN WARN WARN
+	// Using folds
+
+	folds := func(sr rune) []rune {
+		r := unicode.SimpleFold(sr)
+		runes := make([]rune, 1, 2)
+		runes[0] = sr
+		for r != sr {
+			runes = append(runes, r)
+			r = unicode.SimpleFold(r)
 		}
-		return rr.Intn(n)
+		return runes
 	}
 
-	check := func(s, prefix string) bool {
-		rs := []rune(s)
-		rp := []rune(prefix)
-		if len(rs) < len(rp) {
-			return false
-		}
-		for i := range rp {
-			if unicode.ToLower(rs[i]) != unicode.ToLower(rp[i]) {
-				return false
+	index := func(s []rune, r rune) int {
+		ff := folds(r)
+		for i, rr := range s {
+			for _, rf := range ff {
+				if rf == rr {
+					return len(string(s[:i]))
+				}
 			}
 		}
-		return true
+		// l := unicode.ToLower(r)
+		// for i, rr := range s {
+		// 	if rr == r || unicode.ToLower(rr) == l {
+		// 		return len(string(s[:i]))
+		// 	}
+		// }
+		return -1
+	}
+	contains := func(s []rune, r rune) bool { return index(s, r) != -1 }
+
+	match := rr.Float64() < 0.5
+
+	ns := rr.Intn(12) + 4
+	s := randRunes(rr, ns, false)
+	if !match {
+		r := randRune(rr)
+		for contains(s, r) {
+			r = randRune(rr)
+		}
+		return string(s), r, -1
 	}
 
-	// WARN: just changed this and it might be wrong
-
-	for n := 128; n > 0; n-- {
-		ns := rr.Intn(60) + 4
-		s = randString(rr, ns)
-		rs := []rune(s)
-		np := intn(len(rs)-1) + 1
-		prefix = randCaseRunes(rr, rs[:np])
-
-		// Generate match
-		replace := rr.Float64() < 0.5
-		for i := 0; i < 128; i++ {
-			if check(s, prefix) {
-				return s, prefix, true
-			}
-			if replace {
-				prefix = replaceChar(rr, prefix)
-			} else {
-				prefix = randCase(rr, s[:np])
-			}
+	for lim := 64; lim > 0; lim-- {
+		var r rune
+		i := intn(rr, len(s))
+		r = randCaseRune(rr, s[i], false)
+		for n := 0; n < len(s)*2; n++ {
+			i = intn(rr, len(s))
+			r = randCaseRune(rr, s[i], false)
+			s[i] = r                         // WARN
+			return string(s), r, index(s, r) // WARN
+			// if r == s[i] {
+			// 	continue
+			// }
+			// if r != s[i] && !contains(s, r) {
+			// 	s[i] = r
+			// 	return string(s), r, index(s, r)
+			// }
 		}
+		// Regenerate string
+		ns = rr.Intn(15) + 1
+		s = randRunes(rr, ns, false)
 	}
-	panic("Failed to generate a vaild HasPrefix args")
+
+	panic("Failed to generate valid IndexRune args")
 }
 
-func TestHasPrefixFuzz(t *testing.T) {
+func TestIndexRuneFuzz(t *testing.T) {
+	var fails int32
 	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
-		// WARN: test if the subject is exhausted
-		s, prefix, out := generateHasPrefixArgs(t, rr)
-		got, _ := hasPrefixUnicode(s, prefix)
+		s, r, out := generateIndexRuneArgs(t, rr)
+		got := IndexRune(s, r)
 		if got != out {
-			t.Errorf("hasPrefixUnicode(%q, %q) = %t; want: %t", s, prefix, got, out)
+			_, foldable := _FoldMap[r]
+			t.Errorf("IndexRune\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"Fold: %t\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"Lower:\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				s, r, got, out,
+				foldable,
+				strconv.QuoteToASCII(s),
+				strconv.QuoteToASCII(string(r)),
+				strconv.QuoteToASCII(strings.ToLower(s)),
+				strconv.QuoteToASCII(strings.ToLower(string(r))),
+			)
+			if n := atomic.AddInt32(&fails, 1); n >= 10 {
+				if n == 10 {
+					t.Fatal("Too many errors:", n)
+				} else {
+					t.FailNow() // exit
+				}
+			}
 		}
 	})
 }
 
-// WARN: check returned index !!!
-func TestIndexNonASCIIFuzz(t *testing.T) {
-	isASCII := func(s string) bool {
-		for i := 0; i < len(s); i++ {
-			if s[i] >= utf8.RuneSelf {
-				return false
+func generateHasPrefixArgs(t *testing.T, rr *rand.Rand, ascii bool) (_s, _prefix string, match, exhausted bool) {
+	// Reference implementation of HasPrefix
+	hasPrefixRunes := func(s, prefix []rune) (bool, bool) {
+		if len(s) < len(prefix) {
+			return false, true
+		}
+		var i int
+		for i = 0; i < len(prefix); i++ {
+			if s[i] != prefix[i] && unicode.ToLower(s[i]) != unicode.ToLower(prefix[i]) {
+				return false, i == len(s)-1
 			}
 		}
-		return true
+		return true, i == len(s)
 	}
 
-	test := func(t *testing.T, name string, gen func(*rand.Rand, int) string) {
-		t.Run(name, func(t *testing.T) {
-			runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
-				s := gen(rr, rr.Intn(128))
-				want := isASCII(s)
-				got := IndexNonASCII(s) == -1
-				if got != want {
-					t.Errorf("IndexNonASCII(%q) = %t want: %t", s, got, want)
+	match = rr.Float64() <= 0.5
+
+	for lim := 32; lim > 0; lim-- {
+		s := randRunes(rr, rr.Intn(30)+2, ascii)
+
+		for i := 0; i < 4; i++ {
+			np := intn(rr, len(s)-1) + 1
+			prefix := s[:np]
+			if match {
+				prefix = randCaseRunes(rr, prefix, ascii)
+			} else {
+				if rr.Float64() >= 0.75 {
+					prefix = replaceOneRune(rr, prefix, ascii)
+				} else {
+					prefix = append(s, s[:np]...) // len(prefix) > len(s)
 				}
-			})
+			}
+			if got, exh := hasPrefixRunes(s, prefix); got == match {
+				return string(s), string(prefix), match, exh
+			}
+		}
+	}
+
+	panic("Failed to generate vaild HasPrefix args")
+}
+
+func TestHasPrefixFuzz(t *testing.T) {
+	test := func(t *testing.T, ascii bool) {
+		runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
+			s, prefix, out, exhausted := generateHasPrefixArgs(t, rr, ascii)
+			got, ex := hasPrefixUnicode(s, prefix)
+			if got != out || ex != exhausted {
+				t.Errorf("hasPrefixUnicode(%q, %q) = %t, %t; want: %t, %t", s, prefix, got, ex, out, exhausted)
+			}
 		})
 	}
 
-	test(t, "Unicode", randString)
+	t.Run("Unicode", func(t *testing.T) { test(t, false) })
+	t.Run("ASCII", func(t *testing.T) { test(t, true) })
+}
 
-	test(t, "ASCII", func(rr *rand.Rand, n int) string {
-		b := make([]byte, n)
-		for i := range b {
-			b[i] = byte(rand.Intn('~' - ' '))
+// WARN: check returned index !!!
+func TestIndexNonASCIIFuzz(t *testing.T) {
+	genArgs := func(t *testing.T, rr *rand.Rand, ascii bool) (string, bool) {
+		s := randRunes(rr, rr.Intn(256)+1, true)
+		isASCII := rr.Float64() <= 0.5
+		if !isASCII {
+			i := rr.Intn(len(s))
+			r := randRune(rr)
+			for r < utf8.RuneSelf {
+				r = randRune(rr)
+			}
+			s[i] = r
 		}
-		return string(b)
+		return string(s), isASCII
+	}
+
+	test := func(t *testing.T, ascii bool) {
+		runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
+			s, want := genArgs(t, rr, ascii)
+			got := IndexNonASCII(s) == -1
+			if got != want {
+				t.Errorf("IndexNonASCII(%q) = %t want: %t", s, got, want)
+			}
+		})
+	}
+
+	t.Run("Unicode", func(t *testing.T) { test(t, false) })
+	t.Run("ASCII", func(t *testing.T) { test(t, true) })
+}
+
+func generateCompareArgs(t *testing.T, rr *rand.Rand, ascii bool) (string, string, int) {
+	compareRunes := func(s, t []rune) int {
+		for i := 0; i < len(s) && i < len(t); i++ {
+			sr := unicode.ToLower(s[i])
+			tr := unicode.ToLower(t[i])
+			if sr != tr {
+				if sr > tr {
+					return 1
+				}
+				if sr < tr {
+					return -1
+				}
+				return 0
+				// return clamp(int(sr) - int(tr))
+			}
+		}
+		return clamp(len(s) - len(t))
+	}
+
+	match := rr.Float64() <= 0.5
+
+	for lim := 32; lim > 0; lim-- {
+		s0 := randRunes(rr, rr.Intn(14)+2, ascii)
+		for i := 0; i < 16; i++ {
+			var s1 []rune
+			if match {
+				s1 = randCaseRunes(rr, s0, ascii)
+			} else {
+				// Change length
+				switch ff := rr.Float64(); {
+				case ff <= 0.25:
+					s1 = s0[:rr.Intn(len(s0))]
+				case ff <= 0.50:
+					s1 = append(s0, s0[:rr.Intn(len(s0))]...)
+				case ff <= 0.75:
+					s1 = replaceOneRune(rr, s0, ascii)
+				}
+			}
+			ret := compareRunes(s0, s1)
+			if match && ret != 0 {
+				continue
+			}
+			return string(s0), string(s1), ret
+		}
+	}
+
+	panic("Failed to generate vaild Compare args")
+}
+
+func TestCompareFuzz(t *testing.T) {
+	test := func(t *testing.T, ascii bool) {
+		fn := func(t *testing.T, rr *rand.Rand) {
+			s0, s1, want := generateCompareArgs(t, rr, ascii)
+			got := Compare(s0, s1)
+			if got != want {
+				t.Errorf("Compare(%q, %q) = %d; want: %d\n"+
+					"Args:\n"+
+					"  s:   %s\n"+
+					"  sep: %s\n"+
+					"Lower:\n"+
+					"  s:   %s\n"+
+					"  sep: %s\n",
+					s0, s1, got, want,
+					strconv.QuoteToASCII(s0),
+					strconv.QuoteToASCII(s1),
+					strconv.QuoteToASCII(strings.ToLower(s0)),
+					strconv.QuoteToASCII(strings.ToLower(s1)),
+				)
+			}
+		}
+		runRandomTest(t, fn)
+	}
+
+	t.Run("Unicode", func(t *testing.T) { test(t, false) })
+	t.Run("ASCII", func(t *testing.T) { test(t, true) })
+}
+
+// Fuzz test indexRabinKarpFuzz since it is annoying to generate tests that
+// always take this code path in Index.
+func TestIndexRabinKarpFuzz(t *testing.T) {
+
+	// valid returns true if s contains 2 or more runes, which matches how
+	// we call indexRabinKarpUnicode from Index.
+	valid := func(s string) bool {
+		return len(s) >= 4 || utf8.RuneCountInString(s) >= 2
+	}
+
+	runRandomTest(t, func(t *testing.T, rr *rand.Rand) {
+		var s, sep string
+		var out int
+		for {
+			s, sep, out = generateIndexArgs(t, rr, false)
+			if valid(s) && valid(sep) {
+				break
+			}
+		}
+		got := indexRabinKarpUnicode(s, sep)
+		if got != out {
+			t.Errorf("indexRabinKarpUnicode\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
+		}
 	})
 }
