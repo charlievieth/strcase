@@ -112,6 +112,9 @@ func (r byRune) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 func (r byRune) Less(i, j int) bool { return r[i] < r[j] }
 
 func dedupe(r []rune) []rune {
+	if len(r) <= 1 {
+		return r
+	}
 	sort.Sort(byRune(r))
 	k := 1
 	for i := 1; i < len(r); i++ {
@@ -123,16 +126,17 @@ func dedupe(r []rune) []rune {
 	return r[:k]
 }
 
-func printRangeMap(w *bytes.Buffer, name string, runes map[rune][]rune) {
+func printRangeMap(w *bytes.Buffer, name, typ string, runes map[rune][]rune) {
 	keys := make([]rune, 0, len(runes))
-	for k, rs := range runes {
-		runes[k] = dedupe(rs)
+	for k := range runes {
+		// WARN
+		// runes[k] = dedupe(rs)
 		keys = append(keys, k)
 	}
 	sort.Sort(byRune(keys))
 
 	fmt.Fprint(w, "\n\n")
-	fmt.Fprintf(w, "var %s = map[rune][]rune{\n", name)
+	fmt.Fprintf(w, "var %s = map[rune]%s{\n", name, typ)
 	for _, k := range keys {
 		if k <= math.MaxUint16 {
 			fmt.Fprintf(w, "\t%#04X: {", k)
@@ -154,93 +158,125 @@ func printRangeMap(w *bytes.Buffer, name string, runes map[rune][]rune) {
 	fmt.Fprintln(w, "}")
 }
 
-// WARN: this is wrong since it includes folds that don't match ToLower.
-// Need to change this to only include runes that map with ToLower
-//
+func printIndexMap(w *bytes.Buffer, name string, runes map[rune]rune) {
+	keys := make([]rune, 0, len(runes))
+	for k := range runes {
+		keys = append(keys, k)
+	}
+	sort.Sort(byRune(keys))
+
+	fmt.Fprint(w, "\n\n")
+	fmt.Fprintf(w, "var %s = map[rune]rune{\n", name)
+	for _, k := range keys {
+		if k <= math.MaxUint16 {
+			fmt.Fprintf(w, "\t%#04X: ", k)
+		} else {
+			fmt.Fprintf(w, "\t%#06X: ", k)
+		}
+		r := runes[k]
+		if r <= math.MaxUint16 {
+			fmt.Fprintf(w, "%#04X, // %q\n", r, k)
+		} else {
+			fmt.Fprintf(w, "%#06X, // %q\n", r, k)
+		}
+	}
+	fmt.Fprintln(w, "}")
+}
+
 // TODO: update other gen func to match this one
+
 func genFoldMap(w *bytes.Buffer) {
 	runes := make(map[rune][]rune)
 	rangetable.Visit(categories, func(r rune) {
-		if ff := folds(r); len(ff) > 2 {
+		ff := folds(r)
+		if len(ff) > 2 {
 			runes[r] = append(runes[r], ff...)
+			// keys = append(keys, r)
 		}
-
-		lr := unicode.ToLower(r)
-		ur := unicode.ToUpper(r)
-		if r >= utf8.RuneSelf && lr < utf8.RuneSelf {
-			runes[r] = append(runes[r], r, lr, unicode.ToUpper(lr))
+		// WARN
+		if len(ff) == 1 && unicode.ToUpper(r) != unicode.ToLower(r) {
+			runes[r] = append(runes[r], ff...)
+			fmt.Printf("%q\n", r)
 		}
-		if unicode.ToUpper(lr) != ur {
-			runes[r] = append(runes[r], r, lr, ur)
-		}
-		if unicode.ToLower(ur) != lr {
-			runes[r] = append(runes[r], r, lr, ur)
-		}
-		// if unicode.IsUpper(r) && unicode.ToUpper(lr) != r {
-		// 	runes[r] = append(runes[r], r, lr)
-		// }
 	})
+	// WARN WARN WARN: we should not need to add this manually
+	runes['İ'] = append(runes['İ'], 'İ')
+	runes['ß'] = append(runes['ß'], 'ẞ')
 
-	if len(runes) == 0 {
-		log.Panic("Failed to generate any runes!")
-	}
-
-	// Remove runes that don't map with ToLower
-	trim := func(r rune, rs []rune) []rune {
-		a := rs[:0]
-		for i := 0; i < len(rs); i++ {
-			rr := rs[i]
-			if rr == r || unicode.ToLower(rr) == unicode.ToLower(r) {
-				a = append(a, rr)
-			}
-		}
-		return a
-	}
-	_ = trim
-
-	// for _, rs := range runes {
-	// 	for _, r := range rs {
-	// 		rs := trim(r, runes[r])
-	// 		if len(rs) >= 2 {
-	// 			runes[r] = rs
-	// 		} else {
-	// 			delete(runes, r)
-	// 		}
-	// 	}
-	// }
-
-	// WARN: this comment is wrong!!!
-	//
-	// WARN: don't add runes that don't map from upper/lower and vise versa
-	// like: 'С' \u0421 and 'ᲃ' \u1c83
-	//
-	// Make sure all runes are mapped
-	// for _, rs := range runes {
-	// 	for _, r := range rs {
-	// 		runes[r] = append(runes[r], rs...)
-	// 	}
-	// }
-
+	keys := make([]rune, 0, len(runes))
 	for k, rs := range runes {
+		keys = append(keys, k)
 		runes[k] = dedupe(rs)
 	}
-
-	printRangeMap(w, "_FoldMap", runes)
-}
-
-func genFoldMap2(w *bytes.Buffer) {
-	runes := make(map[rune][]rune)
-	rangetable.Visit(categories, func(r rune) {
-		if ff := folds(r); len(ff) > 2 {
-			runes[r] = append(runes[r], ff...)
-		}
-	})
+	keys = dedupe(keys)
 
 	if len(runes) == 0 {
 		log.Panic("Failed to generate any runes!")
 	}
 
-	printRangeMap(w, "_FoldMap2", runes)
+	// TODO: use `[4]rune`
+	printRangeMap(w, "_FoldMap", "[]rune", runes)
+
+	idxs := make(map[[4]rune]rune)
+	indexMap := make(map[rune]rune)
+	for k, rs := range runes {
+		var r [4]rune
+		copy(r[:], rs)
+		id, ok := idxs[r]
+		if !ok {
+			id = rune(unicode.MaxRune + len(idxs) + 1)
+			idxs[r] = id
+		}
+		indexMap[k] = id
+	}
+	printIndexMap(w, "_FoldHashes", indexMap)
+
+	noUpperLower := make(map[rune][]rune)
+	for k, rs := range runes {
+		u := unicode.ToUpper(k)
+		l := unicode.ToLower(k)
+		a := make([]rune, 0, 2)
+		for _, r := range rs {
+			if r != u && r != l {
+				a = append(a, r)
+			}
+		}
+		if len(a) > 2 {
+			log.Fatalf("fold set excluding upper/lower %q "+
+				"must have 2 or less elements got: %d", a, len(a))
+		}
+		switch len(a) {
+		case 0:
+			a = append(a, k, k)
+		case 1:
+			a = append(a, a[0])
+		}
+		noUpperLower[k] = a
+	}
+
+	printRangeMap(w, "_FoldMapExcludingUpperLower", "[2]rune", noUpperLower)
+
+	// TODO: remove this!
+	const foldFuncFormat = `
+func foldExcludingUpperLower(r rune) (rr [2]rune) {
+	if %#04X <= r && r <= %#04X {
+		rr = _FoldMapExcludingUpperLower[r]
+	}
+	return rr
+}
+`
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, foldFuncFormat, keys[0], keys[len(keys)-1])
+	fmt.Fprint(w, "\n")
+
+	ascii := make(map[rune][]rune)
+	for k, rs := range runes {
+		if k < utf8.RuneSelf {
+			ascii[k] = rs
+		}
+	}
+
+	printRangeMap(w, "_FoldMapASCII", "[]rune", ascii)
 }
 
 func writeHeader(w *bytes.Buffer) {
@@ -255,8 +291,8 @@ import "unicode"
 }
 
 func sameData(filename string, data []byte) bool {
-	got, _ := os.ReadFile(filename)
-	return bytes.Equal(got, data)
+	got, err := os.ReadFile(filename)
+	return err == nil && bytes.Equal(got, data)
 }
 
 func writeFile(name string, data []byte) {
@@ -290,6 +326,14 @@ func writeFile(name string, data []byte) {
 // NEW
 // WARN WARN WARN WARN WARN WARN WARN
 func genFoldableRunes(w *bytes.Buffer) {
+	// rangetable.Visit(unicode.L, func(r rune) {
+	// rangetable.Visit(categories, func(r rune) {
+	// 	if ff := folds(r); len(ff) == 1 && unicode.ToUpper(r) != unicode.ToLower(r) {
+	// 		fmt.Printf("%q\n", r)
+	// 	}
+	// })
+	// return
+
 	var runes []rune
 	rangetable.Visit(categories, func(r rune) {
 		if ff := folds(r); len(ff) > 2 {
@@ -297,7 +341,6 @@ func genFoldableRunes(w *bytes.Buffer) {
 			return
 		}
 	})
-
 	if len(runes) == 0 {
 		log.Panic("Failed to generate any runes!")
 	}
@@ -325,13 +368,17 @@ func main() {
 	}
 
 	var w bytes.Buffer
+	// WARN
+	// genFoldableRunes(&w)
+	// return
+
 	writeHeader(&w)
 	genMustLower(&w)
 	// WARN: new
 	genFoldableRunes(&w)
-	genFoldMap(&w)
+	// genFoldMap(&w)
 	// WARN: dev only
-	genFoldMap2(&w)
+	genFoldMap(&w)
 
 	src, err := format.Source(w.Bytes())
 	if err != nil {
