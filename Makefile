@@ -29,6 +29,26 @@ test_index:
 exhaustive: run_tests
 	@go test -exhaustive
 
+# Calibrate brute-force cutover
+.PHONY: calibrate
+calibrate:
+	@go test -run TestCalibrate -calibrate
+
+.PHONY: vet
+vet:
+	@go vet
+
+.PHONY: golangci-lint
+golangci-lint:
+	@if command -v golangci-lint >/dev/null; then \
+		golangci-lint run; \
+	else \
+		echo '$(red)Error:$(term-reset) golangci-lint not installed'; \
+	fi
+
+.PHONY: lint
+lint: vet golangci-lint
+
 .PHONY: watch
 watch:
 	gotestsum --watch -- github.com/charlievieth/strcase
@@ -38,4 +58,3 @@ watch:
 .PHONY: bench_index
 bench_index:
 	go test -run "$(NO_TESTS)" -bench "$(INDEX_BENCHMARKS)"
-

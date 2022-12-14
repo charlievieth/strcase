@@ -136,21 +136,16 @@ func randNonControlRune(rr *rand.Rand) rune {
 }
 
 func randRune(rr *rand.Rand) (r rune) {
-	for {
-		switch f := rr.Float64(); {
-		case f <= 0.1:
-			r = multiwidthRunes[rr.Intn(len(multiwidthRunes))]
-		case f <= 0.2:
-			// WARN WARN WARN WARN WARN WARN WARN
-			// NEW
-			// WARN WARN WARN WARN WARN WARN WARN
-			r = foldableRunes[rr.Intn(len(foldableRunes))]
-		case f <= 0.75:
-			r = randNonControlRune(rr)
-		default:
-			r = rune(randASCII(rr))
-		}
-		return r
+	switch f := rr.Float64(); {
+	case f <= 0.1:
+		return multiwidthRunes[rr.Intn(len(multiwidthRunes))]
+	case f <= 0.2:
+		// TODO: is this correct?
+		return foldableRunes[rr.Intn(len(foldableRunes))]
+	case f <= 0.75:
+		return randNonControlRune(rr)
+	default:
+		return rune(randASCII(rr))
 	}
 }
 
@@ -350,14 +345,14 @@ func replaceOneRune(rr *rand.Rand, rs []rune, ascii bool) (ro []rune) {
 
 type testWrapper struct {
 	*testing.T
-	fails *int32
+	fails int32
 }
 
 func (c *testWrapper) check() {
 	c.T.Helper()
-	if n := atomic.AddInt32(c.fails, 1); n >= 10 {
+	if n := atomic.AddInt32(&c.fails, 1); n >= 10 {
 		if n == 10 {
-			c.T.Fatal("Too many errors stopping...")
+			c.T.Fatal("Too many errors:", n)
 		} else {
 			c.T.FailNow()
 		}
@@ -450,13 +445,12 @@ func runRandomTest(t *testing.T, fn func(t testing.TB, rr *rand.Rand)) {
 		n = d / len(seeds)
 		t.Logf("N: %d", n)
 	}
-	fails := new(int32)
 	for _, seed := range seeds {
 		seed := seed
 		t.Run(fmt.Sprintf("%d", seed), func(t *testing.T) {
 			t.Parallel()
 			start := time.Now()
-			tb := &testWrapper{t, fails}
+			tb := &testWrapper{T: t}
 			rr := rand.New(rand.NewSource(seed))
 			for i := 0; i < n; i++ {
 				fn(tb, rr)
@@ -825,8 +819,10 @@ func TestHasPrefixFuzz(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) { test(t, true) })
 }
 
-// WARN: check returned index !!!
+// WARN: delete this test
 func TestIndexNonASCIIFuzz(t *testing.T) {
+	t.Skip("DELETE ME")
+
 	base := strings.Repeat("a", 256+utf8.UTFMax)
 
 	genArgs := func(_ testing.TB, rr *rand.Rand, ascii bool) (string, bool) {
@@ -944,6 +940,7 @@ func TestCompareFuzz(t *testing.T) {
 // Fuzz test indexRabinKarpFuzz since it is annoying to generate tests that
 // always take this code path in Index.
 func TestIndexRabinKarpFuzz(t *testing.T) {
+	// WARN: consider deleting this test
 	t.Skip("SKIP")
 
 	// valid returns true if s contains 2 or more runes, which matches how

@@ -158,6 +158,56 @@ func printRangeMap(w *bytes.Buffer, name, typ string, runes map[rune][]rune) {
 	fmt.Fprintln(w, "}")
 }
 
+func printSwitch(w *bytes.Buffer, name string, runes []rune) {
+	// if !sort.IsSorted(byRune(runes)) {
+	// 	sort.Sort(byRune(runes))
+	// }
+	runes = dedupe(runes)
+
+	fmt.Fprintf(w, "\nfunc %s(r rune) bool {\n", name)
+	fmt.Fprintln(w, "\tswitch r {")
+	fmt.Fprintf(w, "\tcase ")
+
+	for i := 0; i < 8 && len(runes) > 0; i++ {
+		r := runes[0]
+		if r <= math.MaxUint16 {
+			fmt.Fprintf(w, "%#04X, ", r)
+		} else {
+			fmt.Fprintf(w, "%#06X, ", r)
+		}
+		// fmt.Fprintf(w, "%#04X, ", runes[i])
+		runes = runes[1:]
+	}
+	fmt.Fprintf(w, "\n")
+	// fmt.Fprintln(w, ":")
+
+	for len(runes) > 0 {
+		for i := 0; i < 8 && len(runes) > 0; i++ {
+			if i != 0 {
+				w.WriteString(", ")
+			}
+			r := runes[0]
+			if r <= math.MaxUint16 {
+				fmt.Fprintf(w, "%#04X", r)
+			} else {
+				fmt.Fprintf(w, "%#06X", r)
+			}
+			// fmt.Fprintf(w, "%#04X", runes[0])
+			runes = runes[1:]
+		}
+		if len(runes) > 0 {
+			w.WriteString(",\n\t\t")
+		} else {
+			w.WriteString(":\n")
+		}
+	}
+	fmt.Fprintln(w, "\t\treturn true")
+	fmt.Fprintln(w, "\t}")
+	fmt.Fprintln(w, "\treturn false")
+	fmt.Fprintln(w, "}")
+	fmt.Fprint(w, "\n")
+}
+
 func printIndexMap(w *bytes.Buffer, name string, runes map[rune]rune) {
 	keys := make([]rune, 0, len(runes))
 	for k := range runes {
@@ -196,7 +246,6 @@ func genFoldMap(w *bytes.Buffer) {
 		// WARN
 		if len(ff) == 1 && unicode.ToUpper(r) != unicode.ToLower(r) {
 			runes[r] = append(runes[r], ff...)
-			fmt.Printf("%q\n", r)
 		}
 	})
 	// WARN WARN WARN: we should not need to add this manually
@@ -217,19 +266,7 @@ func genFoldMap(w *bytes.Buffer) {
 	// TODO: use `[4]rune`
 	printRangeMap(w, "_FoldMap", "[]rune", runes)
 
-	idxs := make(map[[4]rune]rune)
-	indexMap := make(map[rune]rune)
-	for k, rs := range runes {
-		var r [4]rune
-		copy(r[:], rs)
-		id, ok := idxs[r]
-		if !ok {
-			id = rune(unicode.MaxRune + len(idxs) + 1)
-			idxs[r] = id
-		}
-		indexMap[k] = id
-	}
-	printIndexMap(w, "_FoldHashes", indexMap)
+	printSwitch(w, "mustFold", keys)
 
 	noUpperLower := make(map[rune][]rune)
 	for k, rs := range runes {
@@ -256,27 +293,15 @@ func genFoldMap(w *bytes.Buffer) {
 
 	printRangeMap(w, "_FoldMapExcludingUpperLower", "[2]rune", noUpperLower)
 
-	// TODO: remove this!
-	const foldFuncFormat = `
-func foldExcludingUpperLower(r rune) (rr [2]rune) {
-	if %#04X <= r && r <= %#04X {
-		rr = _FoldMapExcludingUpperLower[r]
-	}
-	return rr
-}
-`
-	fmt.Fprint(w, "\n")
-	fmt.Fprintf(w, foldFuncFormat, keys[0], keys[len(keys)-1])
-	fmt.Fprint(w, "\n")
-
-	ascii := make(map[rune][]rune)
-	for k, rs := range runes {
-		if k < utf8.RuneSelf {
-			ascii[k] = rs
-		}
-	}
-
-	printRangeMap(w, "_FoldMapASCII", "[]rune", ascii)
+	// TODO: add ASCII folds instead of hard-coding them into functions
+	//
+	// ascii := make(map[rune][]rune)
+	// for k, rs := range runes {
+	// 	if k < utf8.RuneSelf {
+	// 		ascii[k] = rs
+	// 	}
+	// }
+	// printRangeMap(w, "_FoldMapASCII", "[]rune", ascii)
 }
 
 func writeHeader(w *bytes.Buffer) {
@@ -296,7 +321,9 @@ func sameData(filename string, data []byte) bool {
 }
 
 func writeFile(name string, data []byte) {
-	if got, _ := os.ReadFile(name); bytes.Equal(got, data) {
+	// TODO: use `go build -overlay` to test the change
+	orig, _ := os.ReadFile(name)
+	if bytes.Equal(orig, data) {
 		return
 	}
 	if err := os.WriteFile(name+".tmp", data, 0644); err != nil {

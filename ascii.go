@@ -1,5 +1,7 @@
 package strcase
 
+import "strings"
+
 // hasPrefixASCII tests whether the string s begins with prefix.
 func hasPrefixASCII(s, prefix string) bool {
 	if len(s) >= len(prefix) {
@@ -31,6 +33,24 @@ func bruteForceIndexASCII(s, substr string) int {
 	return -1
 }
 
+func indexByteASCII(s string, c byte) int {
+	n := strings.IndexByte(s, c)
+	if n == 0 || !isAlpha(c) {
+		return n
+	}
+
+	// TODO: calculate the optimal cutoff
+	if n > 0 && len(s) >= 16 {
+		s = s[:n] // limit search space
+	}
+
+	c ^= ' ' // swap case
+	if o := strings.IndexByte(s, c); n == -1 || (o != -1 && o < n) {
+		n = o
+	}
+	return n
+}
+
 func shortIndexASCII(s, substr string) int {
 	n := len(substr)
 	c0 := _lower[substr[0]]
@@ -42,7 +62,7 @@ func shortIndexASCII(s, substr string) int {
 		if _lower[s[i]] != c0 {
 			// IndexByte is faster than bytealg.IndexString, so use it as long as
 			// we're not getting lots of false positives.
-			o := IndexByte(s[i+1:t], c0)
+			o := indexByteASCII(s[i+1:t], c0)
 			if o < 0 {
 				return -1
 			}

@@ -80,6 +80,56 @@ func TestCalibrate(t *testing.T) {
 	fmt.Printf("calibration: brute-force cutoff = %d\n", n)
 }
 
+func TestCalibrateIndexByte(t *testing.T) {
+	if !*calibrate {
+		return
+	}
+
+	if runtime.GOARCH == "amd64" {
+		fmt.Printf("warning: running calibration on %s\n", runtime.GOARCH)
+	}
+
+	// calibration: brute-force cutoff = 24 for ASCII
+	n := sort.Search(128, func(n int) bool {
+		key := "vV"
+		s := strings.Repeat(" ", n) + key + strings.Repeat(" ", n) + key
+		c0 := key[1] // search for last element first
+		c1 := key[0] // search for last element first
+		cutoff := func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				m := strings.IndexByte(s, c0)
+				if m == 0 {
+					continue
+				}
+				// if m != -1 && len(s)-m >= n {
+				if m != -1 && m >= n {
+					s = s[:m] // limit search space
+				}
+				if o := strings.IndexByte(s, c1); m == -1 || (o != -1 && o < m) {
+					m = o
+				}
+			}
+		}
+		nocutoff := func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				m := strings.IndexByte(s, c0)
+				if m == 0 {
+					continue
+				}
+				if o := strings.IndexByte(s, c1); m == -1 || (o != -1 && o < m) {
+					m = o
+				}
+			}
+		}
+		bmcutoff := testing.Benchmark(cutoff)
+		bmnaive := testing.Benchmark(nocutoff)
+		fmt.Printf("n=%d: cutoff=%d index=%d\n", n, bmcutoff.NsPerOp(), bmnaive.NsPerOp())
+
+		return bmnaive.NsPerOp()*100 > bmcutoff.NsPerOp()*110
+	})
+	fmt.Printf("calibration: brute-force cutoff = %d\n", n)
+}
+
 /*
 var benchInputHard = makeBenchInputHard()
 
