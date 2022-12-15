@@ -117,6 +117,48 @@ func indexASCII(s, substr string) int {
 	return -1
 }
 
+// hashStr returns the hash and the appropriate multiplicative
+// factor for use in Rabin-Karp algorithm.
+func hashStr(sep string) (uint32, uint32) {
+	hash := uint32(0)
+	for i := 0; i < len(sep); i++ {
+		hash = hash*primeRK + uint32(_lower[sep[i]])
+	}
+	var pow, sq uint32 = 1, primeRK
+	for i := len(sep); i > 0; i >>= 1 {
+		if i&1 != 0 {
+			pow *= sq
+		}
+		sq *= sq
+	}
+	return hash, pow
+}
+
+// indexRabinKarp uses the Rabin-Karp search algorithm to return the index of the
+// first occurrence of substr in s, or -1 if not present.
+func indexRabinKarp(s, substr string) int {
+	// Rabin-Karp search
+	hashss, pow := hashStr(substr)
+	n := len(substr)
+	var h uint32
+	for i := 0; i < n; i++ {
+		h = h*primeRK + uint32(_lower[s[i]])
+	}
+	if h == hashss && equalASCII(s[:n], substr) {
+		return 0
+	}
+	for i := n; i < len(s); {
+		h *= primeRK
+		h += uint32(_lower[s[i]])
+		h -= pow * uint32(_lower[s[i-n]])
+		i++
+		if h == hashss && equalASCII(s[i-n:i], substr) {
+			return i - n
+		}
+	}
+	return -1
+}
+
 func equalASCII(s, t string) bool {
 	if len(s) != len(t) {
 		return false

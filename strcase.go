@@ -233,16 +233,17 @@ hasUnicode:
 	return true, len(s) == 0 // s exhausted
 }
 
+// TODO: replace with
 func HasSuffix(s, suffix string) bool {
 	// The max difference in encoded lengths between cases is 2 bytes for
 	// [kK] (Latin - 1 byte) and 'K' (Kelvin - 3 bytes).
-	ns := len(s)
 	nt := len(suffix)
-	if ns*3 < nt || (ns*2 < nt && !strings.Contains(suffix, string('\u212A'))) {
-		return false
-	}
 	if nt == 0 {
 		return true
+	}
+	ns := len(s)
+	if ns*3 < nt || (ns*2 < nt && !strings.Contains(suffix, string('\u212A'))) {
+		return false
 	}
 
 	t := suffix
@@ -321,6 +322,101 @@ hasUnicode:
 	}
 
 	return len(t) == 0
+}
+
+// FIXME: comment
+//
+// Returns: match, exhausted s, byte index of the match in s
+func hasSuffixUnicode(s, suffix string) (bool, bool, int) {
+	// The max difference in encoded lengths between cases is 2 bytes for
+	// [kK] (Latin - 1 byte) and 'K' (Kelvin - 3 bytes).
+	nt := len(suffix)
+	ns := len(s)
+	if nt == 0 {
+		return true, false, ns
+	}
+	if ns*3 < nt || (ns*2 < nt && !strings.Contains(suffix, string('\u212A'))) {
+		return false, true, 0
+	}
+
+	t := suffix
+	i := ns - 1
+	j := nt - 1
+	for ; i >= 0 && j >= 0; i, j = i-1, j-1 {
+		sr := s[i]
+		tr := t[j]
+		if sr|tr >= utf8.RuneSelf {
+			goto hasUnicode
+		}
+
+		// Easy case.
+		if tr == sr {
+			continue
+		}
+
+		// Make sr < tr to simplify what follows.
+		if tr < sr {
+			tr, sr = sr, tr
+		}
+		// ASCII only, sr/tr must be upper/lower case
+		if 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A' {
+			continue
+		}
+		return false, i == 0, 0
+	}
+	return j == -1, i <= 0, i + 1
+
+hasUnicode:
+	s = s[:i+1]
+	t = t[:j+1]
+	for len(s) != 0 && len(t) != 0 {
+		var sr, tr rune
+		if n := len(s) - 1; s[n] < utf8.RuneSelf {
+			sr, s = rune(s[n]), s[:n]
+		} else {
+			r, size := utf8.DecodeLastRuneInString(s)
+			sr, s = r, s[:len(s)-size]
+		}
+		if n := len(t) - 1; t[n] < utf8.RuneSelf {
+			tr, t = rune(t[n]), t[:n]
+		} else {
+			r, size := utf8.DecodeLastRuneInString(t)
+			tr, t = r, t[:len(t)-size]
+		}
+
+		if sr == tr {
+			continue
+		}
+
+		// Make sr < tr to simplify what follows.
+		if tr < sr {
+			tr, sr = sr, tr
+		}
+
+		// Fast check for ASCII.
+		if tr < utf8.RuneSelf {
+			// ASCII only, sr/tr must be upper/lower case
+			if 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A' {
+				continue
+			}
+			return false, len(s) == 0, 0
+		}
+
+		// General case. SimpleFold(x) returns the next equivalent rune > x
+		// or wraps around to smaller values.
+		r := unicode.SimpleFold(sr)
+		for r != sr && r < tr {
+			r = unicode.SimpleFold(r)
+		}
+		if r == tr {
+			continue
+		}
+		return false, len(s) == 0, 0
+	}
+
+	// log.Printf("i: %d ns: %d s: %d", i, ns, len(s))
+	return len(t) == 0, len(s) == 0, len(s)
+	// return len(t) == 0, len(s) == 0, ns - len(s)
 }
 
 // toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
@@ -601,7 +697,11 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 				continue
 			}
 
-			if HasSuffix(s[:i-n0-n1], needle) {
+			// WARN: fix this
+			// if HasSuffix(s[:i-n0-n1], needle) {
+			if match, _, j := hasSuffixUnicode(s[:i-n0-n1], needle); match {
+				// return j + n0 + n1
+				return j
 				i -= n0 + n1
 				for len(needle) > 0 {
 					_, n0 := utf8.DecodeLastRuneInString(needle)
@@ -653,7 +753,11 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 				continue
 			}
 
-			if HasSuffix(s[:i-n0-n1], needle) {
+			// WARN: fix this
+			// if HasSuffix(s[:i-n0-n1], needle) {
+			if match, _, j := hasSuffixUnicode(s[:i-n0-n1], needle); match {
+				// return j + n0 + n1
+				return j
 				i -= n0 + n1
 				for len(needle) > 0 {
 					_, n0 := utf8.DecodeLastRuneInString(needle)
@@ -710,10 +814,11 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 				}
 			}
 
-			// WARN: delete
-			// log.Printf("%q: s: %q: n: %q", s, s[:i-n0-n1], needle)
-			// log.Printf("## %q - %d - %d", s[:i], i, i-n1)
-			if HasSuffix(s[:i-n0-n1], needle) {
+			// WARN: fix this
+			// if HasSuffix(s[:i-n0-n1], needle) {
+			if match, _, j := hasSuffixUnicode(s[:i-n0-n1], needle); match {
+				// return j + n0 + n1
+				return j
 				i -= n0 + n1
 				for len(needle) > 0 {
 					_, n0 := utf8.DecodeLastRuneInString(needle)
@@ -1001,33 +1106,8 @@ func LastIndex(s, substr string) int {
 		return len(s)
 	case n == 1:
 		return LastIndexByte(s, substr[0])
-
 	case n == size:
 		return lastIndexRune(s, u)
-		// // Find last rune index
-		// folds, hasFolds := _FoldMapExcludingUpperLower[u]
-		// // Ugly hack
-		// var l rune
-		// if u != 'İ' {
-		// 	u, l, _ = toUpperLower(u)
-		// } else {
-		// 	l = 'İ'
-		// }
-		// for i := len(s); i > 0; {
-		// 	var n int
-		// 	var r rune
-		// 	if r = rune(s[i-1]); r < utf8.RuneSelf {
-		// 		n = 1
-		// 	} else {
-		// 		r, n = utf8.DecodeLastRuneInString(s[:i])
-		// 	}
-		// 	i -= n
-		// 	if r == u || r == l || (hasFolds && (r == folds[0] || r == folds[1])) {
-		// 		return i
-		// 	}
-		// }
-		// return -1
-
 	case n >= len(s):
 		if n > len(s)*3 {
 			return -1
@@ -1037,7 +1117,6 @@ func LastIndex(s, substr string) int {
 		}
 		return bruteForceLastIndexUnicode(s, substr)
 	}
-
 	i := indexRabinKarpRevUnicode(s, substr)
 	if i != -2 {
 		return i
@@ -1243,26 +1322,69 @@ func lastIndexRune(s string, r rune) int {
 		return -1
 	default:
 		if folds, hasFolds := _FoldMap[r]; hasFolds {
-			n := len(folds)
-			for i := len(s); i > 0; {
-				var sr rune
-				if sr = rune(s[i-1]); sr < utf8.RuneSelf {
-					i--
-				} else {
-					var size int
-					sr, size = utf8.DecodeLastRuneInString(s[:i])
-					i -= size
-				}
-				for j := 0; j < n; j++ {
-					if folds[j] == sr {
+			switch len(folds) {
+			case 1:
+				r := folds[0]
+				for i := len(s); i > 0; {
+					var sr rune
+					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
+						i--
+					} else {
+						var size int
+						sr, size = utf8.DecodeLastRuneInString(s[:i])
+						i -= size
+					}
+					if sr == r {
 						return i
 					}
 				}
-				// for _, ff := range folds {
-				// 	if sr == ff {
-				// 		return i
-				// 	}
-				// }
+			case 2:
+				r0, r1 := folds[0], folds[1]
+				for i := len(s); i > 0; {
+					var sr rune
+					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
+						i--
+					} else {
+						var size int
+						sr, size = utf8.DecodeLastRuneInString(s[:i])
+						i -= size
+					}
+					if sr == r0 || sr == r1 {
+						return i
+					}
+				}
+			case 3:
+				r0, r1, r2 := folds[0], folds[1], folds[2]
+				for i := len(s); i > 0; {
+					var sr rune
+					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
+						i--
+					} else {
+						var size int
+						sr, size = utf8.DecodeLastRuneInString(s[:i])
+						i -= size
+					}
+					if sr == r0 || sr == r1 || sr == r2 {
+						return i
+					}
+				}
+			case 4:
+				r0, r1, r2, r3 := folds[0], folds[1], folds[2], folds[3]
+				for i := len(s); i > 0; {
+					var sr rune
+					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
+						i--
+					} else {
+						var size int
+						sr, size = utf8.DecodeLastRuneInString(s[:i])
+						i -= size
+					}
+					if sr == r0 || sr == r1 || sr == r2 || sr == r3 {
+						return i
+					}
+				}
+			default:
+				panic("invalid number of folds")
 			}
 		} else {
 			u, l, _ := toUpperLower(r)
@@ -1316,48 +1438,6 @@ func lastIndexRune(s string, r rune) int {
 
 // primeRK is the prime base used in Rabin-Karp algorithm.
 const primeRK = 16777619
-
-// hashStr returns the hash and the appropriate multiplicative
-// factor for use in Rabin-Karp algorithm.
-func hashStr(sep string) (uint32, uint32) {
-	hash := uint32(0)
-	for i := 0; i < len(sep); i++ {
-		hash = hash*primeRK + uint32(_lower[sep[i]])
-	}
-	var pow, sq uint32 = 1, primeRK
-	for i := len(sep); i > 0; i >>= 1 {
-		if i&1 != 0 {
-			pow *= sq
-		}
-		sq *= sq
-	}
-	return hash, pow
-}
-
-// indexRabinKarp uses the Rabin-Karp search algorithm to return the index of the
-// first occurrence of substr in s, or -1 if not present.
-func indexRabinKarp(s, substr string) int {
-	// Rabin-Karp search
-	hashss, pow := hashStr(substr)
-	n := len(substr)
-	var h uint32
-	for i := 0; i < n; i++ {
-		h = h*primeRK + uint32(_lower[s[i]])
-	}
-	if h == hashss && equalASCII(s[:n], substr) {
-		return 0
-	}
-	for i := n; i < len(s); {
-		h *= primeRK
-		h += uint32(_lower[s[i]])
-		h -= pow * uint32(_lower[s[i-n]])
-		i++
-		if h == hashss && equalASCII(s[i-n:i], substr) {
-			return i - n
-		}
-	}
-	return -1
-}
 
 // TODO: do we need separate funcs for this???
 func hashStrUnicode(sep string) (uint32, uint32, int) {

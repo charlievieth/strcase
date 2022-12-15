@@ -198,6 +198,11 @@ var indexTests = []IndexTest{
 	{"xx012345678901234567890123456789012345678901234567890123456789012", "0123456789012345678901234567890123456xxx", -1},
 	{"xx0123456789012345678901234567890123456789012345678901234567890120123456789012345678901234567890123456xxx", "0123456789012345678901234567890123456xxx", 65},
 
+	// Invalid UTF8
+	{"abc" + string(rune(utf8.RuneError)) + "123", string(rune(utf8.RuneError)), 3},
+	{"abc", string(rune(utf8.RuneError)), -1},
+	{"abc", string(rune(utf8.MaxRune)), -1},
+
 	// test fallback to Rabin-Karp.
 	{"oxoxoxoxoxoxoxoxoxoxoxoy", "oy", 22},
 	{"oxoxoxoxoxoxoxoxoxoxoxox", "oy", -1},
@@ -279,6 +284,11 @@ var lastIndexTests = []IndexTest{
 	{"abcABCabc", "A", 6},
 	{"abcABCabc", "a", 6},
 
+	// Invalid UTF8
+	{"abc" + string(rune(utf8.RuneError)) + "123", string(rune(utf8.RuneError)), 3},
+	{"abc", string(rune(utf8.RuneError)), -1},
+	{"abc", string(rune(utf8.MaxRune)), -1},
+
 	// Unicode
 
 	{"fooΑΒΔbar", "αβδ", 3},
@@ -298,6 +308,14 @@ var lastIndexTests = []IndexTest{
 	// Tests discovered with fuzzing
 	{"4=K ", "=\u212a", 1},
 	{"I", "\u0131", -1},
+	{"aßẛ", "ß", 1},
+
+	{"\u0250\u0250\u0250\u0250\u0250 a", "\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F A", 0}, // grows one byte per char
+	{"a\u0250\u0250\u0250\u0250\u0250", "A\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F", 0},   //
+	{"\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D a", "\u0251\u0251\u0251\u0251\u0251 A", 0}, // shrinks one byte per char
+	{"a\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "A\u0251\u0251\u0251\u0251\u0251", 0},   // shrinks one byte per char
+	{"abc\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "\u0251\u0251\u0251\u0251\u0251", 3},
+	{"ΑΒΔ\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "\u0251\u0251\u0251\u0251\u0251", len("ΑΒΔ")},
 }
 
 // TODO: do we need this?
@@ -469,26 +487,6 @@ func TestIndexUnicode(t *testing.T) {
 	}
 }
 
-// WARN: remove once work on Rabin-Karp is done
-func TestIndexRabinKarp(t *testing.T) {
-	t.Skip("FIXME")
-
-	fn := func(t IndexTest) bool {
-		return len(t.sep) > 0 && len(t.s) > len(t.sep)
-	}
-	t.Run("ASCII", func(t *testing.T) {
-		tests := filterIndexTests(fn, indexTests)
-		runIndexTests(t, indexRabinKarp, "indexRabinKarp", tests, false)
-	})
-	t.Run("Unicode", func(t *testing.T) {
-		tests := filterIndexTests(fn,
-			indexTests,
-			unicodeIndexTests,
-		)
-		runIndexTests(t, indexRabinKarpUnicode, "indexRabinKarpUnicode", tests, false)
-	})
-}
-
 func TestLastIndex(t *testing.T) {
 	reference := func(s, sep string) int {
 		return lastIndexRunesReference([]rune(s), []rune(sep))
@@ -496,51 +494,6 @@ func TestLastIndex(t *testing.T) {
 	runIndexTests(t, reference, "LastIndexReference", lastIndexTests, false)
 
 	runIndexTests(t, LastIndex, "LastIndex", lastIndexTests, false)
-
-}
-
-func TestLastIndexXXX(t *testing.T) {
-	tests := []IndexTest{
-		{
-			s:   "\u4417\ua363\U0002d19c\u212a\u212a\u212a\u212a\x00l",
-			sep: "\u4417\ua363\U0002d19cK",
-			out: 0,
-		},
-	}
-	for _, test := range tests {
-		actual := LastIndex(test.s, test.sep)
-		if actual != test.out {
-			var foldable bool
-			for _, r := range test.sep {
-				_, foldable = _FoldMap[r]
-				if foldable {
-					break
-				}
-			}
-			t.Errorf("%s\n"+
-				"S:    %q\n"+
-				"Sep:  %q\n"+
-				"Got:  %d\n"+
-				"Want: %d\n"+
-				"Fold: %t\n"+
-				"\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
-				"Lower:\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
-				"\n",
-				"LastIndex",
-				test.s, test.sep, actual, test.out,
-				foldable,
-				strconv.QuoteToASCII(test.s),
-				strconv.QuoteToASCII(test.sep),
-				strconv.QuoteToASCII(strings.ToLower(test.s)),
-				strconv.QuoteToASCII(strings.ToLower(test.sep)),
-			)
-		}
-
-	}
 }
 
 func TestIndexRune(t *testing.T) {
@@ -801,6 +754,39 @@ var suffixTests = []SuffixTest{
 	{"G|S&>;C", "&>;C", true /*, false*/},
 }
 
+// WARN: DELETE ME
+func TestHasSuffixUnicocde(t *testing.T) {
+	type SuffixTest struct {
+		s, suffix string
+		match     bool
+		i         int
+	}
+	tests := []SuffixTest{
+		{"f", "f", true, 0},
+		{"foo", "foo", true, 0},
+		{"foo", "o", true, 2},
+		{"foo", "", true, 3},
+		{"foobar", "bar", true, len("foo")},
+		{"foobar", "baz", false, 0},
+		{"ΑΒΔ", "ΑΒΔ", true, 0},
+		{"αβδΑΒΔ", "ΑΒΔ", true, len("αβδ")},
+		{"abc☻K@", "☻k@", true, 3},
+
+		{"\u0250\u0250\u0250\u0250\u0250 a", "\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F A", true, 0}, // grows one byte per char
+		{"a\u0250\u0250\u0250\u0250\u0250", "A\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F", true, 0},   //
+		{"\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D a", "\u0251\u0251\u0251\u0251\u0251 A", true, 0}, // shrinks one byte per char
+		{"a\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "A\u0251\u0251\u0251\u0251\u0251", true, 0},   // shrinks one byte per char
+		{"abc\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "\u0251\u0251\u0251\u0251\u0251", true, 3},
+		{"ΑΒΔ\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "\u0251\u0251\u0251\u0251\u0251", true, len("ΑΒΔ")},
+	}
+	for _, test := range tests {
+		match, _, i := hasSuffixUnicode(test.s, test.suffix)
+		if match != test.match || i != test.i {
+			t.Errorf("HasSuffix(%q, %q) = %t, _, %d; want: %t, _, %d", test.s, test.suffix, match, i, test.match, test.i)
+		}
+	}
+}
+
 func TestHasSuffix(t *testing.T) {
 	// Make sure the tests cases are valid
 	for _, test := range suffixTests {
@@ -1001,6 +987,16 @@ func BenchmarkLastIndex(b *testing.B) {
 	}
 	for i := 0; i < b.N; i++ {
 		LastIndex(benchmarkString, "v")
+	}
+}
+
+// WARN: DELETE ME
+func BenchmarkLastIndexRune(b *testing.B) {
+	// if got := Index(benchmarkString, "v"); got != 17 {
+	// 	b.Fatalf("wrong index: expected 17, got=%d", got)
+	// }
+	for i := 0; i < b.N; i++ {
+		lastIndexRune(benchmarkString, 'ſ')
 	}
 }
 

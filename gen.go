@@ -233,6 +233,15 @@ func printIndexMap(w *bytes.Buffer, name string, runes map[rune]rune) {
 	fmt.Fprintln(w, "}")
 }
 
+func contains(rs []rune, r rune) bool {
+	for _, rr := range rs {
+		if rr == r {
+			return true
+		}
+	}
+	return false
+}
+
 // TODO: update other gen func to match this one
 
 func genFoldMap(w *bytes.Buffer) {
@@ -255,6 +264,11 @@ func genFoldMap(w *bytes.Buffer) {
 	keys := make([]rune, 0, len(runes))
 	for k, rs := range runes {
 		keys = append(keys, k)
+
+		// Make sure the key is included (was an issue with: 'ß')
+		if !contains(rs, k) {
+			rs = append(rs, k)
+		}
 		runes[k] = dedupe(rs)
 	}
 	keys = dedupe(keys)
