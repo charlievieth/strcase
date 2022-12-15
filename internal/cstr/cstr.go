@@ -6,11 +6,13 @@ package cstr
 /*
 #cgo CFLAGS: -std=c99
 
+#define _GNU_SOURCE
+#include <string.h>
+#include <strings.h> // strcasecmp
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <string.h>
-#include <strings.h> // strcasecmp
 #include <wchar.h>
 #include <locale.h>
 #include <assert.h>
