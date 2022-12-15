@@ -235,93 +235,8 @@ hasUnicode:
 
 // TODO: replace with
 func HasSuffix(s, suffix string) bool {
-	// The max difference in encoded lengths between cases is 2 bytes for
-	// [kK] (Latin - 1 byte) and 'K' (Kelvin - 3 bytes).
-	nt := len(suffix)
-	if nt == 0 {
-		return true
-	}
-	ns := len(s)
-	if ns*3 < nt || (ns*2 < nt && !strings.Contains(suffix, string('\u212A'))) {
-		return false
-	}
-
-	t := suffix
-	i := ns - 1
-	j := nt - 1
-	for ; i >= 0 && j >= 0; i, j = i-1, j-1 {
-		sr := s[i]
-		tr := t[j]
-		if sr|tr >= utf8.RuneSelf {
-			goto hasUnicode
-		}
-
-		// Easy case.
-		if tr == sr {
-			continue
-		}
-
-		// Make sr < tr to simplify what follows.
-		if tr < sr {
-			tr, sr = sr, tr
-		}
-		// ASCII only, sr/tr must be upper/lower case
-		if 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A' {
-			continue
-		}
-		return false
-	}
-	return j == -1
-
-hasUnicode:
-	s = s[:i+1]
-	t = t[:j+1]
-	for len(s) != 0 && len(t) != 0 {
-		var sr, tr rune
-		if n := len(s) - 1; s[n] < utf8.RuneSelf {
-			sr, s = rune(s[n]), s[:n]
-		} else {
-			r, size := utf8.DecodeLastRuneInString(s)
-			sr, s = r, s[:len(s)-size]
-		}
-		if n := len(t) - 1; t[n] < utf8.RuneSelf {
-			tr, t = rune(t[n]), t[:n]
-		} else {
-			r, size := utf8.DecodeLastRuneInString(t)
-			tr, t = r, t[:len(t)-size]
-		}
-
-		if sr == tr {
-			continue
-		}
-
-		// Make sr < tr to simplify what follows.
-		if tr < sr {
-			tr, sr = sr, tr
-		}
-
-		// Fast check for ASCII.
-		if tr < utf8.RuneSelf {
-			// ASCII only, sr/tr must be upper/lower case
-			if 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A' {
-				continue
-			}
-			return false
-		}
-
-		// General case. SimpleFold(x) returns the next equivalent rune > x
-		// or wraps around to smaller values.
-		r := unicode.SimpleFold(sr)
-		for r != sr && r < tr {
-			r = unicode.SimpleFold(r)
-		}
-		if r == tr {
-			continue
-		}
-		return false
-	}
-
-	return len(t) == 0
+	ok, _, _ := hasSuffixUnicode(s, suffix)
+	return ok
 }
 
 // FIXME: comment
@@ -696,23 +611,8 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 				}
 				continue
 			}
-
-			// WARN: fix this
-			// if HasSuffix(s[:i-n0-n1], needle) {
 			if match, _, j := hasSuffixUnicode(s[:i-n0-n1], needle); match {
-				// return j + n0 + n1
 				return j
-				i -= n0 + n1
-				for len(needle) > 0 {
-					_, n0 := utf8.DecodeLastRuneInString(needle)
-					needle = needle[:len(needle)-n0]
-					_, n1 := utf8.DecodeLastRuneInString(s[:i])
-					i -= n1
-					if i == 0 {
-						return i
-					}
-				}
-				return i
 			}
 			i -= n0
 			if r1 != u0 {
@@ -752,23 +652,8 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 				}
 				continue
 			}
-
-			// WARN: fix this
-			// if HasSuffix(s[:i-n0-n1], needle) {
 			if match, _, j := hasSuffixUnicode(s[:i-n0-n1], needle); match {
-				// return j + n0 + n1
 				return j
-				i -= n0 + n1
-				for len(needle) > 0 {
-					_, n0 := utf8.DecodeLastRuneInString(needle)
-					needle = needle[:len(needle)-n0]
-					_, n1 := utf8.DecodeLastRuneInString(s[:i])
-					i -= n1
-					if i == 0 {
-						return i
-					}
-				}
-				return i
 			}
 			i -= n0
 			if r1 != u0 && r1 != l0 {
@@ -813,23 +698,8 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 					continue
 				}
 			}
-
-			// WARN: fix this
-			// if HasSuffix(s[:i-n0-n1], needle) {
 			if match, _, j := hasSuffixUnicode(s[:i-n0-n1], needle); match {
-				// return j + n0 + n1
 				return j
-				i -= n0 + n1
-				for len(needle) > 0 {
-					_, n0 := utf8.DecodeLastRuneInString(needle)
-					needle = needle[:len(needle)-n0]
-					_, n1 := utf8.DecodeLastRuneInString(s[:i])
-					i -= n1
-					if i == 0 {
-						return i
-					}
-				}
-				return i
 			}
 			i -= n0
 			if !hasFolds0 && r1 != u0 && r1 != l0 {

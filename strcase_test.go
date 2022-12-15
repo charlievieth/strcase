@@ -990,16 +990,6 @@ func BenchmarkLastIndex(b *testing.B) {
 	}
 }
 
-// WARN: DELETE ME
-func BenchmarkLastIndexRune(b *testing.B) {
-	// if got := Index(benchmarkString, "v"); got != 17 {
-	// 	b.Fatalf("wrong index: expected 17, got=%d", got)
-	// }
-	for i := 0; i < b.N; i++ {
-		lastIndexRune(benchmarkString, 'ſ')
-	}
-}
-
 // TODO: rename
 func BenchmarkIndexNeedleLongerThanSubject(b *testing.B) {
 	const s = benchmarkString

@@ -46,17 +46,6 @@ var multiwidthRunes = [...]rune{
 	'\U0000A7B2', // 42930: Ʝ => ʝ
 }
 
-var foldableRunes []rune
-
-func init() {
-	// WARN WARN WARN WARN WARN WARN WARN
-	// NEW
-	// WARN WARN WARN WARN WARN WARN WARN
-	rangetable.Visit(_Foldable, func(r rune) {
-		foldableRunes = append(foldableRunes, r)
-	})
-}
-
 var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
 	// unicode.Cc,     // Cc is the set of Unicode characters in category Cc (Other, control).
 	unicode.Cf,     // Cf is the set of Unicode characters in category Cf (Other, format).
@@ -107,11 +96,23 @@ var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
 	unicode.Zs,    // Zs is the set of Unicode characters in category Zs (Separator, space).
 }...)
 
-func randASCII(rr *rand.Rand) byte {
-	return byte(rr.Intn('~'-' '+1)) + ' '
-}
+var (
+	// TODO: generate these
+	foldableRunes   = generateFoldableRunes()
+	nonControlRunes = generateNonControlRunes()
+)
 
-var nonControlRunes = generateNonControlRunes()
+func generateFoldableRunes() []rune {
+	n := 0
+	rangetable.Visit(_Foldable, func(r rune) {
+		n++
+	})
+	a := make([]rune, 0, n)
+	rangetable.Visit(_Foldable, func(r rune) {
+		a = append(a, r)
+	})
+	return a
+}
 
 func generateNonControlRunes() []rune {
 	n := 0
@@ -124,15 +125,17 @@ func generateNonControlRunes() []rune {
 			runes = append(runes, r)
 		}
 	})
-	// rr := rand.New(rand.NewSource(1))
-	// rr.Shuffle(len(runes), func(i, j int) {
-	// 	runes[i], runes[j] = runes[j], runes[i]
-	// })
+	// TODO: consider shuffling the runes and using slices of them
+	// to speed up string generation.
 	return runes
 }
 
 func randNonControlRune(rr *rand.Rand) rune {
 	return nonControlRunes[rr.Intn(len(nonControlRunes))]
+}
+
+func randASCII(rr *rand.Rand) byte {
+	return byte(rr.Intn('~'-' '+1)) + ' '
 }
 
 func randRune(rr *rand.Rand) (r rune) {
@@ -231,18 +234,6 @@ func TestRandRune(t *testing.T) {
 	})
 }
 
-var xrandRunes []rune
-
-func init() {
-	rs := make([]rune, len(nonControlRunes))
-	copy(rs, nonControlRunes)
-	rr := rand.New(rand.NewSource(1))
-	rr.Shuffle(len(rs), func(i, j int) {
-		rs[i], rs[j] = rs[j], rs[i]
-	})
-	xrandRunes = rs
-}
-
 func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 	rs := make([]rune, n)
 	if ascii {
@@ -251,18 +242,10 @@ func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 		}
 		return rs
 	}
-
 	hard := len(rs)
 	if rr.Float64() < 0.05 {
 		hard = intn(rr, len(rs)-4)
 	}
-	// i := rr.Intn(len(xrandRunes) - n + 1)
-	// copy(rs, xrandRunes[i:])
-	// for i := hard; i < len(rs); i++ {
-	// 	rs[i] = '\u212a'
-	// }
-	// return rs
-
 	for i := 0; i < len(rs); i++ {
 		if i == hard {
 			j := i + 4
@@ -650,18 +633,6 @@ func TestIndexFuzz(t *testing.T) {
 				strconv.QuoteToASCII(strings.ToLower(sep)),
 			)
 		}
-		// if got != out {
-		// 	t.Errorf("Index\n"+
-		// 		"S:    %q\n"+
-		// 		"Sep:  %q\n"+
-		// 		"Got:  %d\n"+
-		// 		"Want: %d\n"+
-		// 		"\n"+
-		// 		"S:    %s\n"+
-		// 		"Sep:  %s\n"+
-		// 		"\n",
-		// 		s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
-		// }
 	})
 }
 
@@ -736,38 +707,12 @@ func TestLastIndexFuzz(t *testing.T) {
 				strconv.QuoteToASCII(strings.ToLower(sep)),
 			)
 		}
-		// if got != out {
-		// 	t.Errorf("Index\n"+
-		// 		"S:    %q\n"+
-		// 		"Sep:  %q\n"+
-		// 		"Got:  %d\n"+
-		// 		"Want: %d\n"+
-		// 		"\n"+
-		// 		"S:    %s\n"+
-		// 		"Sep:  %s\n"+
-		// 		"\n",
-		// 		s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
-		// }
 	})
 }
 
 func generateIndexRuneArgs(t testing.TB, rr *rand.Rand) (string, rune, int) {
-	// WARN WARN WARN WARN
-	// Using folds
-
-	folds := func(sr rune) []rune {
-		r := unicode.SimpleFold(sr)
-		runes := make([]rune, 1, 2)
-		runes[0] = sr
-		for r != sr {
-			runes = append(runes, r)
-			r = unicode.SimpleFold(r)
-		}
-		return runes
-	}
-
 	index := func(s []rune, r rune) int {
-		ff := folds(r)
+		ff := allFolds(r)
 		n := 0
 		for _, rr := range s {
 			for _, rf := range ff {
