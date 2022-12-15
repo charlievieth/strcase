@@ -6,6 +6,7 @@ package cstr
 /*
 #cgo CFLAGS: -std=c99
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
@@ -13,6 +14,7 @@ package cstr
 #include <wchar.h>
 #include <locale.h>
 #include <assert.h>
+#include <sys/types.h> // ssize_t
 
 static int cstr_init_locale(void) {
 	if (setlocale(LC_ALL, "en_US.UTF-8")) {
