@@ -746,15 +746,9 @@ func shortIndexUnicode(s, substr string) int {
 		l1 = 'İ'
 	}
 
-	// // WARN WARN WARN WARN
-	// if hasFolds0 || (u0 != l0 && u0 >= utf8.RuneSelf) {
-	// 	return bruteForceIndexUnicode(s, substr)
-	// }
-
 	fails := 0
 	i := 0
-	// t := len(s) - (len(substr) / 3) + 1
-	// for i < t {
+	// TOOD: see if we can stop earlier: `t := len(s) - (len(substr) / 3) + 1`
 	for i < len(s) {
 		var r0 rune
 		var n0 int
@@ -783,6 +777,7 @@ func shortIndexUnicode(s, substr string) int {
 		}
 
 		// FIXME: take len(substr) into accout
+		// TODO: see if we can stop at `t`
 		if i+n0 >= len(s) {
 			return -1
 		}
@@ -840,15 +835,9 @@ func indexUnicode(s, substr string) int {
 		l1 = 'İ'
 	}
 
-	// // WARN WARN WARN WARN
-	// if hasFolds0 || (u0 != l0 && u0 >= utf8.RuneSelf) {
-	// 	return bruteForceIndexUnicode(s, substr)
-	// }
-
 	fails := 0
 	i := 0
-	// WARN WARN WARN
-	// t := len(s) - (len(substr) / 2) + 1
+	// TOOD: see if we can use `t` to stop earlier.
 	t := len(s) - (len(substr) / 3) + 1
 	for i < len(s) {
 		var r0 rune
@@ -858,8 +847,6 @@ func indexUnicode(s, substr string) int {
 		} else {
 			r0, n0 = utf8.DecodeRuneInString(s[i:])
 		}
-
-		// TODO: test with '\0' (NULL) because empty folds are 0
 
 		if r0 != u0 && r0 != l0 && (!hasFolds0 || (r0 != folds0[0] && r0 != folds0[1])) {
 			var o, sz int
@@ -875,8 +862,7 @@ func indexUnicode(s, substr string) int {
 			n0 = sz // The rune we matched on might not be the same size as c0
 		}
 
-		// WARN WARN WARN WARN WARN
-		// if i+n0 >= t {
+		// TODO: see if we can stop at `t`
 		if i+n0 >= len(s) {
 			return -1
 		}
@@ -995,7 +981,7 @@ func LastIndex(s, substr string) int {
 	return bruteForceLastIndexUnicode(s, substr)
 }
 
-// WARN: this breaks if there is a non-ASCII form of byte c
+// FIXME: document
 func IndexByte(s string, c byte) int {
 	i, _ := indexByte(s, c)
 	return i
