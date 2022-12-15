@@ -264,6 +264,42 @@ var unicodeIndexTests = []IndexTest{
 	},
 }
 
+var lastIndexTests = []IndexTest{
+	{"", "", 0},
+	{"", "a", -1},
+	{"", "foo", -1},
+	{"fo", "foo", -1},
+	{"foo", "foo", 0},
+	{"foo", "f", 0},
+	{"oofofoofooo", "f", 7},
+	{"oofofoofooo", "foo", 7},
+	{"barfoobarfoo", "foo", 9},
+	{"foo", "", 3},
+	{"foo", "o", 2},
+	{"abcABCabc", "A", 6},
+	{"abcABCabc", "a", 6},
+
+	// Unicode
+
+	{"fooΑΒΔbar", "αβδ", 3},
+
+	// Map Kelvin 'K' (U+212A) to lowercase latin 'k'.
+	{"abcK@", "k@", 3},
+
+	// Map the long 'S' 'ſ' to 'S' and 's'.
+	{"abcſ@", "s@", 3},
+	{"abcS@", "ſ@", 3},
+
+	// Test with a unicode prefix in the substr to make sure the unicode
+	// implementation is correct.
+	{"abc☻K@", "☻k@", 3},
+	{"abc☻S@", "☻ſ@", 3},
+
+	// Tests discovered with fuzzing
+	{"4=K ", "=\u212a", 1},
+	{"I", "\u0131", -1},
+}
+
 // TODO: do we need this?
 func init() {
 	p0 := strings.Repeat("\u212a", 64)
@@ -280,9 +316,11 @@ func init() {
 // in failure reports.
 func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, testCases []IndexTest, noError bool) {
 	t.Helper()
+	fails := 0
 	for _, test := range testCases {
 		actual := f(test.s, test.sep)
 		if actual != test.out {
+			fails++
 			errorf := t.Errorf
 			if noError {
 				errorf = t.Logf
@@ -316,6 +354,9 @@ func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, tes
 				strconv.QuoteToASCII(strings.ToLower(test.sep)),
 			)
 		}
+	}
+	if t.Failed() && testing.Verbose() {
+		t.Logf("%s: failed %d out of %d tests", funcName, fails, len(testCases))
 	}
 }
 
@@ -448,6 +489,60 @@ func TestIndexRabinKarp(t *testing.T) {
 	})
 }
 
+func TestLastIndex(t *testing.T) {
+	reference := func(s, sep string) int {
+		return lastIndexRunesReference([]rune(s), []rune(sep))
+	}
+	runIndexTests(t, reference, "LastIndexReference", lastIndexTests, false)
+
+	runIndexTests(t, LastIndex, "LastIndex", lastIndexTests, false)
+
+}
+
+func TestLastIndexXXX(t *testing.T) {
+	tests := []IndexTest{
+		{
+			s:   "\u4417\ua363\U0002d19c\u212a\u212a\u212a\u212a\x00l",
+			sep: "\u4417\ua363\U0002d19cK",
+			out: 0,
+		},
+	}
+	for _, test := range tests {
+		actual := LastIndex(test.s, test.sep)
+		if actual != test.out {
+			var foldable bool
+			for _, r := range test.sep {
+				_, foldable = _FoldMap[r]
+				if foldable {
+					break
+				}
+			}
+			t.Errorf("%s\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"Fold: %t\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"Lower:\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				"LastIndex",
+				test.s, test.sep, actual, test.out,
+				foldable,
+				strconv.QuoteToASCII(test.s),
+				strconv.QuoteToASCII(test.sep),
+				strconv.QuoteToASCII(strings.ToLower(test.s)),
+				strconv.QuoteToASCII(strings.ToLower(test.sep)),
+			)
+		}
+
+	}
+}
+
 func TestIndexRune(t *testing.T) {
 	tests := []struct {
 		in   string
@@ -545,6 +640,35 @@ func TestIndexByte(t *testing.T) {
 	}
 }
 
+func TestLastIndexByte(t *testing.T) {
+	tests := []struct {
+		in   string
+		char byte
+		want int
+	}{
+		{"", 'a', -1},
+		{"1", '2', -1},
+		{"abc", 'A', 0},
+		{"abc", 'B', 1},
+		{"abc", 'c', 2},
+		{"abc", 'x', -1},
+
+		// Case-folding with ASCII
+		{"K", 'k', 0},
+		{"K", 'K', 0},
+		{"ſ", 's', 0},
+		{"ſ", 'S', 0},
+		{"x", 'S', -1},
+		{"akK", 'k', len("ak")},
+		{"aſSx", 's', len("aſ")},
+	}
+	for _, tt := range tests {
+		if got := LastIndexByte(tt.in, tt.char); got != tt.want {
+			t.Errorf("LastIndexByte(%q, %q) = %v; want %v", tt.in, tt.char, got, tt.want)
+		}
+	}
+}
+
 func TestIndexNonASCII(t *testing.T) {
 	index := func(s string) int {
 		for i, r := range s {
@@ -588,12 +712,13 @@ type PrefixTest struct {
 var prefixTests = []PrefixTest{
 	{"", "", true, true},
 	{"1", "2", false, true},
+	{"foo", "f", true, false},
 	{"αβδ", "ΑΒΔ", true, true},
 	{"αβδΑΒΔ", "ΑΒΔ", true, false},
 	{"abc", "xyz", false, false},
 	{"abc", "XYZ", false, false},
 	{"abc", "abc", true, true},
-	{"abcd", "abc", true, false},
+	{"abc", "abd", false, true},
 	{"abcdefghijk", "abcdefghijX", false, true},
 	{"abcdefghijk", "abcdefghij\u212A", true, true},
 	{"abcdefghijk☺", "abcdefghij\u212A", true, false},
@@ -643,31 +768,57 @@ func TestHasPrefix(t *testing.T) {
 	}
 }
 
-var suffixTests = []PrefixTest{
-	{"", "", true, true},
-	{"1", "2", false, true},
-	{"αβδ", "ΑΒΔ", true, true},
-	// {"αβδΑΒΔ", "ΑΒΔ", true, false},
-	{"abc", "xyz", false, false},
-	{"abc", "XYZ", false, false},
-	{"abc", "abc", true, true},
-	{"abcd", "abc", true, false},
-	{"abcdefghijk", "abcdefghijX", false, true},
-	{"abcdefghijk", "abcdefghij\u212A", true, true},
-	{"abcdefghijk☺", "abcdefghij\u212A", true, false},
-	{"abcdefghijkz", "abcdefghij\u212Ay", false, true},
-	{"abcdefghijKz", "abcdefghij\u212Ay", false, true},
-	{"☺aβ", "☺aΔ", false, true},
-	{"☺aβc", "☺aΔ", false, false},
-	{"\u0250\u0250\u0250\u0250\u0250 a", "\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F A", true, true}, // grows one byte per char
-	{"a\u0250\u0250\u0250\u0250\u0250", "A\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F", true, true},   //
-	{"\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D a", "\u0251\u0251\u0251\u0251\u0251 A", true, true}, // shrinks one byte per char
-	{"a\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "A\u0251\u0251\u0251\u0251\u0251", true, true},   // shrinks one byte per char
+type SuffixTest struct {
+	s, suffix string
+	out       bool
+}
+
+var suffixTests = []SuffixTest{
+	{"", "", true /*, true*/},
+	{"a", "", true /*, false*/},
+	{"", "a", false /*, true*/},
+	{"1", "2", false /*, true*/},
+	{"αβδ", "ΑΒΔ", true /*, true*/},
+	{"αβδΑΒΔ", "ΑΒΔ", true /*, false*/},
+	{"abc", "xyz", false /*, false*/},
+	{"abc", "XYZ", false /*, false*/},
+	{"abc", "abc", true /*, true*/},
+	{"abc", "abd", false /*, false*/},
+	{"aaβ", "☺aβ", false /*, true*/},
+	{"☺aβc", "☺aΔ", false /*, false*/},
+
+	{"\u0250\u0250\u0250\u0250\u0250 a", "\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F A", true /*, true*/}, // grows one byte per char
+	{"a\u0250\u0250\u0250\u0250\u0250", "A\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F", true /*, true*/},   //
+	{"\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D a", "\u0251\u0251\u0251\u0251\u0251 A", true /*, true*/}, // shrinks one byte per char
+	{"a\u2C6D\u2C6D\u2C6D\u2C6D\u2C6D", "A\u0251\u0251\u0251\u0251\u0251", true /*, true*/},   // shrinks one byte per char
 
 	// Handle large differences in encoded size ([kK]: 1 vs. 'K' (U+212A): 3 bytes).
-	{strings.Repeat("\u212a", 8), strings.Repeat("k", 8), true, true},
-	{strings.Repeat("k", 8), strings.Repeat("\u212a", 8), true, true},
-	{"k-k", "\u212a-\u212a", true, true},
+	{strings.Repeat("\u212a", 8), strings.Repeat("k", 8), true /*, true*/},
+	{strings.Repeat("k", 8), strings.Repeat("\u212a", 8), true /*, true*/},
+	{"k-k", "\u212a-\u212a", true /*, true*/},
+
+	{"g^Y3i", "I", true /*, false*/},
+	{"G|S&>;C", "&>;C", true /*, false*/},
+}
+
+func TestHasSuffix(t *testing.T) {
+	// Make sure the tests cases are valid
+	for _, test := range suffixTests {
+		out := hasSuffixRunes([]rune(test.s), []rune(test.suffix))
+		if out != test.out {
+			t.Errorf("hasSuffixRunes(%q, %q) = %t; want: %t", test.s, test.suffix, out, test.out)
+		}
+	}
+	if t.Failed() {
+		t.Fatal("Invalid tests cases")
+	}
+
+	for _, test := range suffixTests {
+		out := HasSuffix(test.s, test.suffix)
+		if out != test.out {
+			t.Errorf("HasSuffix(%q, %q) = %t; want: %t", test.s, test.suffix, out, test.out)
+		}
+	}
 }
 
 func TestToUpperLower(t *testing.T) {
@@ -806,6 +957,20 @@ func BenchmarkIndexByteLong(b *testing.B) {
 	}
 }
 
+func BenchmarkLastIndexByte(b *testing.B) {
+	// TODO: we don't really need this benchmark
+	if testing.Short() {
+		b.Skip("short test")
+	}
+	const ch = 'S'
+	if got := LastIndexByte(benchmarkString, ch); got != 10 {
+		b.Fatalf("wrong index: expected 10, got=%d", got)
+	}
+	for i := 0; i < b.N; i++ {
+		LastIndexByte(benchmarkString, ch)
+	}
+}
+
 // WARN
 var benchStdLib = flag.Bool("stdlib", false, "Use strings.Index in benchmarks (for comparison)")
 
@@ -824,8 +989,19 @@ func benchmarkIndex(b *testing.B, s, substr string) {
 }
 
 func BenchmarkIndex(b *testing.B) {
-	s := strings.Repeat(strings.ReplaceAll(benchmarkString, "☺", "K" /* Kelvin */), 16) + "x"
-	benchmarkIndex(b, s, "Kvaluex")
+	if got := Index(benchmarkString, "v"); got != 17 {
+		b.Fatalf("wrong index: expected 17, got=%d", got)
+	}
+	benchmarkIndex(b, benchmarkString, "v")
+}
+
+func BenchmarkLastIndex(b *testing.B) {
+	if got := Index(benchmarkString, "v"); got != 17 {
+		b.Fatalf("wrong index: expected 17, got=%d", got)
+	}
+	for i := 0; i < b.N; i++ {
+		LastIndex(benchmarkString, "v")
+	}
 }
 
 // TODO: rename
@@ -905,12 +1081,22 @@ func benchmarkIndexHard(b *testing.B, sep string) {
 	benchmarkIndex(b, benchInputHard, sep)
 }
 
+func benchmarkLastIndexHard(b *testing.B, sep string) {
+	for i := 0; i < b.N; i++ {
+		LastIndex(benchInputHard, sep)
+	}
+}
+
 func BenchmarkIndexHard1(b *testing.B) { benchmarkIndexHard(b, "<>") }
 func BenchmarkIndexHard2(b *testing.B) { benchmarkIndexHard(b, "</pre>") }
 func BenchmarkIndexHard3(b *testing.B) { benchmarkIndexHard(b, "<b>hello world</b>") }
 func BenchmarkIndexHard4(b *testing.B) {
 	benchmarkIndexHard(b, "<pre><b>hello</b><strong>world</strong></pre>")
 }
+
+func BenchmarkLastIndexHard1(b *testing.B) { benchmarkLastIndexHard(b, "<>") }
+func BenchmarkLastIndexHard2(b *testing.B) { benchmarkLastIndexHard(b, "</pre>") }
+func BenchmarkLastIndexHard3(b *testing.B) { benchmarkLastIndexHard(b, "<b>hello world</b>") }
 
 var (
 	benchInputTorture  = strings.Repeat("ABC", 1<<10) + "123" + strings.Repeat("ABC", 1<<10)
@@ -965,6 +1151,9 @@ func BenchmarkIndexNonASCII(b *testing.B) {
 }
 
 func BenchmarkHasPrefix(b *testing.B) {
+	if !HasPrefix(benchmarkString, benchmarkString) {
+		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", benchmarkString)
+	}
 	for i := 0; i < b.N; i++ {
 		HasPrefix(benchmarkString, benchmarkString)
 	}
@@ -979,6 +1168,9 @@ func BenchmarkHasPrefixTests(b *testing.B) {
 }
 
 func BenchmarkHasPrefixHard(b *testing.B) {
+	if !HasPrefix(benchInputHard, benchInputHard) {
+		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", benchInputHard)
+	}
 	for i := 0; i < b.N; i++ {
 		HasPrefix(benchInputHard, benchInputHard)
 	}
@@ -1011,4 +1203,13 @@ func BenchmarkHasPrefixLonger(b *testing.B) {
 			strings.Contains(s, string('\u212A'))
 		}
 	})
+}
+
+func BenchmarkHasSuffix(b *testing.B) {
+	if !HasSuffix(benchmarkString, benchmarkString) {
+		b.Fatalf("HasSuffix(%[1]q, %[1]q) = false; want: true", benchmarkString)
+	}
+	for i := 0; i < b.N; i++ {
+		HasSuffix(benchmarkString, benchmarkString)
+	}
 }

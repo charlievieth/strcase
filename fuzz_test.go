@@ -499,6 +499,43 @@ func indexRunesReference(s, sep []rune) int {
 	return -1
 }
 
+func encodedLen(rs []rune) int {
+	i := 0
+	for _, r := range rs {
+		i += utf8.RuneLen(r)
+	}
+	return i
+}
+
+// lastIndexRunesReference is a slow, but accurate case-insensitive version of strings.Index
+func lastIndexRunesReference(s, sep []rune) int {
+	n := len(sep)
+	switch {
+	case n == 0:
+		return encodedLen(s)
+	case n == len(s):
+		if strings.EqualFold(string(s), string(sep)) {
+			return 0
+		}
+		return -1
+	case n > len(s):
+		return -1
+	default:
+		ff := allFolds(sep[0])
+		for i := len(s) - n; i >= 0; i-- {
+			sr := s[i]
+			for _, rr := range ff {
+				if sr == rr {
+					if ok, _ := hasPrefixRunes(s[i:i+n], sep); ok {
+						return encodedLen(s[:i])
+					}
+				}
+			}
+		}
+		return -1
+	}
+}
+
 func intn(rr *rand.Rand, n int) int {
 	if n <= 0 {
 		return 0
@@ -644,6 +681,73 @@ func TestIndexFuzzASCII(t *testing.T) {
 				"\n",
 				s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
 		}
+	})
+}
+
+// TODO: merge with generateIndexArgs
+func generateLastIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _sep string, out int) {
+	match := rr.Float64() < 0.5
+
+	for lim := 32; lim > 0; lim-- {
+		// WARN WARN WARN
+		ns := rr.Intn(32) + 1
+		// ns := rr.Intn(64) + 1
+		s := randRunes(rr, ns, ascii)
+		nsep := intn(rr, len(s)-1) + 1
+		o := intn(rr, len(s)-nsep)
+		for i := 0; i < 4; i++ {
+			sep := s[o : o+nsep]
+			if match {
+				sep = randCaseRunes(rr, sep, ascii)
+			} else {
+				sep = replaceOneRune(rr, sep, ascii)
+			}
+			out := lastIndexRunesReference(s, sep)
+			if (match && out >= 0) || (!match && out == -1) {
+				return string(s), string(sep), out
+			}
+		}
+	}
+
+	panic("Failed to generate valid Index args")
+}
+
+func TestLastIndexFuzz(t *testing.T) {
+	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
+		s, sep, out := generateLastIndexArgs(t, rr, false)
+		got := LastIndex(s, sep)
+		if got != out {
+			t.Errorf("LastIndex\n"+
+				"S:    %q\n"+
+				"Sep:  %q\n"+
+				"Got:  %d\n"+
+				"Want: %d\n"+
+				"\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"Lower:\n"+
+				"S:    %s\n"+
+				"Sep:  %s\n"+
+				"\n",
+				s, sep, got, out,
+				strconv.QuoteToASCII(s),
+				strconv.QuoteToASCII(sep),
+				strconv.QuoteToASCII(strings.ToLower(s)),
+				strconv.QuoteToASCII(strings.ToLower(sep)),
+			)
+		}
+		// if got != out {
+		// 	t.Errorf("Index\n"+
+		// 		"S:    %q\n"+
+		// 		"Sep:  %q\n"+
+		// 		"Got:  %d\n"+
+		// 		"Want: %d\n"+
+		// 		"\n"+
+		// 		"S:    %s\n"+
+		// 		"Sep:  %s\n"+
+		// 		"\n",
+		// 		s, sep, got, out, strconv.QuoteToASCII(s), strconv.QuoteToASCII(sep))
+		// }
 	})
 }
 
@@ -819,6 +923,64 @@ func TestHasPrefixFuzz(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) { test(t, true) })
 }
 
+// WARN: remove once no longer needed
+func hasSuffixRunes(s, suffix []rune) bool {
+	return len(s) >= len(suffix) &&
+		strings.EqualFold(string(s[len(s)-len(suffix):]), string(suffix))
+}
+
+func generateHasSuffixArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, string, bool) {
+	match := rr.Float64() <= 0.5
+
+	for lim := 32; lim > 0; lim-- {
+		s := randRunes(rr, rr.Intn(15)+1, ascii)
+		for i := 0; i < 4; i++ {
+			np := intn(rr, len(s)-1)
+			suffix := s[np:]
+			if match {
+				suffix = randCaseRunes(rr, suffix, ascii)
+			} else {
+				if rr.Float64() >= 0.75 {
+					suffix = replaceOneRune(rr, suffix, ascii)
+				} else {
+					suffix = append(s, s[:np]...) // len(suffix) > len(s)
+				}
+			}
+			if got := hasSuffixRunes(s, suffix); got == match {
+				return string(s), string(suffix), match
+			}
+		}
+	}
+
+	panic("Failed to generate vaild HasPrefix args")
+}
+
+func TestHasSuffixFuzz(t *testing.T) {
+	test := func(t *testing.T, ascii bool) {
+		runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
+			s, suffix, out := generateHasSuffixArgs(t, rr, ascii)
+			got := HasSuffix(s, suffix)
+			if got != out {
+				t.Errorf("HasSuffix\n"+
+					"Got:     %t\n"+
+					"Want:    %t\n"+
+					"S:       %q\n"+
+					"Suffix:  %q\n"+
+					"\n"+
+					"S:       %s\n"+
+					"Suffix:  %s\n"+
+					"\n",
+					got, out, s, suffix,
+					strconv.QuoteToASCII(s), strconv.QuoteToASCII(suffix),
+				)
+			}
+		})
+	}
+
+	t.Run("Unicode", func(t *testing.T) { test(t, false) })
+	t.Run("ASCII", func(t *testing.T) { test(t, true) })
+}
+
 // WARN: delete this test
 func TestIndexNonASCIIFuzz(t *testing.T) {
 	t.Skip("DELETE ME")
@@ -973,3 +1135,47 @@ func TestIndexRabinKarpFuzz(t *testing.T) {
 		}
 	})
 }
+
+// TODO: use this
+// type FuzzConfig struct {
+// 	MinSize   int
+// 	MaxSize   int
+// 	SepSize   int
+// 	SepOffset int
+// 	Reference func(s, sep []rune) bool
+// }
+//
+// func (c *FuzzConfig) Generate(t testing.TB, rr *rand.Rand) (s, sep []rune) {
+// 	return nil, nil
+// }
+
+// func runesEqual(s, t []rune) bool {
+// 	if len(s) != len(t) {
+// 		return false
+// 	}
+// 	for i := 0; i < len(s); i++ {
+// 		sr := s[i]
+// 		tr := t[i]
+// 		if tr == sr {
+// 			continue
+// 		}
+// 		if tr < sr {
+// 			tr, sr = sr, tr
+// 		}
+// 		if tr < utf8.RuneSelf {
+// 			if 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A' {
+// 				continue
+// 			}
+// 			return false
+// 		}
+// 		r := unicode.SimpleFold(sr)
+// 		for r != sr && r < tr {
+// 			r = unicode.SimpleFold(r)
+// 		}
+// 		if r == tr {
+// 			continue
+// 		}
+// 		return false
+// 	}
+// 	return true
+// }
