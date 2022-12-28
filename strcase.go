@@ -218,6 +218,20 @@ hasUnicode:
 			return false, len(s) == 0
 		}
 
+		// WARN: this is ~2.5x slower for BenchmarkHasPrefixLonger
+		// if rr, ok := caseOrbit[sr]; ok {
+		// 	sr = rr
+		// }
+		// if sr == tr {
+		// 	continue
+		// }
+		// if rr, ok := caseOrbit[tr]; ok {
+		// 	tr = rr
+		// }
+		// if sr == tr {
+		// 	continue
+		// }
+
 		// General case. SimpleFold(x) returns the next equivalent rune > x
 		// or wraps around to smaller values.
 		r := unicode.SimpleFold(sr)
@@ -837,7 +851,7 @@ func indexUnicode(s, substr string) int {
 
 	fails := 0
 	i := 0
-	// TOOD: see if we can use `t` to stop earlier.
+	// TODO: see if we can use `t` to stop earlier.
 	t := len(s) - (len(substr) / 3) + 1
 	for i < len(s) {
 		var r0 rune
@@ -1305,10 +1319,9 @@ func hashStrUnicode(sep string) (uint32, uint32, int) {
 				r += 'a' - 'A'
 			}
 		} else {
-			if mustFold(r) {
-				return 0, 0, -2
+			if rr, ok := caseOrbit[r]; ok {
+				r = rr
 			}
-			r = unicode.To(unicode.LowerCase, r)
 		}
 		hash = hash*primeRK + uint32(r)
 		n++
@@ -1336,10 +1349,9 @@ func hashStrRevUnicode(sep string) (uint32, uint32, int) {
 			}
 		} else {
 			r, size = utf8.DecodeLastRuneInString(sep[:i])
-			if mustFold(r) {
-				return 0, 0, -2
+			if rr, ok := caseOrbit[r]; ok {
+				r = rr
 			}
-			r = unicode.To(unicode.LowerCase, r)
 		}
 		hash = hash*primeRK + uint32(r)
 		i -= size
@@ -1373,10 +1385,9 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 			}
 		} else {
 			r, size = utf8.DecodeLastRuneInString(s[:i])
-			if mustFold(r) {
-				return -2
+			if rr, ok := caseOrbit[r]; ok {
+				r = rr
 			}
-			r = unicode.To(unicode.LowerCase, r)
 		}
 		h = h*primeRK + uint32(r)
 		i -= size
@@ -1402,10 +1413,9 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 			}
 		} else {
 			r0, n0 = utf8.DecodeLastRuneInString(s[:i])
-			if mustFold(r0) {
-				return -2
+			if rr, ok := caseOrbit[r0]; ok {
+				r0 = rr
 			}
-			r0 = unicode.To(unicode.LowerCase, r0)
 		}
 		var r1 rune
 		var n1 int
@@ -1416,10 +1426,9 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 			}
 		} else {
 			r1, n1 = utf8.DecodeLastRuneInString(s[:j])
-			if mustFold(r1) {
-				return -2
+			if rr, ok := caseOrbit[r1]; ok {
+				r1 = rr
 			}
-			r1 = unicode.To(unicode.LowerCase, r1)
 		}
 		h *= primeRK
 		h += uint32(r0)
@@ -1442,13 +1451,18 @@ func indexRabinKarpUnicode(s, substr string) int {
 	var h uint32
 	sz := 0 // byte size of 'o' runes
 	for i, r := range s {
-		if mustFold(r) {
-			return -2
+		orig := r
+		if r < utf8.RuneSelf {
+			if 'A' <= r && r <= 'Z' {
+				r += 'a' - 'A'
+			}
+		} else if rr, ok := caseOrbit[r]; ok {
+			r = rr
 		}
-		h = h*primeRK + uint32(unicode.ToLower(r))
+		h = h*primeRK + uint32(r)
 		n--
 		if n == 0 {
-			sz = i + utf8.RuneLen(r)
+			sz = i + utf8.RuneLen(orig)
 			break
 		}
 	}
@@ -1464,19 +1478,17 @@ func indexRabinKarpUnicode(s, substr string) int {
 			s0, n0 = rune(_lower[s[j]]), 1
 		} else {
 			s0, n0 = utf8.DecodeRuneInString(s[j:])
-			if mustFold(s0) {
-				return -2
+			if rr, ok := caseOrbit[s0]; ok {
+				s0 = rr
 			}
-			s0 = unicode.To(unicode.LowerCase, s0)
 		}
 		if s[i] < utf8.RuneSelf {
 			s1, n1 = rune(_lower[s[i]]), 1
 		} else {
 			s1, n1 = utf8.DecodeRuneInString(s[i:])
-			if mustFold(s1) {
-				return -2
+			if rr, ok := caseOrbit[s1]; ok {
+				s1 = rr
 			}
-			s1 = unicode.To(unicode.LowerCase, s1)
 		}
 		h += uint32(s0)
 		h -= pow * uint32(s1)

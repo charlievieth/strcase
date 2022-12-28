@@ -5,16 +5,20 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"go/format"
 	"log"
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"unicode"
-	"unicode/utf8"
 
+	"github.com/charlievieth/strcase/internal/gen"
+	"github.com/charlievieth/strcase/internal/ucd"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"golang.org/x/text/unicode/rangetable"
 )
 
@@ -32,17 +36,40 @@ var categories = rangetable.Merge(mapToTable(
 ))
 
 func mapToTable(maps ...map[string]*unicode.RangeTable) *unicode.RangeTable {
-	n := 0
-	for _, m := range maps {
-		n += len(m)
-	}
-	tabs := make([]*unicode.RangeTable, 0, n)
+	var tabs []*unicode.RangeTable
 	for _, m := range maps {
 		for _, t := range m {
 			tabs = append(tabs, t)
 		}
 	}
 	return rangetable.Merge(tabs...)
+}
+
+type foldPair struct {
+	From uint32
+	To   uint32
+}
+
+var caseFolds []foldPair
+
+type byFoldPair []foldPair
+
+func (b byFoldPair) Len() int           { return len(b) }
+func (b byFoldPair) Less(i, j int) bool { return b[i].From < b[j].From }
+func (b byFoldPair) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+
+func loadCaseFolds() {
+	ucd.Parse(gen.OpenUCDFile("CaseFolding.txt"), func(p *ucd.Parser) {
+		kind := p.String(1)
+		if kind != "C" && kind != "S" {
+			// Only care about 'common' and 'simple' foldings.
+			return
+		}
+		p1 := p.Rune(0)
+		p2 := p.Rune(2)
+		caseFolds = append(caseFolds, foldPair{uint32(p1), uint32(p2)})
+	})
+	sort.Sort(byFoldPair(caseFolds))
 }
 
 func printRangeTable(w *bytes.Buffer, name string, rt *unicode.RangeTable) {
@@ -82,40 +109,36 @@ func folds(sr rune) []rune {
 	return runes
 }
 
-func genMustLower(w *bytes.Buffer) {
-	var runes []rune
-	rangetable.Visit(categories, func(r rune) {
-		if ff := folds(r); len(ff) > 2 {
-			runes = append(runes, ff...)
-			return
-		}
-		switch lr := unicode.ToLower(r); {
-		case r >= utf8.RuneSelf && lr < utf8.RuneSelf:
-			runes = append(runes, r, lr, unicode.ToUpper(lr))
-		case unicode.ToUpper(r) != unicode.ToUpper(lr):
-			runes = append(runes, r, lr, unicode.ToUpper(lr))
-		}
-	})
-
-	if len(runes) == 0 {
-		log.Panic("Failed to generate any runes!")
-	}
-
-	table := rangetable.New(runes...)
-	printRangeTable(w, "_MustLower", table)
-}
-
-type byRune []rune
-
-func (r byRune) Len() int           { return len(r) }
-func (r byRune) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-func (r byRune) Less(i, j int) bool { return r[i] < r[j] }
+// func genMustLower(w *bytes.Buffer) {
+// 	var runes []rune
+// 	rangetable.Visit(categories, func(r rune) {
+// 		if ff := folds(r); len(ff) > 2 {
+// 			runes = append(runes, ff...)
+// 			return
+// 		}
+// 		switch lr := unicode.ToLower(r); {
+// 		case r >= utf8.RuneSelf && lr < utf8.RuneSelf:
+// 			runes = append(runes, r, lr, unicode.ToUpper(lr))
+// 		case unicode.ToUpper(r) != unicode.ToUpper(lr):
+// 			runes = append(runes, r, lr, unicode.ToUpper(lr))
+// 		}
+// 	})
+//
+// 	if len(runes) == 0 {
+// 		log.Panic("Failed to generate any runes!")
+// 	}
+//
+// 	table := rangetable.New(runes...)
+// 	printRangeTable(w, "_MustLower", table)
+// }
 
 func dedupe(r []rune) []rune {
 	if len(r) <= 1 {
 		return r
 	}
-	sort.Sort(byRune(r))
+	slices.Sort(r)
+	// slices.Compact(r)
+	// return r
 	k := 1
 	for i := 1; i < len(r); i++ {
 		if r[k-1] != r[i] {
@@ -127,13 +150,16 @@ func dedupe(r []rune) []rune {
 }
 
 func printRangeMap(w *bytes.Buffer, name, typ string, runes map[rune][]rune) {
-	keys := make([]rune, 0, len(runes))
-	for k := range runes {
-		// WARN
-		// runes[k] = dedupe(rs)
-		keys = append(keys, k)
-	}
-	sort.Sort(byRune(keys))
+	// keys := make([]rune, 0, len(runes))
+	// for k := range runes {
+	// 	// WARN
+	// 	// runes[k] = dedupe(rs)
+	// 	keys = append(keys, k)
+	// }
+	// sort.Sort(byRune(keys))
+
+	keys := maps.Keys(runes)
+	slices.Sort(keys)
 
 	fmt.Fprint(w, "\n\n")
 	fmt.Fprintf(w, "var %s = map[rune]%s{\n", name, typ)
@@ -158,62 +184,14 @@ func printRangeMap(w *bytes.Buffer, name, typ string, runes map[rune][]rune) {
 	fmt.Fprintln(w, "}")
 }
 
-func printSwitch(w *bytes.Buffer, name string, runes []rune) {
-	// if !sort.IsSorted(byRune(runes)) {
-	// 	sort.Sort(byRune(runes))
-	// }
-	runes = dedupe(runes)
-
-	fmt.Fprintf(w, "\nfunc %s(r rune) bool {\n", name)
-	fmt.Fprintln(w, "\tswitch r {")
-	fmt.Fprintf(w, "\tcase ")
-
-	for i := 0; i < 8 && len(runes) > 0; i++ {
-		r := runes[0]
-		if r <= math.MaxUint16 {
-			fmt.Fprintf(w, "%#04X, ", r)
-		} else {
-			fmt.Fprintf(w, "%#06X, ", r)
-		}
-		// fmt.Fprintf(w, "%#04X, ", runes[i])
-		runes = runes[1:]
-	}
-	fmt.Fprintf(w, "\n")
-	// fmt.Fprintln(w, ":")
-
-	for len(runes) > 0 {
-		for i := 0; i < 8 && len(runes) > 0; i++ {
-			if i != 0 {
-				w.WriteString(", ")
-			}
-			r := runes[0]
-			if r <= math.MaxUint16 {
-				fmt.Fprintf(w, "%#04X", r)
-			} else {
-				fmt.Fprintf(w, "%#06X", r)
-			}
-			// fmt.Fprintf(w, "%#04X", runes[0])
-			runes = runes[1:]
-		}
-		if len(runes) > 0 {
-			w.WriteString(",\n\t\t")
-		} else {
-			w.WriteString(":\n")
-		}
-	}
-	fmt.Fprintln(w, "\t\treturn true")
-	fmt.Fprintln(w, "\t}")
-	fmt.Fprintln(w, "\treturn false")
-	fmt.Fprintln(w, "}")
-	fmt.Fprint(w, "\n")
-}
-
 func printIndexMap(w *bytes.Buffer, name string, runes map[rune]rune) {
-	keys := make([]rune, 0, len(runes))
-	for k := range runes {
-		keys = append(keys, k)
-	}
-	sort.Sort(byRune(keys))
+	// keys := make([]rune, 0, len(runes))
+	// for k := range runes {
+	// 	keys = append(keys, k)
+	// }
+	// sort.Sort(byRune(keys))
+	keys := maps.Keys(runes)
+	slices.Sort(keys)
 
 	fmt.Fprint(w, "\n\n")
 	fmt.Fprintf(w, "var %s = map[rune]rune{\n", name)
@@ -233,24 +211,15 @@ func printIndexMap(w *bytes.Buffer, name string, runes map[rune]rune) {
 	fmt.Fprintln(w, "}")
 }
 
-func contains(rs []rune, r rune) bool {
-	for _, rr := range rs {
-		if rr == r {
-			return true
-		}
-	}
-	return false
-}
-
 // TODO: update other gen func to match this one
-
+//
+// WARN: use caseFolds
 func genFoldMap(w *bytes.Buffer) {
 	runes := make(map[rune][]rune)
 	rangetable.Visit(categories, func(r rune) {
 		ff := folds(r)
 		if len(ff) > 2 {
 			runes[r] = append(runes[r], ff...)
-			// keys = append(keys, r)
 		}
 		// WARN
 		if len(ff) == 1 && unicode.ToUpper(r) != unicode.ToLower(r) {
@@ -266,7 +235,7 @@ func genFoldMap(w *bytes.Buffer) {
 		keys = append(keys, k)
 
 		// Make sure the key is included (was an issue with: 'ß')
-		if !contains(rs, k) {
+		if !slices.Contains(rs, k) {
 			rs = append(rs, k)
 		}
 		runes[k] = dedupe(rs)
@@ -279,8 +248,6 @@ func genFoldMap(w *bytes.Buffer) {
 
 	// TODO: use `[4]rune`
 	printRangeMap(w, "_FoldMap", "[]rune", runes)
-
-	printSwitch(w, "mustFold", keys)
 
 	noUpperLower := make(map[rune][]rune)
 	for k, rs := range runes {
@@ -306,45 +273,130 @@ func genFoldMap(w *bytes.Buffer) {
 	}
 
 	printRangeMap(w, "_FoldMapExcludingUpperLower", "[2]rune", noUpperLower)
-
-	// TODO: add ASCII folds instead of hard-coding them into functions
-	//
-	// ascii := make(map[rune][]rune)
-	// for k, rs := range runes {
-	// 	if k < utf8.RuneSelf {
-	// 		ascii[k] = rs
-	// 	}
-	// }
-	// printRangeMap(w, "_FoldMapASCII", "[]rune", ascii)
 }
+
+func fmtUint(u uint32) string {
+	if u <= math.MaxUint16 {
+		return fmt.Sprintf("%#04X", u)
+	}
+	return fmt.Sprintf("%#06X", u)
+}
+
+func printFoldPairsMap(w *bytes.Buffer, name string) {
+	pairs := caseFolds
+	if !sort.IsSorted(byFoldPair(pairs)) {
+		log.Panic("pairs are not sorted")
+	}
+
+	fmt.Fprintf(w, "\nvar %s = map[rune]rune{\n", name)
+	for _, p := range pairs {
+		fmt.Fprintf(w, "\t%s: %s, // %q\t=>\t%q\n", fmtUint(p.From), fmtUint(p.To), p.From, p.To)
+	}
+	fmt.Fprint(w, "}\n\n")
+}
+
+// func printMultiLengthFolds(w *bytes.Buffer, name string) {
+// 	pairs := caseFolds
+// 	if !sort.IsSorted(byFoldPair(pairs)) {
+// 		log.Panic("pairs are not sorted")
+// 	}
+//
+// 	var runes []rune
+// 	for _, p := range pairs {
+// 		if utf8.RuneLen(rune(p.From)) != utf8.RuneLen(rune(p.To)) {
+// 			runes = append(runes, rune(p.From), rune(p.To))
+// 		}
+// 	}
+// 	runes = dedupe(runes)
+//
+// 	fmt.Fprintf(w, "\nvar %s = [...]rune{\n", name)
+// 	for _, r := range runes {
+// 		if r <= math.MaxUint16 {
+// 			fmt.Fprintf(w, "\t%#04X, // %q\n", r, r)
+// 		} else {
+// 			fmt.Fprintf(w, "\t%#06X, // %q\n", r, r)
+// 		}
+// 	}
+// 	fmt.Fprint(w, "}\n\n")
+// }
 
 func writeHeader(w *bytes.Buffer) {
 	const hdr = `// Code generated by running "go generate" in github.com/charlievieth/strcase. DO NOT EDIT.
+	// Unicode version: %s
 
 package strcase
 
-import "unicode"
-
 `
-	w.WriteString(hdr)
+	fmt.Fprintf(w, hdr, unicode.Version)
 }
 
-func sameData(filename string, data []byte) bool {
+func dataEqual(filename string, data []byte) bool {
 	got, err := os.ReadFile(filename)
 	return err == nil && bytes.Equal(got, data)
 }
 
+func testBuild(data []byte) {
+	// abs, err := filepath.Abs("tables.go")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	f, err := os.CreateTemp(filepath.Dir("."), "strcase-overlay.*")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		f.Close()
+		os.Remove(f.Name())
+	}()
+
+	type OverlayJSON struct {
+		Replace map[string]string
+	}
+	enc := json.NewEncoder(f)
+	err = enc.Encode(OverlayJSON{
+		Replace: map[string]string{
+			"tables.go": string(data),
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	cmd := exec.Command("go", "build", "-overlay", f.Name())
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Println("Error:", err)
+		log.Println(string(out))
+	}
+	log.Println("OK")
+}
+
 func writeFile(name string, data []byte) {
+	testBuild(data)
+	var buf bytes.Buffer
+	if _, err := gen.WriteGo(&buf, "strcase", "", data); err != nil {
+		log.Fatal(err)
+	}
 	// TODO: use `go build -overlay` to test the change
-	orig, _ := os.ReadFile(name)
-	if bytes.Equal(orig, data) {
+	if dataEqual(name, buf.Bytes()) {
 		return
 	}
-	if err := os.WriteFile(name+".tmp", data, 0644); err != nil {
+
+	tmp := name + ".tmp"
+	f, err := os.Create(tmp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fatal := func(err error) {
+		f.Close()
+		os.Remove(tmp)
 		log.Panic(err)
 	}
+	if _, err := buf.WriteTo(f); err != nil {
+		fatal(err)
+	}
 	if err := os.Rename(name+".tmp", name); err != nil {
-		log.Panic(err)
+		fatal(err)
 	}
 }
 
@@ -376,20 +428,23 @@ func genFoldableRunes(w *bytes.Buffer) {
 	// return
 
 	var runes []rune
-	rangetable.Visit(categories, func(r rune) {
-		if ff := folds(r); len(ff) > 2 {
-			runes = append(runes, ff...)
-			return
-		}
-	})
+	for _, p := range caseFolds {
+		runes = append(runes, rune(p.From), rune(p.To))
+	}
+	// rangetable.Visit(categories, func(r rune) {
+	// 	if ff := folds(r); len(ff) > 2 {
+	// 		runes = append(runes, ff...)
+	// 		return
+	// 	}
+	// })
 	if len(runes) == 0 {
 		log.Panic("Failed to generate any runes!")
 	}
 
-	table := rangetable.New(runes...)
+	// table := rangetable.New(runes...)
 
 	fmt.Fprintln(w, "// WARN: do we need this ???")
-	printRangeTable(w, "_Foldable", table)
+	// printRangeTable(w, "_Foldable", table)
 }
 
 func formatSource(src []byte) []byte {
@@ -404,31 +459,81 @@ func formatSource(src []byte) []byte {
 }
 
 func main() {
-	if _, err := exec.LookPath("gofmt"); err != nil {
-		log.Fatal(err)
-	}
+	// if _, err := exec.LookPath("gofmt"); err != nil {
+	// 	log.Fatal(err)
+	// }
+	loadCaseFolds()
 
 	var w bytes.Buffer
-	// WARN
-	// genFoldableRunes(&w)
-	// return
+	gen.WriteUnicodeVersion(&w)
+	gen.WriteCLDRVersion(&w)
 
-	writeHeader(&w)
-	genMustLower(&w)
-	// WARN: new
-	genFoldableRunes(&w)
-	// genFoldMap(&w)
-	// WARN: dev only
 	genFoldMap(&w)
 
-	src, err := format.Source(w.Bytes())
-	if err != nil {
-		log.Println("Error:", err)
-		log.Println("##### Source:")
-		log.Println(w.String())
-		log.Println("#####")
-		log.Panic(err)
-	}
+	printFoldPairsMap(&w, "caseFolds")
+	// printMultiLengthFolds(&w, "_MultiLengthFolds")
+
+	writeFile("tables.go", w.Bytes())
+	// gen.WriteGoFile("tables.go", "strcase", w.Bytes())
+
+	// src, err := format.Source(w.Bytes())
+	// if err != nil {
+	// 	log.Println("Error:", err)
+	// 	log.Println("##### Source:")
+	// 	log.Println(w.String())
+	// 	log.Println("#####")
+	// 	log.Panic(err)
+	// }
 	// src := formatSource(w.Bytes())
-	writeFile("tables.go", src)
+	// writeFile("tables.go", src)
 }
+
+// func printSwitch(w *bytes.Buffer, name string, runes []rune) {
+// 	// if !sort.IsSorted(byRune(runes)) {
+// 	// 	sort.Sort(byRune(runes))
+// 	// }
+// 	runes = dedupe(runes)
+//
+// 	fmt.Fprintf(w, "\nfunc %s(r rune) bool {\n", name)
+// 	fmt.Fprintln(w, "\tswitch r {")
+// 	fmt.Fprintf(w, "\tcase ")
+//
+// 	for i := 0; i < 8 && len(runes) > 0; i++ {
+// 		r := runes[0]
+// 		if r <= math.MaxUint16 {
+// 			fmt.Fprintf(w, "%#04X, ", r)
+// 		} else {
+// 			fmt.Fprintf(w, "%#06X, ", r)
+// 		}
+// 		// fmt.Fprintf(w, "%#04X, ", runes[i])
+// 		runes = runes[1:]
+// 	}
+// 	fmt.Fprintf(w, "\n")
+// 	// fmt.Fprintln(w, ":")
+//
+// 	for len(runes) > 0 {
+// 		for i := 0; i < 8 && len(runes) > 0; i++ {
+// 			if i != 0 {
+// 				w.WriteString(", ")
+// 			}
+// 			r := runes[0]
+// 			if r <= math.MaxUint16 {
+// 				fmt.Fprintf(w, "%#04X", r)
+// 			} else {
+// 				fmt.Fprintf(w, "%#06X", r)
+// 			}
+// 			// fmt.Fprintf(w, "%#04X", runes[0])
+// 			runes = runes[1:]
+// 		}
+// 		if len(runes) > 0 {
+// 			w.WriteString(",\n\t\t")
+// 		} else {
+// 			w.WriteString(":\n")
+// 		}
+// 	}
+// 	fmt.Fprintln(w, "\t\treturn true")
+// 	fmt.Fprintln(w, "\t}")
+// 	fmt.Fprintln(w, "\treturn false")
+// 	fmt.Fprintln(w, "}")
+// 	fmt.Fprint(w, "\n")
+// }

@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"math/rand"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -17,33 +16,101 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"golang.org/x/exp/slices"
 	"golang.org/x/text/unicode/rangetable"
 )
 
 // TODO: remove this
 var multiwidthRunes = [...]rune{
-	'\U00000130', // 304: İ => i
-	'\U00001E9E', // 7838: ẞ => ß
-	'\U00002126', // 8486: Ω => ω
-	'\U0000212A', // 8490: K => k
-	'\U0000212B', // 8491: Å => å
-	'\U00002C62', // 11362: Ɫ => ɫ
-	'\U00002C64', // 11364: Ɽ => ɽ
-	'\U00002C6D', // 11373: Ɑ => ɑ
-	'\U00002C6E', // 11374: Ɱ => ɱ
-	'\U00002C6F', // 11375: Ɐ => ɐ
-	'\U00002C70', // 11376: Ɒ => ɒ
-	'\U00002C7E', // 11390: Ȿ => ȿ
-	'\U00002C7F', // 11391: Ɀ => ɀ
-	'\U0000A78D', // 42893: Ɥ => ɥ
-	'\U0000A7AA', // 42922: Ɦ => ɦ
-	'\U0000A7AB', // 42923: Ɜ => ɜ
-	'\U0000A7AC', // 42924: Ɡ => ɡ
-	'\U0000A7AD', // 42925: Ɬ => ɬ
-	'\U0000A7AE', // 42926: Ɪ => ɪ
-	'\U0000A7B0', // 42928: Ʞ => ʞ
-	'\U0000A7B1', // 42929: Ʇ => ʇ
-	'\U0000A7B2', // 42930: Ʝ => ʝ
+	0x006B, // 'k'
+	0x0073, // 's'
+	0x00DF, // 'ß'
+	0x00E5, // 'å'
+	0x017F, // 'ſ'
+	0x023A, // 'Ⱥ'
+	0x023E, // 'Ⱦ'
+	0x023F, // 'ȿ'
+	0x0240, // 'ɀ'
+	0x0250, // 'ɐ'
+	0x0251, // 'ɑ'
+	0x0252, // 'ɒ'
+	0x025C, // 'ɜ'
+	0x0261, // 'ɡ'
+	0x0265, // 'ɥ'
+	0x0266, // 'ɦ'
+	0x026A, // 'ɪ'
+	0x026B, // 'ɫ'
+	0x026C, // 'ɬ'
+	0x0271, // 'ɱ'
+	0x027D, // 'ɽ'
+	0x0282, // 'ʂ'
+	0x0287, // 'ʇ'
+	0x029D, // 'ʝ'
+	0x029E, // 'ʞ'
+	0x03B9, // 'ι'
+	0x03C9, // 'ω'
+	0x0432, // 'в'
+	0x0434, // 'д'
+	0x043E, // 'о'
+	0x0441, // 'с'
+	0x0442, // 'т'
+	0x044A, // 'ъ'
+	0x0463, // 'ѣ'
+	0x1C80, // 'ᲀ'
+	0x1C81, // 'ᲁ'
+	0x1C82, // 'ᲂ'
+	0x1C83, // 'ᲃ'
+	0x1C84, // 'ᲄ'
+	0x1C85, // 'ᲅ'
+	0x1C86, // 'ᲆ'
+	0x1C87, // 'ᲇ'
+	0x1E9E, // 'ẞ'
+	0x1FBE, // 'ι'
+	0x2126, // 'Ω'
+	0x212A, // 'K'
+	0x212B, // 'Å'
+	0x2C62, // 'Ɫ'
+	0x2C64, // 'Ɽ'
+	0x2C65, // 'ⱥ'
+	0x2C66, // 'ⱦ'
+	0x2C6D, // 'Ɑ'
+	0x2C6E, // 'Ɱ'
+	0x2C6F, // 'Ɐ'
+	0x2C70, // 'Ɒ'
+	0x2C7E, // 'Ȿ'
+	0x2C7F, // 'Ɀ'
+	0xA78D, // 'Ɥ'
+	0xA7AA, // 'Ɦ'
+	0xA7AB, // 'Ɜ'
+	0xA7AC, // 'Ɡ'
+	0xA7AD, // 'Ɬ'
+	0xA7AE, // 'Ɪ'
+	0xA7B0, // 'Ʞ'
+	0xA7B1, // 'Ʇ'
+	0xA7B2, // 'Ʝ'
+	0xA7C5, // 'Ʂ'
+
+	// '\U00001E9E', // 7838: ẞ => ß
+	// '\U00002126', // 8486: Ω => ω
+	// '\U0000212A', // 8490: K => k
+	// '\U0000212B', // 8491: Å => å
+	// '\U00002C62', // 11362: Ɫ => ɫ
+	// '\U00002C64', // 11364: Ɽ => ɽ
+	// '\U00002C6D', // 11373: Ɑ => ɑ
+	// '\U00002C6E', // 11374: Ɱ => ɱ
+	// '\U00002C6F', // 11375: Ɐ => ɐ
+	// '\U00002C70', // 11376: Ɒ => ɒ
+	// '\U00002C7E', // 11390: Ȿ => ȿ
+	// '\U00002C7F', // 11391: Ɀ => ɀ
+	// '\U0000A78D', // 42893: Ɥ => ɥ
+	// '\U0000A7AA', // 42922: Ɦ => ɦ
+	// '\U0000A7AB', // 42923: Ɜ => ɜ
+	// '\U0000A7AC', // 42924: Ɡ => ɡ
+	// '\U0000A7AD', // 42925: Ɬ => ɬ
+	// '\U0000A7AE', // 42926: Ɪ => ɪ
+	// '\U0000A7B0', // 42928: Ʞ => ʞ
+	// '\U0000A7B1', // 42929: Ʇ => ʇ
+	// '\U0000A7B2', // 42930: Ʝ => ʝ
 }
 
 var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
@@ -103,14 +170,11 @@ var (
 )
 
 func generateFoldableRunes() []rune {
-	n := 0
-	rangetable.Visit(_Foldable, func(r rune) {
-		n++
-	})
-	a := make([]rune, 0, n)
-	rangetable.Visit(_Foldable, func(r rune) {
-		a = append(a, r)
-	})
+	a := make([]rune, 0, len(caseFolds)*2)
+	for r0, r1 := range caseFolds {
+		a = append(a, r0, r1)
+	}
+	slices.Sort(a)
 	return a
 }
 
@@ -222,8 +286,8 @@ func TestRandRune(t *testing.T) {
 			for r, n := range seen {
 				runes = append(runes, RuneCount{r, n})
 			}
-			sort.Slice(runes, func(i, j int) bool {
-				return runes[i].N >= runes[j].N
+			slices.SortFunc(runes, func(a, b RuneCount) bool {
+				return a.N >= b.N
 			})
 			for i := 0; i < 10; i++ {
 				r := runes[i]
@@ -234,8 +298,16 @@ func TestRandRune(t *testing.T) {
 	})
 }
 
+var invalidRunes = flag.Bool("invalid", false, "fuzz test with invalid runes")
+
 func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 	rs := make([]rune, n)
+	if *invalidRunes {
+		for i := range rs {
+			rs[i] = rune(rr.Int31())
+		}
+		return rs
+	}
 	if ascii {
 		for i := range rs {
 			rs[i] = rune(randASCII(rr))
@@ -257,6 +329,17 @@ func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 		rs[i] = randRune(rr)
 	}
 	return rs
+}
+
+func TestEqualFoldFuzz(t *testing.T) {
+	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
+		n := rr.Intn(15) + 1
+		s0 := randRunes(rr, n, false)
+		s1 := randCaseRunes(rr, s0, false)
+		if !strings.EqualFold(string(s0), string(s1)) {
+			t.Errorf("EqualFold(%q, %q) = false", string(s0), string(s1))
+		}
+	})
 }
 
 func randCaseRune(rr *rand.Rand, r rune, ascii bool) rune {
@@ -751,7 +834,7 @@ func TestIndexRuneFuzz(t *testing.T) {
 		s, r, out := generateIndexRuneArgs(t, rr)
 		got := IndexRune(s, r)
 		if got != out {
-			_, foldable := _FoldMap[r]
+			_, foldable := caseOrbit[r]
 			t.Errorf("IndexRune\n"+
 				"S:    %q\n"+
 				"Sep:  %q\n"+
@@ -1016,6 +1099,7 @@ func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, strin
 	panic("Failed to generate vaild Compare args")
 }
 
+// WARN: fix this
 func TestCompareFuzz(t *testing.T) {
 	test := func(t *testing.T, ascii bool) {
 		fn := func(t testing.TB, rr *rand.Rand) {
@@ -1035,6 +1119,14 @@ func TestCompareFuzz(t *testing.T) {
 					strconv.QuoteToASCII(strings.ToLower(s0)),
 					strconv.QuoteToASCII(strings.ToLower(s1)),
 				)
+			}
+			// WARN: fix this
+			if got == 0 && !strings.EqualFold(s0, s1) {
+				if testing.Verbose() {
+					t.Errorf("Compare(%q, %q) = 0 but EqualFold() = false", s0, s1)
+				} else {
+					t.Logf("Compare(%q, %q) = 0 but EqualFold() = false", s0, s1)
+				}
 			}
 		}
 		runRandomTest(t, fn)

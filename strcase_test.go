@@ -267,6 +267,11 @@ var unicodeIndexTests = []IndexTest{
 		sep: "\u212a-\u212a",
 		out: 10,
 	},
+	{
+		s:   "\U0007279d\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd",
+		sep: "\ufffd\ufffd\ufffd\ufffd\ufffd",
+		out: 4,
+	},
 }
 
 var lastIndexTests = []IndexTest{
@@ -544,16 +549,6 @@ func TestIndexRune(t *testing.T) {
 			t.Errorf("IndexRune(%q, %q) = %v; want %v", tt.in, tt.rune, got, tt.want)
 		}
 	}
-
-	rangetable.Visit(_MustLower, func(r rune) {
-		for _, prefix := range []string{"", "a"} {
-			s := prefix + string(r)
-			i := IndexRune(s, r)
-			if i != len(prefix) {
-				t.Errorf("IndexRune(%q, %q) = %v; want %v", s, r, i, len(prefix))
-			}
-		}
-	})
 
 	haystack := "test世界İ"
 	allocs := testing.AllocsPerRun(1000, func() {
