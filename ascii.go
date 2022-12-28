@@ -1,39 +1,92 @@
 package strcase
 
-import "strings"
+import (
+	"strings"
+)
 
-// hasPrefixASCII tests whether the string s begins with prefix.
-func hasPrefixASCII(s, prefix string) bool {
-	if len(s) >= len(prefix) {
-		for i := 0; i < len(prefix); i++ {
-			if _lower[s[i]] != _lower[prefix[i]] {
-				return false
-			}
+// WARN WARN WARN WARN WARN WARN
+//
+// Not significantly faster than Unicode version !!!
+//
+// 	benchmark                  old ns/op     new ns/op     delta
+// 	BenchmarkIndexHard1-10     2114028       2070194       -2.07%
+// 	BenchmarkIndexHard2-10     2795686       2541616       -9.09%
+// 	BenchmarkIndexHard3-10     2412442       2170544       -10.03%
+// 	BenchmarkIndexHard4-10     1746630       1735745       -0.62%
+//
+// WARN WARN WARN WARN WARN WARN
+
+func CompareASCII(s, t string) int {
+	i := 0
+	for ; i < len(s) && i < len(t); i++ {
+		sr := s[i]
+		tr := t[i]
+		if sr == tr || _lower[sr] == _lower[tr] {
+			continue
 		}
-		return true
+		if _lower[sr] < _lower[tr] {
+			return -1
+		}
+		return 1
 	}
-	return false
+	return clamp(len(s) - len(t))
+}
+
+// HasPrefixASCII tests whether the string s begins with prefix.
+func HasPrefixASCII(s, prefix string) bool {
+	return len(s) >= len(prefix) && equalASCII(s[0:len(prefix)], prefix)
+}
+
+func toUpperLowerASCII(c byte) (upper, lower byte) {
+	if 'A' <= c && c <= 'Z' {
+		return c, c + 'a' - 'A'
+	}
+	if 'a' <= c && c <= 'z' {
+		return c - 'a' - 'A', c
+	}
+	return c, c
 }
 
 func bruteForceIndexASCII(s, substr string) int {
-	c0 := _lower[substr[0]]
-	c1 := _lower[substr[1]]
+	u0, l0 := toUpperLowerASCII(substr[0])
+	u1, l1 := toUpperLowerASCII(substr[1])
+	needle := substr[2:]
 	t := len(s) - len(substr) + 1
-	for i := 0; i < t; i++ {
-		if s0 := s[i]; s0 != c0 && _lower[s0] != c0 {
-			continue
+	if u0 == l0 && u1 == l1 {
+		for i := 0; i < t; i++ {
+			if s0 := s[i]; s0 != l0 {
+				continue
+			}
+			if s1 := s[i+1]; s1 != l1 {
+				if s1 != l0 {
+					i++
+				}
+				continue
+			}
+			if HasPrefixASCII(s[i+2:], needle) {
+				return i
+			}
 		}
-		if s1 := s[i+1]; s1 != c1 && _lower[s1] != c1 {
-			continue
-		}
-		if hasPrefixASCII(s[i+2:], substr[2:]) {
-			return i
+	} else {
+		for i := 0; i < t; i++ {
+			if s0 := s[i]; s0 != l0 && s0 != u0 {
+				continue
+			}
+			if s1 := s[i+1]; s1 != l1 && s1 != u1 {
+				if s1 != l0 && s1 != u0 {
+					i++
+				}
+				continue
+			}
+			if HasPrefixASCII(s[i+2:], needle) {
+				return i
+			}
 		}
 	}
 	return -1
 }
 
-func indexByteASCII(s string, c byte) int {
+func IndexByteASCII(s string, c byte) int {
 	n := strings.IndexByte(s, c)
 	if n == 0 || !isAlpha(c) {
 		return n
@@ -51,57 +104,74 @@ func indexByteASCII(s string, c byte) int {
 	return n
 }
 
-func shortIndexASCII(s, substr string) int {
+// IndexASCII returns the index of the first instance of substr in s, or -1 if
+// substr is not present in s.
+func IndexASCII(s, substr string) int {
 	n := len(substr)
-	c0 := _lower[substr[0]]
-	c1 := _lower[substr[1]]
-	i := 0
-	t := len(s) - n + 1
-	fails := 0
-	for i < t {
-		if _lower[s[i]] != c0 {
-			// IndexByte is faster than bytealg.IndexString, so use it as long as
-			// we're not getting lots of false positives.
-			o := indexByteASCII(s[i+1:t], c0)
-			if o < 0 {
+	switch {
+	case n == 0:
+		return 0
+	case n == 1:
+		return IndexByte(s, substr[0])
+	case n == len(s):
+		if equalASCII(s, substr) {
+			return 0
+		}
+		return -1
+	case n <= maxLen:
+		// WARN: 32 is for arm64 (see: bytealg.MaxLen)
+		if len(s) <= maxBruteForce {
+			return bruteForceIndexASCII(s, substr)
+		}
+		u0, l0 := toUpperLowerASCII(substr[0])
+		u1, l1 := toUpperLowerASCII(substr[1])
+		needle := substr[2:]
+		t := len(s) - n + 1
+		i := 0
+		fails := 0
+		for i < t {
+			if s0 := s[i]; s0 != l0 && s0 != u0 {
+				o := IndexByteASCII(s[i+1:t], l0)
+				if o < 0 {
+					return -1
+				}
+				i += o + 1
+			}
+			if s1 := s[i+1]; (s1 == l1 || s1 == u1) && equalASCII(s[i+2:i+n], needle) {
+				return i
+			}
+			fails++
+			i++
+			// FIXME: this needs to be tuned since the brute force
+			// performance is very different than the stdlibs.
+			if fails > cutover(i) {
+				r := bruteForceIndexASCII(s[i:], substr)
+				if r >= 0 {
+					return r + i
+				}
 				return -1
 			}
-			i += o + 1
 		}
-		if _lower[s[i+1]] == c1 && equalASCII(s[i:i+n], substr) {
-			return i
-		}
-		fails++
-		i++
-		if fails > cutover(i) {
-			// FIXME: use Rabin-Karp
-			r := bruteForceIndexASCII(s[i:], substr)
-			if r >= 0 {
-				return r + i
-			}
-			return -1
-		}
+		return -1
 	}
-	return -1
-}
-
-func indexASCII(s, substr string) int {
-	n := len(substr)
-	c0 := _lower[substr[0]]
-	c1 := _lower[substr[1]]
-	i := 0
+	u0, l0 := toUpperLowerASCII(substr[0])
+	u1, l1 := toUpperLowerASCII(substr[1])
+	needle := substr[2:]
 	t := len(s) - n + 1
+	i := 0
 	fails := 0
 	for i < t {
-		if _lower[s[i]] != c0 {
-			o := IndexByte(s[i+1:t], c0)
+		if s0 := s[i]; s0 != l0 && s0 != u0 {
+			o := IndexByteASCII(s[i+1:t], l0)
 			if o < 0 {
 				return -1
 			}
 			i += o + 1
 		}
-		if _lower[s[i+1]] == c1 && s[i:i+n] == substr {
-			return i
+		if s1 := s[i+1]; s1 == l1 || s1 == u1 {
+			if equalASCII(s[i+2:i+n], needle) {
+				return i
+			}
 		}
 		i++
 		fails++
@@ -164,6 +234,8 @@ func equalASCII(s, t string) bool {
 		return false
 	}
 	for i := 0; i < len(s); i++ {
+		// NOTE: this is generally faster than checking if s[i] != t[i]
+		// before lower casing the chars.
 		if _lower[s[i]] != _lower[t[i]] {
 			return false
 		}
