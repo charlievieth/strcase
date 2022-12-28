@@ -106,7 +106,7 @@ func TestCalibrateIndexByte(t *testing.T) {
 					s = s[:m] // limit search space
 				}
 				if o := strings.IndexByte(s, c1); m == -1 || (o != -1 && o < m) {
-					m = o
+					_ = o // pretend to assign o to m
 				}
 			}
 		}
@@ -117,7 +117,7 @@ func TestCalibrateIndexByte(t *testing.T) {
 					continue
 				}
 				if o := strings.IndexByte(s, c1); m == -1 || (o != -1 && o < m) {
-					m = o
+					_ = o // pretend to assign o to m
 				}
 			}
 		}
