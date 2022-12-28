@@ -89,78 +89,25 @@ var multiwidthRunes = [...]rune{
 	0xA7B1, // 'Ʇ'
 	0xA7B2, // 'Ʝ'
 	0xA7C5, // 'Ʂ'
-
-	// '\U00001E9E', // 7838: ẞ => ß
-	// '\U00002126', // 8486: Ω => ω
-	// '\U0000212A', // 8490: K => k
-	// '\U0000212B', // 8491: Å => å
-	// '\U00002C62', // 11362: Ɫ => ɫ
-	// '\U00002C64', // 11364: Ɽ => ɽ
-	// '\U00002C6D', // 11373: Ɑ => ɑ
-	// '\U00002C6E', // 11374: Ɱ => ɱ
-	// '\U00002C6F', // 11375: Ɐ => ɐ
-	// '\U00002C70', // 11376: Ɒ => ɒ
-	// '\U00002C7E', // 11390: Ȿ => ȿ
-	// '\U00002C7F', // 11391: Ɀ => ɀ
-	// '\U0000A78D', // 42893: Ɥ => ɥ
-	// '\U0000A7AA', // 42922: Ɦ => ɦ
-	// '\U0000A7AB', // 42923: Ɜ => ɜ
-	// '\U0000A7AC', // 42924: Ɡ => ɡ
-	// '\U0000A7AD', // 42925: Ɬ => ɬ
-	// '\U0000A7AE', // 42926: Ɪ => ɪ
-	// '\U0000A7B0', // 42928: Ʞ => ʞ
-	// '\U0000A7B1', // 42929: Ʇ => ʇ
-	// '\U0000A7B2', // 42930: Ʝ => ʝ
 }
 
+// Excludes categories: Cm Cc, and Other.
 var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
-	// unicode.Cc,     // Cc is the set of Unicode characters in category Cc (Other, control).
 	unicode.Cf,     // Cf is the set of Unicode characters in category Cf (Other, format).
 	unicode.Co,     // Co is the set of Unicode characters in category Co (Other, private use).
 	unicode.Cs,     // Cs is the set of Unicode characters in category Cs (Other, surrogate).
 	unicode.Digit,  // Digit is the set of Unicode characters with the "decimal digit" property.
-	unicode.Nd,     // Nd is the set of Unicode characters in category Nd (Number, decimal digit).
 	unicode.Letter, // Letter/L is the set of Unicode letters, category L.
-	unicode.L,
-	unicode.Lm,    // Lm is the set of Unicode characters in category Lm (Letter, modifier).
-	unicode.Lo,    // Lo is the set of Unicode characters in category Lo (Letter, other).
-	unicode.Lower, // Lower is the set of Unicode lower case letters.
-	unicode.Ll,    // Ll is the set of Unicode characters in category Ll (Letter, lowercase).
-	unicode.Mark,  // Mark/M is the set of Unicode mark characters, category M.
-	unicode.M,
-	unicode.Mc,     // Mc is the set of Unicode characters in category Mc (Mark, spacing combining).
-	unicode.Me,     // Me is the set of Unicode characters in category Me (Mark, enclosing).
-	unicode.Mn,     // Mn is the set of Unicode characters in category Mn (Mark, nonspacing).
-	unicode.Nl,     // Nl is the set of Unicode characters in category Nl (Number, letter).
-	unicode.No,     // No is the set of Unicode characters in category No (Number, other).
+	unicode.Mark,   // Mark/M is the set of Unicode mark characters, category M.
 	unicode.Number, // Number/N is the set of Unicode number characters, category N.
-	unicode.N,
-	// unicode.Other, // Other/C is the set of Unicode control and special characters, category C.
-	// unicode.C,
-	unicode.Pc,    // Pc is the set of Unicode characters in category Pc (Punctuation, connector).
-	unicode.Pd,    // Pd is the set of Unicode characters in category Pd (Punctuation, dash).
-	unicode.Pe,    // Pe is the set of Unicode characters in category Pe (Punctuation, close).
-	unicode.Pf,    // Pf is the set of Unicode characters in category Pf (Punctuation, final quote).
-	unicode.Pi,    // Pi is the set of Unicode characters in category Pi (Punctuation, initial quote).
-	unicode.Po,    // Po is the set of Unicode characters in category Po (Punctuation, other).
-	unicode.Ps,    // Ps is the set of Unicode characters in category Ps (Punctuation, open).
-	unicode.Punct, // Punct/P is the set of Unicode punctuation characters, category P.
-	unicode.P,
-	unicode.Sc,    // Sc is the set of Unicode characters in category Sc (Symbol, currency).
-	unicode.Sk,    // Sk is the set of Unicode characters in category Sk (Symbol, modifier).
-	unicode.Sm,    // Sm is the set of Unicode characters in category Sm (Symbol, math).
-	unicode.So,    // So is the set of Unicode characters in category So (Symbol, other).
-	unicode.Space, // Space/Z is the set of Unicode space characters, category Z.
-	unicode.Z,
+	unicode.Punct,  // Punct/P is the set of Unicode punctuation characters, category P.
+	unicode.Space,  // Space/Z is the set of Unicode space characters, category Z.
 	unicode.Symbol, // Symbol/S is the set of Unicode symbol characters, category S.
-	unicode.S,
-	unicode.Title, // Title is the set of Unicode title case letters.
-	unicode.Lt,    // Lt is the set of Unicode characters in category Lt (Letter, titlecase).
-	unicode.Upper, // Upper is the set of Unicode upper case letters.
-	unicode.Lu,    // Lu is the set of Unicode characters in category Lu (Letter, uppercase).
-	unicode.Zl,    // Zl is the set of Unicode characters in category Zl (Separator, line).
-	unicode.Zp,    // Zp is the set of Unicode characters in category Zp (Separator, paragraph).
-	unicode.Zs,    // Zs is the set of Unicode characters in category Zs (Separator, space).
+	unicode.Title,  // Title is the set of Unicode title case letters.
+	unicode.Upper,  // Upper is the set of Unicode upper case letters.
+	unicode.Zl,     // Zl is the set of Unicode characters in category Zl (Separator, line).
+	unicode.Zp,     // Zp is the set of Unicode characters in category Zp (Separator paragraph).
+	unicode.Zs,     // Zs is the set of Unicode characters in category Zs (Separator, space).
 }...)
 
 var (
