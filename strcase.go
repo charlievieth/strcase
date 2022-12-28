@@ -1551,10 +1551,10 @@ func IndexNonASCII(s string) int {
 		cap int
 	}{unsafe.Pointer(&b[0]), n, n}
 
+	var i int
 	if wordSize == 8 {
 		const mask64 uint64 = 0x8080808080808080
 		us := *(*[]uint64)(unsafe.Pointer(&sliceHeader))
-		i := 0
 		for i := 0; i < len(us); i++ {
 			if m := us[i] & mask64; m != 0 {
 				return i*wordSize + bits.TrailingZeros64(m)/8
@@ -1565,7 +1565,6 @@ func IndexNonASCII(s string) int {
 	} else /* wordSize == 4 */ {
 		const mask32 uint32 = 0x80808080
 		us := *(*[]uint32)(unsafe.Pointer(&sliceHeader))
-		i := 0
 		for i := 0; i < len(us); i++ {
 			if m := us[i] & mask32; m != 0 {
 				return i*wordSize + bits.TrailingZeros32(m)/8
@@ -1574,7 +1573,8 @@ func IndexNonASCII(s string) int {
 		i *= wordSize
 	}
 
-	for i := 0; i < len(s); i++ {
+	// Check remaining bytes
+	for ; i < len(s); i++ {
 		if s[i] >= utf8.RuneSelf {
 			return i
 		}
