@@ -11,10 +11,7 @@ package strcase
 //go:generate go run gen.go
 
 import (
-	"io"
-	"log"
 	"math/bits"
-	"os"
 	"runtime"
 	"strings"
 	"unicode"
@@ -23,15 +20,15 @@ import (
 )
 
 // WARN WARN WARN
-func init() {
-	log.SetFlags(log.Lshortfile)
-	log.SetPrefix("### ")
-	if true {
-		log.SetOutput(os.Stderr)
-	} else {
-		log.SetOutput(io.Discard)
-	}
-}
+// func init() {
+// 	log.SetFlags(log.Lshortfile)
+// 	log.SetPrefix("### ")
+// 	if true {
+// 		log.SetOutput(os.Stderr)
+// 	} else {
+// 		log.SetOutput(io.Discard)
+// 	}
+// }
 
 const maxBruteForce = 16 // substring length
 const maxLen = 32        // subject length
@@ -46,7 +43,7 @@ func clamp(n int) int {
 	return 0
 }
 
-// TODO: use code folding
+// FIXME: document
 func Compare(s, t string) int {
 	i := 0
 	for ; i < len(s) && i < len(t); i++ {
@@ -84,19 +81,18 @@ hasUnicode:
 		} else {
 			r, size := utf8.DecodeRuneInString(t)
 			tr, t = r, t[size:]
-			tr = unicode.To(unicode.LowerCase, tr)
+			if r, ok := caseOrbit[tr]; ok {
+				tr = r
+			}
 		}
 
 		// Easy case.
 		if sr == tr {
 			continue
 		}
-		if sr < utf8.RuneSelf {
-			if 'A' <= sr && sr <= 'Z' {
-				sr += 'a' - 'A'
-			}
-		} else {
-			sr = unicode.To(unicode.LowerCase, sr)
+		// Fold sr since tr is already folded
+		if r, ok := caseOrbit[sr]; ok {
+			sr = r
 		}
 		if sr != tr {
 			return clamp(int(sr) - int(tr))
@@ -343,9 +339,7 @@ hasUnicode:
 		return false, len(s) == 0, 0
 	}
 
-	// log.Printf("i: %d ns: %d s: %d", i, ns, len(s))
 	return len(t) == 0, len(s) == 0, len(s)
-	// return len(t) == 0, len(s) == 0, ns - len(s)
 }
 
 // toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
@@ -904,24 +898,11 @@ func indexUnicode(s, substr string) int {
 		// WARN: this needs to be tuned since the brute force performance
 		// is very different than the stdlibs.
 		if fails >= 4+i>>4 && i < t {
-			j := -2
-			// Attempt to use Rabin-Karp
-			if !hasFolds0 && !hasFolds1 {
-				j = indexRabinKarpUnicode(s[i:], substr)
-			}
-			switch j {
-			case -2:
-				// Fallback to brute-force if we have to deal with folds
-				o := bruteForceIndexUnicode(s[i:], substr)
-				if o >= 0 {
-					return o + i
-				}
+			j := indexRabinKarpUnicode(s[i:], substr)
+			if j < 0 {
 				return -1
-			case -1:
-				return -1
-			default:
-				return i + j
 			}
+			return i + j
 		}
 	}
 	return -1
@@ -987,12 +968,7 @@ func LastIndex(s, substr string) int {
 		}
 		return bruteForceLastIndexUnicode(s, substr)
 	}
-	i := indexRabinKarpRevUnicode(s, substr)
-	if i != -2 {
-		return i
-	}
-	// TODO: see if we can use Rabin-Karp to skip some runes
-	return bruteForceLastIndexUnicode(s, substr)
+	return indexRabinKarpRevUnicode(s, substr)
 }
 
 // FIXME: document
@@ -1370,9 +1346,6 @@ func hashStrRevUnicode(sep string) (uint32, uint32, int) {
 func indexRabinKarpRevUnicode(s, substr string) int {
 	// Reverse Rabin-Karp search
 	hashss, pow, n := hashStrRevUnicode(substr)
-	if n == -2 {
-		return -2
-	}
 	var h uint32
 	i := len(s)
 	for i > 0 {
@@ -1445,9 +1418,6 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 func indexRabinKarpUnicode(s, substr string) int {
 	// Rabin-Karp search
 	hashss, pow, n := hashStrUnicode(substr)
-	if n == -2 {
-		return -2
-	}
 	var h uint32
 	sz := 0 // byte size of 'o' runes
 	for i, r := range s {

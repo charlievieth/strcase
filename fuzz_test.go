@@ -1017,17 +1017,16 @@ func TestIndexNonASCIIFuzz(t *testing.T) {
 func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, string, int) {
 	compareRunes := func(s, t []rune) int {
 		for i := 0; i < len(s) && i < len(t); i++ {
-			sr := unicode.ToLower(s[i])
-			tr := unicode.ToLower(t[i])
+			sr := s[i]
+			if r, ok := caseOrbit[sr]; ok {
+				sr = r
+			}
+			tr := t[i]
+			if r, ok := caseOrbit[tr]; ok {
+				tr = r
+			}
 			if sr != tr {
-				if sr > tr {
-					return 1
-				}
-				if sr < tr {
-					return -1
-				}
-				return 0
-				// return clamp(int(sr) - int(tr))
+				return clamp(int(sr) - int(tr))
 			}
 		}
 		return clamp(len(s) - len(t))
