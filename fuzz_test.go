@@ -279,12 +279,29 @@ func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 }
 
 func TestEqualFoldFuzz(t *testing.T) {
+	// Test that we match strings.EqualFold
 	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
 		n := rr.Intn(15) + 1
-		s0 := randRunes(rr, n, false)
-		s1 := randCaseRunes(rr, s0, false)
-		if !strings.EqualFold(string(s0), string(s1)) {
-			t.Errorf("EqualFold(%q, %q) = false", string(s0), string(s1))
+		r0 := randRunes(rr, n, false)
+		s0 := string(r0)
+		s1 := string(randCaseRunes(rr, r0, false))
+
+		want := strings.EqualFold(s0, s1)
+
+		if got := HasPrefix(s0, s1); got != want {
+			t.Errorf("HasPrefix(%q, %q) = %t; want: %t", s0, s1, got, want)
+		}
+
+		if got := HasSuffix(s0, s1); got != want {
+			t.Errorf("HasSuffix(%q, %q) = %t; want: %t", s0, s1, got, want)
+		}
+
+		if got := Index(s0, s1) == 0; got != want {
+			t.Errorf("Index(%q, %q) = %t; want: %t", s0, s1, got, want)
+		}
+
+		if got := Compare(s0, s1) == 0; got != want {
+			t.Errorf("Compare(%q, %q) = %t; want: %t", s0, s1, got, want)
 		}
 	})
 }
