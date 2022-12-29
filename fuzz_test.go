@@ -117,8 +117,8 @@ var (
 )
 
 func generateFoldableRunes() []rune {
-	a := make([]rune, 0, len(caseFolds)*2)
-	for r0, r1 := range caseFolds {
+	a := make([]rune, 0, len(caseOrbit)*2)
+	for r0, r1 := range caseOrbit {
 		a = append(a, r0, r1)
 	}
 	slices.Sort(a)
