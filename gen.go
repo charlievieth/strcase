@@ -470,7 +470,9 @@ func main() {
 
 	genFoldMap(&w)
 
-	printFoldPairsMap(&w, "caseFolds")
+	// WARN: use caseOrbit instead
+	// printFoldPairsMap(&w, "caseFolds")
+
 	// printMultiLengthFolds(&w, "_MultiLengthFolds")
 
 	writeFile("tables.go", w.Bytes())
