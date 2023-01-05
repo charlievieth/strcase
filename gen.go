@@ -13,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
+	"time"
 	"unicode"
 
 	"github.com/charlievieth/strcase/internal/gen"
@@ -52,6 +54,7 @@ type foldPair struct {
 
 var caseFolds []foldPair
 
+// TODO: replace with slices.SortFunc
 type byFoldPair []foldPair
 
 func (b byFoldPair) Len() int           { return len(b) }
@@ -133,20 +136,11 @@ func folds(sr rune) []rune {
 // }
 
 func dedupe(r []rune) []rune {
-	if len(r) <= 1 {
+	if len(r) < 2 {
 		return r
 	}
 	slices.Sort(r)
-	// slices.Compact(r)
-	// return r
-	k := 1
-	for i := 1; i < len(r); i++ {
-		if r[k-1] != r[i] {
-			r[k] = r[i]
-			k++
-		}
-	}
-	return r[:k]
+	return slices.Compact(r)
 }
 
 func printRangeMap(w *bytes.Buffer, name, typ string, runes map[rune][]rune) {
@@ -295,6 +289,10 @@ func printFoldPairsMap(w *bytes.Buffer, name string) {
 	fmt.Fprint(w, "}\n\n")
 }
 
+func genCaseOrbit(w *bytes.Buffer) {
+	printFoldPairsMap(w, "caseOrbit")
+}
+
 // func printMultiLengthFolds(w *bytes.Buffer, name string) {
 // 	pairs := caseFolds
 // 	if !sort.IsSorted(byFoldPair(pairs)) {
@@ -335,68 +333,79 @@ func dataEqual(filename string, data []byte) bool {
 	return err == nil && bytes.Equal(got, data)
 }
 
+// func writeAndCloseFile(f *os.File, data []byte) {
+// 	if _, err := f.Write(data); err != nil {
+// 		log.Panic(err)
+// 	}
+// 	if err := f.Sync(); err != nil {
+// 		log.Panic(err)
+// 	}
+// 	if err := f.Close(); err != nil {
+// 		log.Panic(err)
+// 	}
+// }
+
+// func cleanupFile(f *os.File) {
+// 	if f != nil {
+// 		f.Close()
+// 		os.Remove(f.Name())
+// 	}
+// }
+
+type overlayJSON struct {
+	Replace map[string]string
+}
+
 func testBuild(data []byte) {
-	// abs, err := filepath.Abs("tables.go")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	f, err := os.CreateTemp(filepath.Dir("."), "strcase-overlay.*")
+	dir, err := os.MkdirTemp("", "strcase.*")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
 
-	type OverlayJSON struct {
-		Replace map[string]string
-	}
-	enc := json.NewEncoder(f)
-	err = enc.Encode(OverlayJSON{
+	tables := filepath.Join(dir, "tables.go")
+	overlay := filepath.Join(dir, "overlay.json")
+
+	overlayData, err := json.Marshal(overlayJSON{
 		Replace: map[string]string{
-			"tables.go": string(data),
+			"tables.go": tables,
 		},
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
-	cmd := exec.Command("go", "build", "-overlay", f.Name())
+
+	if err := os.WriteFile(overlay, overlayData, 0644); err != nil {
+		log.Panic(err)
+	}
+	if err := os.WriteFile(tables, data, 0644); err != nil {
+		log.Panic(err)
+	}
+
+	cmd := exec.Command("go", "build", "-overlay="+overlay)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Error:", err)
-		log.Println(string(out))
+		log.Printf("Error:   %v", err)
+		log.Printf("Command: %s", strings.Join(cmd.Args, " "))
+		log.Printf("WorkDir: %s", dir)
+		log.Printf("Output:  %s", bytes.TrimSpace(out))
+		log.Panicf("Failed to build generated file: %v\n", err)
 	}
-	log.Println("OK")
+
+	os.RemoveAll(dir) // Only remove temp dir if successful
 }
 
 func writeFile(name string, data []byte) {
-	testBuild(data)
-	var buf bytes.Buffer
-	if _, err := gen.WriteGo(&buf, "strcase", "", data); err != nil {
-		log.Fatal(err)
-	}
-	// TODO: use `go build -overlay` to test the change
-	if dataEqual(name, buf.Bytes()) {
+	if dataEqual(name, data) {
 		return
 	}
 
-	tmp := name + ".tmp"
-	f, err := os.Create(tmp)
-	if err != nil {
+	tmp := fmt.Sprintf("temp.%s.%d", name, time.Now().UnixNano())
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
 		log.Fatal(err)
 	}
-	fatal := func(err error) {
-		f.Close()
+	if err := os.Rename(tmp, name); err != nil {
 		os.Remove(tmp)
-		log.Panic(err)
-	}
-	if _, err := buf.WriteTo(f); err != nil {
-		fatal(err)
-	}
-	if err := os.Rename(name+".tmp", name); err != nil {
-		fatal(err)
+		log.Fatal(err)
 	}
 }
 
@@ -447,21 +456,27 @@ func genFoldableRunes(w *bytes.Buffer) {
 	// printRangeTable(w, "_Foldable", table)
 }
 
-func formatSource(src []byte) []byte {
-	cmd := exec.Command("gofmt", "-s")
-	cmd.Stdin = bytes.NewReader(src)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Fatalf("cmd: %q exited with error: %v\n%s\n",
-			cmd.Args, err, string(out))
+// func formatSource(src []byte) []byte {
+// 	cmd := exec.Command("gofmt", "-s")
+// 	cmd.Stdin = bytes.NewReader(src)
+// 	out, err := cmd.CombinedOutput()
+// 	if err != nil {
+// 		log.Fatalf("cmd: %q exited with error: %v\n%s\n",
+// 			cmd.Args, err, string(out))
+// 	}
+// 	return out
+// }
+
+func writeGo(w *bytes.Buffer) {
+	data := make([]byte, w.Len())
+	copy(data, w.Bytes())
+	w.Reset()
+	if _, err := gen.WriteGo(w, "strcase", "", data); err != nil {
+		log.Fatal(err)
 	}
-	return out
 }
 
 func main() {
-	// if _, err := exec.LookPath("gofmt"); err != nil {
-	// 	log.Fatal(err)
-	// }
 	loadCaseFolds()
 
 	var w bytes.Buffer
@@ -469,25 +484,18 @@ func main() {
 	gen.WriteCLDRVersion(&w)
 
 	genFoldMap(&w)
+	genCaseOrbit(&w)
 
 	// WARN: use caseOrbit instead
 	// printFoldPairsMap(&w, "caseFolds")
 
 	// printMultiLengthFolds(&w, "_MultiLengthFolds")
 
+	writeGo(&w)
+	testBuild(w.Bytes())
 	writeFile("tables.go", w.Bytes())
-	// gen.WriteGoFile("tables.go", "strcase", w.Bytes())
 
-	// src, err := format.Source(w.Bytes())
-	// if err != nil {
-	// 	log.Println("Error:", err)
-	// 	log.Println("##### Source:")
-	// 	log.Println(w.String())
-	// 	log.Println("#####")
-	// 	log.Panic(err)
-	// }
-	// src := formatSource(w.Bytes())
-	// writeFile("tables.go", src)
+	// log.Fatal("TODO: generate case_orbit.go !!!")
 }
 
 // func printSwitch(w *bytes.Buffer, name string, runes []rune) {
