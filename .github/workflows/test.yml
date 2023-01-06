@@ -25,7 +25,7 @@ jobs:
           cache: true
 
       - name: Test
-        run: make test
+        run: make ci
 
       - name: Test Generate
         run: make testgenerate

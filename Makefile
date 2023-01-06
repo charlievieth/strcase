@@ -3,10 +3,13 @@ MAKEFILE_DIR  := $(dir $(MAKEFILE_PATH))
 
 # Test options
 GO             ?= go
+GOBIN          ?= $(MAKEFILE_DIR)/bin
 GO_COVER_MODE  ?= count
 GO_COVER_FLAGS ?= -cover -covermode=$(GO_COVER_MODE)
 GO_TEST_FLAGS  ?=
 GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS)
+RICHGO         ?= $(GOBIN)/richgo
+RICHGO_VERSION ?= v0.3.11
 
 # Options for linting comments
 COMMENTS       ?= 'TODO|WARN|FIXME|CEV'
@@ -15,7 +18,7 @@ GREP_COLOR     ?= --color=always
 xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
-GOLANGCI             ?= $(MAKEFILE_DIR)/bin/golangci-lint
+GOLANGCI             ?= $(GOBIN)/golangci-lint
 GOLANGCI_VERSION     ?= v1.50.1
 GOLANGCI_SORT        ?= --sort-results
 GOLANGCI_COLOR       ?= --color=always
@@ -68,6 +71,22 @@ testgenerate:
 .PHONY: testall
 testall: exhaustive testskipped testgenerate
 
+bin/richgo:
+	@echo '$(yellow)INFO:$(term-reset) Installing richgo version: $(RICHGO_VERSION)'
+	@mkdir -p $(GOBIN)
+	@GOBIN=$(GOBIN) $(GO) install github.com/kyoh86/richgo@$(RICHGO_VERSION)
+
+# Actual ci target (separate because so that we can override GO)
+.PHONY: .ci
+.ci: GO = $(RICHGO)
+.ci: export RICHGO_FORCE_COLOR=1
+.ci: testverbose
+
+# Run and colorize verbose tests for CI
+.PHONY: ci
+ci: bin/richgo
+ci: .ci
+
 # Calibrate brute-force cutover
 .PHONY: calibrate
 calibrate: GO_COVER_FLAGS =
@@ -88,8 +107,8 @@ vet: vet-strcase vet-gen
 # Install golangci-lint
 bin/golangci-lint:
 	@echo '$(yellow)INFO:$(term-reset) Installing golangci-lint version: $(GOLANGCI_VERSION)'
-	@mkdir -p $(MAKEFILE_DIR)/bin
-	@GOBIN=$(MAKEFILE_DIR)/bin $(GO) install \
+	@mkdir -p $(GOBIN)
+	@GOBIN=$(GOBIN) $(GO) install \
 		github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_VERSION)
 
 golangci-lint-gen: override GOLANGCI_EXTRA_FLAGS += --build-tags=gen gen.go
