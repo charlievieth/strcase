@@ -1,5 +1,6 @@
 *.out
 *.test
+/bin
 /gen
 /vendor
 /DATA
