@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -22,28 +23,16 @@ import (
 	"golang.org/x/text/unicode/rangetable"
 )
 
-func init() {
-	log.SetPrefix("[gen] ")
-	log.SetFlags(log.Lshortfile)
-}
-
-var categories = rangetable.Merge(mapToTable(
+// Unicode categories used to construct the fold maps
+var unicodeCategories = []map[string]*unicode.RangeTable{
 	unicode.Categories,
 	unicode.Scripts,
 	unicode.Properties,
 	unicode.FoldCategory,
 	unicode.FoldScript,
-))
-
-func mapToTable(maps ...map[string]*unicode.RangeTable) *unicode.RangeTable {
-	var tabs []*unicode.RangeTable
-	for _, m := range maps {
-		for _, t := range m {
-			tabs = append(tabs, t)
-		}
-	}
-	return rangetable.Merge(tabs...)
 }
+
+var categories *unicode.RangeTable
 
 type foldPair struct {
 	From uint32
@@ -66,6 +55,16 @@ func loadCaseFolds() {
 	slices.SortFunc(caseFolds, func(a, b foldPair) bool {
 		return a.From < b.From
 	})
+}
+
+func loadCategories() {
+	tabs := make([]*unicode.RangeTable, 0, len(unicodeCategories))
+	for _, m := range unicodeCategories {
+		for _, t := range m {
+			tabs = append(tabs, t)
+		}
+	}
+	categories = rangetable.Merge(tabs...)
 }
 
 func folds(sr rune) []rune {
@@ -107,8 +106,7 @@ func printRangeMap(w *bytes.Buffer, name, typ string, runes map[rune][]rune) {
 }
 
 // TODO: update other gen func to match this one
-//
-// WARN: use caseFolds
+// TODO: use caseFolds if more performant
 func genFoldMap(w *bytes.Buffer) {
 	runes := make(map[rune][]rune)
 	rangetable.Visit(categories, func(r rune) {
@@ -121,7 +119,7 @@ func genFoldMap(w *bytes.Buffer) {
 			runes[r] = append(runes[r], ff...)
 		}
 	})
-	// WARN WARN WARN: we should not need to add this manually
+	// WARN: we should not need to add this manually
 	runes['İ'] = append(runes['İ'], 'İ')
 	runes['ß'] = append(runes['ß'], 'ẞ')
 
@@ -178,15 +176,6 @@ func genCaseOrbit(w *bytes.Buffer) {
 	printFoldPairsMap(w, "caseOrbit")
 }
 
-func dataEqual(filename string, data []byte) bool {
-	got, err := os.ReadFile(filename)
-	return err == nil && bytes.Equal(got, data)
-}
-
-type overlayJSON struct {
-	Replace map[string]string
-}
-
 func runCommand(args ...string) {
 	cmd := exec.Command("go", args...)
 	out, err := cmd.CombinedOutput()
@@ -198,7 +187,7 @@ func runCommand(args ...string) {
 	}
 }
 
-func testBuild(data []byte) {
+func testBuild(data []byte, skipTests bool) {
 	dir, err := os.MkdirTemp("", "strcase.*")
 	if err != nil {
 		log.Panic(err)
@@ -206,6 +195,10 @@ func testBuild(data []byte) {
 
 	tables := filepath.Join(dir, "tables.go")
 	overlay := filepath.Join(dir, "overlay.json")
+
+	type overlayJSON struct {
+		Replace map[string]string
+	}
 
 	overlayData, err := json.Marshal(overlayJSON{
 		Replace: map[string]string{
@@ -224,9 +217,16 @@ func testBuild(data []byte) {
 	}
 
 	runCommand("build", "-overlay="+overlay)
-	runCommand("test", "-overlay="+overlay)
+	if !skipTests {
+		runCommand("test", "-overlay="+overlay)
+	}
 
 	os.RemoveAll(dir) // Only remove temp dir if successful
+}
+
+func dataEqual(filename string, data []byte) bool {
+	got, err := os.ReadFile(filename)
+	return err == nil && bytes.Equal(got, data)
 }
 
 func writeFile(name string, data []byte) {
@@ -244,32 +244,6 @@ func writeFile(name string, data []byte) {
 	}
 }
 
-// func maxDelta() {
-// 	rangetable.Visit(categories, func(r rune) {
-// 		l := unicode.ToLower(r)
-// 		n0 := utf8.RuneLen(r)
-// 		n1 := utf8.RuneLen(l)
-// 		d := n0 - n1
-// 		if d < 0 {
-// 			d = n1 - n0
-// 		}
-// 		if d >= 1 {
-// 			fmt.Printf("%q: %d\n", r, d)
-// 		}
-// 	})
-// }
-
-// func formatSource(src []byte) []byte {
-// 	cmd := exec.Command("gofmt", "-s")
-// 	cmd.Stdin = bytes.NewReader(src)
-// 	out, err := cmd.CombinedOutput()
-// 	if err != nil {
-// 		log.Fatalf("cmd: %q exited with error: %v\n%s\n",
-// 			cmd.Args, err, string(out))
-// 	}
-// 	return out
-// }
-
 func writeGo(w *bytes.Buffer) {
 	data := make([]byte, w.Len())
 	copy(data, w.Bytes())
@@ -280,7 +254,13 @@ func writeGo(w *bytes.Buffer) {
 }
 
 func main() {
+	skipTests := flag.Bool("skip-tests", false, "skip running tests")
+	dryRun := flag.Bool("dry-run", false,
+		"report if generate would change tables.go and exit non-zero")
+	gen.Init()
+
 	loadCaseFolds()
+	loadCategories()
 
 	var w bytes.Buffer
 	gen.WriteUnicodeVersion(&w)
@@ -289,64 +269,18 @@ func main() {
 	genFoldMap(&w)
 	genCaseOrbit(&w)
 
-	// WARN: use caseOrbit instead
-	// printFoldPairsMap(&w, "caseFolds")
-
-	// printMultiLengthFolds(&w, "_MultiLengthFolds")
-
 	writeGo(&w)
-	testBuild(w.Bytes())
+	testBuild(w.Bytes(), *skipTests)
+
+	// For dry runs only report if tables.go would be changed and
+	// exit with an error if so.
+	if *dryRun {
+		if !dataEqual("tables.go", w.Bytes()) {
+			fmt.Println("gen: would change tables.go")
+			os.Exit(1)
+		}
+		return
+	}
+
 	writeFile("tables.go", w.Bytes())
-
-	// log.Fatal("TODO: generate case_orbit.go !!!")
 }
-
-// func printSwitch(w *bytes.Buffer, name string, runes []rune) {
-// 	// if !sort.IsSorted(byRune(runes)) {
-// 	// 	sort.Sort(byRune(runes))
-// 	// }
-// 	runes = dedupe(runes)
-//
-// 	fmt.Fprintf(w, "\nfunc %s(r rune) bool {\n", name)
-// 	fmt.Fprintln(w, "\tswitch r {")
-// 	fmt.Fprintf(w, "\tcase ")
-//
-// 	for i := 0; i < 8 && len(runes) > 0; i++ {
-// 		r := runes[0]
-// 		if r <= math.MaxUint16 {
-// 			fmt.Fprintf(w, "%#04X, ", r)
-// 		} else {
-// 			fmt.Fprintf(w, "%#06X, ", r)
-// 		}
-// 		// fmt.Fprintf(w, "%#04X, ", runes[i])
-// 		runes = runes[1:]
-// 	}
-// 	fmt.Fprintf(w, "\n")
-// 	// fmt.Fprintln(w, ":")
-//
-// 	for len(runes) > 0 {
-// 		for i := 0; i < 8 && len(runes) > 0; i++ {
-// 			if i != 0 {
-// 				w.WriteString(", ")
-// 			}
-// 			r := runes[0]
-// 			if r <= math.MaxUint16 {
-// 				fmt.Fprintf(w, "%#04X", r)
-// 			} else {
-// 				fmt.Fprintf(w, "%#06X", r)
-// 			}
-// 			// fmt.Fprintf(w, "%#04X", runes[0])
-// 			runes = runes[1:]
-// 		}
-// 		if len(runes) > 0 {
-// 			w.WriteString(",\n\t\t")
-// 		} else {
-// 			w.WriteString(":\n")
-// 		}
-// 	}
-// 	fmt.Fprintln(w, "\t\treturn true")
-// 	fmt.Fprintln(w, "\t}")
-// 	fmt.Fprintln(w, "\treturn false")
-// 	fmt.Fprintln(w, "}")
-// 	fmt.Fprint(w, "\n")
-// }
