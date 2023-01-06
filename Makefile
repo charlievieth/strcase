@@ -69,7 +69,7 @@ testgenerate:
 
 # Run all tests (slow)
 .PHONY: testall
-testall: exhaustive testskipped testgenerate
+testall: exhaustive testskipped testgenerate calibrate
 
 bin/richgo:
 	@echo '$(yellow)INFO:$(term-reset) Installing richgo version: $(RICHGO_VERSION)'
@@ -90,8 +90,9 @@ ci: .ci
 # Calibrate brute-force cutover
 .PHONY: calibrate
 calibrate: GO_COVER_FLAGS =
+calibrate: GO_TEST_FLAGS += -v
 calibrate:
-	@$(GO_TEST) -run '^TestCalibrate$$' -calibrate
+	@$(GO_TEST) -run Calibrate -calibrate
 
 .PHONY: vet-strcase
 vet-strcase:
