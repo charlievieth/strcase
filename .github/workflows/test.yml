@@ -15,9 +15,14 @@ jobs:
       - uses: actions/cache@v3
         name: Cache unicode
         with:
-          path: DATA/**/*.txt
+          path: DATA
           key: ${{ runner.os }}-data-${{ hashFiles('**/*.txt') }}
-          restore-keys: ${{ runner.os }}-1.${{ matrix.go }}.x-
+
+      - uses: actions/cache@v3
+        name: Cache richgo
+        with:
+          path: bin
+          key: ${{ runner.os }}-richgo-${{ hashFiles('**/richgo') }}
 
       - uses: actions/setup-go@v3
         with:
