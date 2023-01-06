@@ -52,26 +52,27 @@ test testshort testverbose exhaustive:
 	@$(GO_TEST)
 
 # Assert that there are no skipped tests
-.PHONY: skipped_tests
-skipped_tests:
+.PHONY: testskipped
+testskipped:
 	@if $(MAKE) testverbose | $(xgrep) --fixed-strings -- '--- SKIP:'; then \
 		echo '$(red)FAIL: $(cyan)skipped tests$(term-reset)';               \
 		exit 1;                                                             \
 	fi
 
 # Test that `go generate` does not change tables.go
-.PHONY: test_generate
-test_generate:
+.PHONY: testgenerate
+testgenerate:
 	@$(GO) run -tags gen gen.go -dry-run -skip-tests
 
 # Run all tests (slow)
-.PHONY: test-all
-test-all: test exhaustive skipped_tests test_generate
+.PHONY: testall
+testall: exhaustive testskipped testgenerate
 
 # Calibrate brute-force cutover
 .PHONY: calibrate
+calibrate: GO_COVER_FLAGS =
 calibrate:
-	@$(GO_TEST) -run TestCalibrate -calibrate
+	@$(GO_TEST) -run '^TestCalibrate$$' -calibrate
 
 .PHONY: vet-strcase
 vet-strcase:
@@ -94,20 +95,29 @@ bin/golangci-lint:
 golangci-lint-gen: override GOLANGCI_EXTRA_FLAGS += --build-tags=gen gen.go
 golangci-lint-gen: override GOLANGCI_SKIP =
 
+# Run golangci-lint
 .PHONY: golangci-lint golangci-lint-gen
 golangci-lint golangci-lint-gen: bin/golangci-lint
 	@$(GOLANGCI) run $(GOLANGCI_FLAGS)
 
-.PHONY: lint_comments
-lint_comments:
+.PHONY: lint
+lint: vet golangci-lint golangci-lint-gen
+
+# Make sure there aren't any comments that need addressing (TODO or WARN)
+#
+# NOTE: not currently part of the "lint" target.
+.PHONY: lint-comments
+lint-comments:
 	@if $(xgrep) --line-number --extended-regexp $(COMMENTS) Makefile *.go; then \
 		echo '';                                                                 \
 		echo '$(red)FAIL: $(cyan)address comments!$(term-reset)';                \
 		exit 1;                                                                  \
 	fi
 
-.PHONY: lint
-lint: vet golangci-lint golangci-lint-gen
+# Generate tables.go file
+.PHONY: generate
+generate:
+	@$(GO) generate
 
 .PHONY: clean
 clean:
