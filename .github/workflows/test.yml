@@ -7,54 +7,85 @@ on:
     branches: [ master ]
 
 jobs:
-  test-unix:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-        - ubuntu
-        go:
-        - 19
-    name: '${{ matrix.platform }} | 1.${{ matrix.go }}.x'
-    runs-on: ${{ matrix.platform }}-latest
+  test:
+    runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
 
-    - uses: actions/setup-go@v3
-      with:
-        go-version: 1.${{ matrix.go }}.x
+      - uses: actions/cache@v3
+        with:
+          path: DATA/**/*.txt
+          key: ${{ runner.os }}-data-${{ hashFiles('**/*.sum') }}
+          restore-keys: ${{ runner.os }}-1.${{ matrix.go }}.x-
 
-    - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+          cache: true
 
-    - uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-1.${{ matrix.go }}.x-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-1.${{ matrix.go }}.x-
+      - name: Test
+        run: make test
 
-    - name: Test
-      run: go test -exhaustive
+      - name: Test Generate
+        run: make testgenerate
 
-  test-win:
-    strategy:
-      fail-fast: false
-      matrix:
-        go:
-        - 19
-    name: 'windows | 1.${{ matrix.go }}.x'
-    runs-on: windows-latest
-    steps:
-
-    - uses: actions/setup-go@v3
-      with:
-        go-version: 1.${{ matrix.go }}.x
-
-    - uses: actions/checkout@v3
-
-    - uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: ${{ runner.os }}-${{ matrix.go }}-
-
-    - name: Test
-      run: go test -exhaustive
+# name: Test
+#
+# on:
+#   push:
+#     branches: [ master ]
+#   pull_request:
+#     branches: [ master ]
+#
+# jobs:
+#   test-unix:
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         platform:
+#         - ubuntu
+#         go:
+#         - 19
+#     name: '${{ matrix.platform }} | 1.${{ matrix.go }}.x'
+#     runs-on: ${{ matrix.platform }}-latest
+#     steps:
+#
+#     - uses: actions/setup-go@v3
+#       with:
+#         go-version: 1.${{ matrix.go }}.x
+#
+#     - uses: actions/checkout@v3
+#
+#     - uses: actions/cache@v3
+#       with:
+#         path: ~/go/pkg/mod
+#         key: ${{ runner.os }}-1.${{ matrix.go }}.x-${{ hashFiles('**/go.sum') }}
+#         restore-keys: ${{ runner.os }}-1.${{ matrix.go }}.x-
+#
+#     - name: Test
+#       run: make exhaustive GO_COVER_FLAGS=''
+#
+#   test-win:
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         go:
+#         - 19
+#     name: 'windows | 1.${{ matrix.go }}.x'
+#     runs-on: windows-latest
+#     steps:
+#
+#     - uses: actions/setup-go@v3
+#       with:
+#         go-version: 1.${{ matrix.go }}.x
+#
+#     - uses: actions/checkout@v3
+#
+#     - uses: actions/cache@v3
+#       with:
+#         path: ~/go/pkg/mod
+#         key: ${{ runner.os }}-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
+#         restore-keys: ${{ runner.os }}-${{ matrix.go }}-
+#
+#     - name: Test
+#       run: go test -exhaustive
