@@ -5,6 +5,7 @@
 #include "go_asm.h"
 #include "textflag.h"
 
+// TODO: use bytes.IndexByte if c is not alpha
 TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	MOVQ b_base+0(FP), SI
 	MOVQ b_len+8(FP), BX
@@ -12,6 +13,7 @@ TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	LEAQ ret+32(FP), R8
 	JMP  indexbytebody<>(SB)
 
+// TODO: use bytes.IndexByte if c is not alpha
 TEXT ·IndexByteString(SB), NOSPLIT, $0-32
 	MOVQ s_base+0(FP), SI
 	MOVQ s_len+8(FP), BX
@@ -27,13 +29,15 @@ TEXT ·IndexByteString(SB), NOSPLIT, $0-32
 TEXT indexbytebody<>(SB), NOSPLIT, $0
 	// Shuffle X0 around so that each byte contains
 	// the character we're looking for.
+	ORL       $32, AX
 	MOVD      AX, X0
 	PUNPCKLBW X0, X0
 	PUNPCKLBW X0, X0
 	PSHUFL    $0, X0, X0
 
 	// Add space (' ') mask to X2
-	MOVD      $32, X2
+	MOVQ      $32, CX
+	MOVQ      CX, X2
 	PUNPCKLBW X2, X2
 	PUNPCKLBW X2, X2
 	PSHUFL    $0, X2, X2
@@ -50,6 +54,9 @@ TEXT indexbytebody<>(SB), NOSPLIT, $0
 sseloop:
 	// Move the next 16-byte chunk of the data into X1.
 	MOVOU (DI), X1
+
+	// Logical OR to convert data to lowercase
+	POR X2, X1
 
 	// Compare bytes in X0 to X1.
 	PCMPEQB X0, X1
@@ -72,6 +79,7 @@ sseloopentry:
 	// chunks we've already searched, but that's ok.
 	MOVQ     AX, DI
 	MOVOU    (AX), X1
+	POR      X2, X1     // Convert data to lowercase
 	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
 	BSFL     DX, DX
@@ -102,6 +110,7 @@ small:
 	JEQ   endofpage
 
 	MOVOU    (SI), X1 // Load data
+	POR      X2, X1   // Convert data to lowercase
 	PCMPEQB  X0, X1   // Compare target byte with each byte in data.
 	PMOVMSKB X1, DX   // Move result bits to integer register.
 	BSFL     DX, DX   // Find first set bit.
@@ -113,6 +122,7 @@ small:
 
 endofpage:
 	MOVOU    -16(SI)(BX*1), X1 // Load data into the high end of X1.
+	POR      X2, X1            // Convert data to lowercase
 	PCMPEQB  X0, X1            // Compare target byte with each byte in data.
 	PMOVMSKB X1, DX            // Move result bits to integer register.
 	MOVL     BX, CX
