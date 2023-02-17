@@ -133,6 +133,8 @@ endofpage:
 	MOVQ     DX, (R8)
 	RET
 
+// TODO: implement AVX2
+//
 // avx2:
 // #ifndef hasAVX2
 // 	CMPB   internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
