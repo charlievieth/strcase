@@ -117,9 +117,17 @@ var (
 )
 
 func generateFoldableRunes() []rune {
-	a := make([]rune, 0, len(caseOrbit)*2)
-	for r0, r1 := range caseOrbit {
-		a = append(a, r0, r1)
+	n := 0
+	for _, p := range _CaseFolds {
+		if p.From != 0 {
+			n++
+		}
+	}
+	a := make([]rune, 0, n*2)
+	for _, p := range _CaseFolds {
+		if p.From != 0 {
+			a = append(a, rune(p.From), rune(p.To))
+		}
 	}
 	slices.Sort(a)
 	return a
@@ -151,6 +159,8 @@ func randASCII(rr *rand.Rand) byte {
 
 func randRune(rr *rand.Rand) (r rune) {
 	switch f := rr.Float64(); {
+	case f <= 0.05:
+		return 'İ'
 	case f <= 0.1:
 		return multiwidthRunes[rr.Intn(len(multiwidthRunes))]
 	case f <= 0.2:
@@ -247,8 +257,26 @@ func TestRandRune(t *testing.T) {
 
 var invalidRunes = flag.Bool("invalid", false, "fuzz test with invalid runes")
 
-func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
-	rs := make([]rune, n)
+// WARN WARN WARN WARN
+var _randRunes []rune
+
+func init() {
+	rr := rand.New(rand.NewSource(1))
+	_randRunes = make([]rune, 1024*1024)
+	for i := range _randRunes {
+		_randRunes[i] = randRune(rr)
+	}
+	rr.Shuffle(len(_randRunes), func(i, j int) {
+		_randRunes[i], _randRunes[j] = _randRunes[j], _randRunes[i]
+	})
+}
+
+func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
+	if cap(rs) < n {
+		rs = make([]rune, n)
+	} else {
+		rs = rs[:n]
+	}
 	if *invalidRunes {
 		for i := range rs {
 			rs[i] = rune(rr.Int31())
@@ -276,6 +304,38 @@ func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 		rs[i] = randRune(rr)
 	}
 	return rs
+}
+
+func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
+	return appendRandRunes(nil, rr, n, ascii)
+	// rs := make([]rune, n)
+	// if *invalidRunes {
+	// 	for i := range rs {
+	// 		rs[i] = rune(rr.Int31())
+	// 	}
+	// 	return rs
+	// }
+	// if ascii {
+	// 	for i := range rs {
+	// 		rs[i] = rune(randASCII(rr))
+	// 	}
+	// 	return rs
+	// }
+	// hard := len(rs)
+	// if rr.Float64() < 0.05 {
+	// 	hard = intn(rr, len(rs)-4)
+	// }
+	// for i := 0; i < len(rs); i++ {
+	// 	if i == hard {
+	// 		j := i + 4
+	// 		for ; i < j && i < len(rs); i++ {
+	// 			rs[i] = '\u212a'
+	// 		}
+	// 		continue
+	// 	}
+	// 	rs[i] = randRune(rr)
+	// }
+	// return rs
 }
 
 func TestEqualFoldFuzz(t *testing.T) {
@@ -354,6 +414,14 @@ func randCaseRunes(rr *rand.Rand, rs []rune, ascii bool) (ro []rune) {
 	return ro
 }
 
+func randCaseRunesInPlace(rr *rand.Rand, rs, ro []rune, ascii bool) []rune {
+	ro = append(ro[:0], rs...)
+	for i, r := range rs {
+		ro[i] = randCaseRune(rr, r, ascii)
+	}
+	return ro
+}
+
 func replaceOneRune(rr *rand.Rand, rs []rune, ascii bool) (ro []rune) {
 	for n := 0; n < 128; n++ {
 		i := rr.Intn(len(rs))
@@ -366,6 +434,24 @@ func replaceOneRune(rr *rand.Rand, rs []rune, ascii bool) (ro []rune) {
 		if r != rs[i] && unicode.ToLower(r) != unicode.ToLower(rs[i]) {
 			ro = make([]rune, len(rs))
 			copy(ro, rs)
+			ro[i] = r
+			return ro
+		}
+	}
+	panic("failed to generate a valid replacement")
+}
+
+func replaceOneRuneInPlace(rr *rand.Rand, rs, ro []rune, ascii bool) []rune {
+	ro = append(ro[:0], rs...)
+	for n := 0; n < 128; n++ {
+		i := rr.Intn(len(rs))
+		var r rune
+		if ascii {
+			r = rune(randASCII(rr))
+		} else {
+			r = randRune(rr)
+		}
+		if r != rs[i] && unicode.ToLower(r) != unicode.ToLower(rs[i]) {
 			ro[i] = r
 			return ro
 		}
@@ -462,6 +548,7 @@ func runRandomTest(t *testing.T, fn func(t testing.TB, rr *rand.Rand)) {
 			t.Fatal(`Cannot combine "-short" and "-exhaustive" flags`)
 		}
 		d := 1_000_000 * len(seeds)
+		// d := 250_000 * len(seeds)
 		numCPU := runtime.NumCPU()
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 			// Avoid using low-power cores.
@@ -798,13 +885,11 @@ func TestIndexRuneFuzz(t *testing.T) {
 		s, r, out := generateIndexRuneArgs(t, rr)
 		got := IndexRune(s, r)
 		if got != out {
-			_, foldable := caseOrbit[r]
 			t.Errorf("IndexRune\n"+
 				"S:    %q\n"+
 				"Sep:  %q\n"+
 				"Got:  %d\n"+
 				"Want: %d\n"+
-				"Fold: %t\n"+
 				"\n"+
 				"S:    %s\n"+
 				"Sep:  %s\n"+
@@ -813,7 +898,6 @@ func TestIndexRuneFuzz(t *testing.T) {
 				"Sep:  %s\n"+
 				"\n",
 				s, r, got, out,
-				foldable,
 				strconv.QuoteToASCII(s),
 				strconv.QuoteToASCII(string(r)),
 				strconv.QuoteToASCII(strings.ToLower(s)),
@@ -847,16 +931,19 @@ func hasPrefixRunes(s, prefix []rune) (bool, bool) {
 			}
 			return false, i == len(s)-1
 		}
-
-		// General case. SimpleFold(x) returns the next equivalent rune > x
-		// or wraps around to smaller values.
-		r := unicode.SimpleFold(sr)
-		for r != sr && r < pr {
-			r = unicode.SimpleFold(r)
-		}
-		if r == pr {
+		if caseFold(sr) == caseFold(pr) {
 			continue
 		}
+
+		// // General case. SimpleFold(x) returns the next equivalent rune > x
+		// // or wraps around to smaller values.
+		// r := unicode.SimpleFold(sr)
+		// for r != sr && r < pr {
+		// 	r = unicode.SimpleFold(r)
+		// }
+		// if r == pr {
+		// 	continue
+		// }
 		return false, i == len(s)-1
 	}
 	return i == len(prefix), i == len(s)
@@ -1017,14 +1104,8 @@ func TestIndexNonASCIIFuzz(t *testing.T) {
 func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, string, int) {
 	compareRunes := func(s, t []rune) int {
 		for i := 0; i < len(s) && i < len(t); i++ {
-			sr := s[i]
-			if r, ok := caseOrbit[sr]; ok {
-				sr = r
-			}
-			tr := t[i]
-			if r, ok := caseOrbit[tr]; ok {
-				tr = r
-			}
+			sr := caseFold(s[i])
+			tr := caseFold(t[i])
 			if sr != tr {
 				return clamp(int(sr) - int(tr))
 			}
@@ -1062,7 +1143,6 @@ func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, strin
 	panic("Failed to generate vaild Compare args")
 }
 
-// WARN: fix this
 func TestCompareFuzz(t *testing.T) {
 	test := func(t *testing.T, ascii bool) {
 		fn := func(t testing.TB, rr *rand.Rand) {
@@ -1083,13 +1163,8 @@ func TestCompareFuzz(t *testing.T) {
 					strconv.QuoteToASCII(strings.ToLower(s1)),
 				)
 			}
-			// WARN: fix this
 			if got == 0 && !strings.EqualFold(s0, s1) {
-				if testing.Verbose() {
-					t.Errorf("Compare(%q, %q) = 0 but EqualFold() = false", s0, s1)
-				} else {
-					t.Logf("Compare(%q, %q) = 0 but EqualFold() = false", s0, s1)
-				}
+				t.Errorf("Compare(%q, %q) = 0 but EqualFold() = false", s0, s1)
 			}
 		}
 		runRandomTest(t, fn)
@@ -1099,23 +1174,66 @@ func TestCompareFuzz(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) { test(t, true) })
 }
 
+// TODO: this is almost identical to generateIndexArgs - merge
+func generateIndexRabinKarpArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _sep string, out int) {
+
+	match := rr.Float64() < 0.5
+
+	s := make([]rune, 32)
+	sep := make([]rune, 32)
+	for lim := 32; lim > 0; lim-- {
+		ns := rr.Intn(30) + 2
+		// s := randRunes(rr, ns, ascii)
+		s = appendRandRunes(s[:0], rr, ns, ascii)
+		nsep := intn(rr, len(s)-2) + 2
+		o := intn(rr, len(s)-nsep)
+		for i := 0; i < 4; i++ {
+			// sep := s[o : o+nsep]
+			// if match {
+			// 	sep = randCaseRunes(rr, sep, ascii)
+			// } else {
+			// 	sep = replaceOneRune(rr, sep, ascii)
+			// }
+			xsep := s[o : o+nsep]
+			if match {
+				sep = randCaseRunesInPlace(rr, xsep, sep, ascii)
+			} else {
+				sep = replaceOneRuneInPlace(rr, xsep, sep, ascii)
+			}
+			out := indexRunesReference(s, sep)
+			if (match && out >= 0) || (!match && out == -1) {
+				return string(s), string(sep), out
+			}
+		}
+	}
+
+	panic("Failed to generate valid Index args")
+}
+
 // Fuzz test indexRabinKarpFuzz since it is annoying to generate tests that
 // always take this code path in Index.
 func TestIndexRabinKarpFuzz(t *testing.T) {
-	// WARN: consider deleting this test
-	t.Skip("SKIP")
-
 	// valid returns true if s contains 2 or more runes, which matches how
 	// we call indexRabinKarpUnicode from Index.
 	valid := func(s string) bool {
-		return len(s) >= 4 || utf8.RuneCountInString(s) >= 2
+		if len(s) >= 4 {
+			return true
+		}
+		n := 0
+		for range s {
+			n++
+			if n >= 2 {
+				return true
+			}
+		}
+		return false
 	}
 
 	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
 		var s, sep string
 		var out int
 		for {
-			s, sep, out = generateIndexArgs(t, rr, false)
+			s, sep, out = generateIndexRabinKarpArgs(t, rr, false)
 			if valid(s) && valid(sep) {
 				break
 			}

@@ -5,22 +5,39 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/format"
+	"io"
 	"log"
+	"math"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 
 	"github.com/charlievieth/strcase/internal/gen"
 	"github.com/charlievieth/strcase/internal/ucd"
+	"github.com/schollz/progressbar/v3"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
+	"golang.org/x/term"
 	"golang.org/x/text/unicode/rangetable"
+)
+
+const (
+	caseFoldShift = 19
+	caseFoldSize  = 8192
 )
 
 // Unicode categories used to construct the fold maps
@@ -164,16 +181,166 @@ func genFoldMap(w *bytes.Buffer) {
 	printRangeMap(w, "_FoldMapExcludingUpperLower", "[2]rune", noUpperLower)
 }
 
-func printFoldPairsMap(w *bytes.Buffer, name string) {
-	fmt.Fprintf(w, "\nvar %s = map[rune]rune{\n", name)
-	for _, p := range caseFolds {
-		fmt.Fprintf(w, "\t0x%04X: 0x%04X, // %q => %q\n", p.From, p.To, p.From, p.To)
-	}
-	fmt.Fprint(w, "}\n\n")
+func hash(x, c uint32) uint32 {
+	m := x * c
+	return m >> caseFoldShift
 }
 
-func genCaseOrbit(w *bytes.Buffer) {
-	printFoldPairsMap(w, "caseOrbit")
+var emptySeen [caseFoldSize]bool
+
+type span struct {
+	start, end int64
+}
+
+func generateSpans(start, end, delta int64) []span {
+	var spans []span
+	for i := start; i <= end; i += delta {
+		start := i
+		if start == 0 {
+			start = 1
+		}
+		end := i + delta
+		if end >= end {
+			end = end
+		}
+		spans = append(spans, span{start: int64(start), end: int64(end)})
+	}
+	return spans
+}
+
+func shuffleSpans(spans []span) []span {
+	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rr.Shuffle(len(spans), func(i, j int) {
+		spans[i], spans[j] = spans[j], spans[i]
+	})
+	return spans
+}
+
+func genCaseFoldHashValues(inputs []uint32) (tableSize int, hashSeed uint32) {
+	const delta = 500_000
+
+	// This can take awhile so use a progress bar.
+	var bar *progressbar.ProgressBar
+	if term.IsTerminal(syscall.Stdout) {
+		bar = progressbar.Default(math.MaxUint32)
+	} else {
+		bar = progressbar.DefaultSilent(math.MaxUint32)
+	}
+
+	numCPU := runtime.NumCPU()
+	if numCPU >= 8 {
+		numCPU -= 2
+	}
+
+	ch := make(chan *span, numCPU*2)
+	go func() {
+		spans := shuffleSpans(generateSpans(1, math.MaxUint32, delta))
+		for i := range spans {
+			ch <- &spans[i]
+		}
+		close(ch)
+	}()
+
+	var (
+		bestIdx  = int64(math.MaxInt64)
+		bestSeed uint32
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+	)
+	for i := 0; i < numCPU; i++ {
+		wg.Add(1)
+		go func(id int, inputs []uint32) {
+			defer wg.Done()
+			seen := new([caseFoldSize]bool)
+			for sp := range ch {
+				best := atomic.LoadInt64(&bestIdx)
+			Loop:
+				for i := sp.start; i <= sp.end && best >= int64(len(inputs)); i++ {
+					maxIdx := int64(0)
+					*seen = emptySeen
+					seed := uint32(i)
+					for _, x := range inputs {
+						u := int64(hash(seed, x))
+						if u > best {
+							continue Loop
+						}
+						if seen[u] {
+							continue Loop
+						}
+						seen[u] = true
+						if u > maxIdx {
+							maxIdx = u
+						}
+					}
+					best = atomic.LoadInt64(&bestIdx)
+					if maxIdx < best {
+						// Use mutex to simplify updating both values
+						mu.Lock()
+						best = atomic.LoadInt64(&bestIdx) // re-check
+						if maxIdx < best {
+							atomic.StoreInt64(&bestIdx, maxIdx)
+							atomic.StoreUint32(&bestSeed, seed)
+						}
+						mu.Unlock()
+					}
+				}
+				bar.Add64(sp.end - sp.start)
+			}
+		}(i, inputs)
+	}
+	wg.Wait()
+
+	if bestIdx == math.MaxInt64 || bestSeed == 0 {
+		log.Panic("failed to generate hash values for case fold table")
+	}
+	return int(bestIdx), bestSeed
+}
+
+func genCaseFolds(w *bytes.Buffer) {
+	log.Println("Generating values for _CaseFolds table (this may take a long time)...")
+	inputs := make([]uint32, len(caseFolds))
+	for i, p := range caseFolds {
+		inputs[i] = p.From
+	}
+	start := time.Now()
+	maxIdx, seed := genCaseFoldHashValues(inputs)
+	if maxIdx < caseFoldSize/2 {
+		// Error if the algorithm found a table size that is a smaller power of 2
+		log.Panicf("Hash table size can be reduced to %d or less...", caseFoldSize/2)
+	}
+	log.Printf("Successfully generated _CaseFolds values in: %s", time.Since(start))
+	log.Printf("    max_index: %d", maxIdx)
+	log.Printf("    seed:      %d", seed)
+
+	// TODO: probably don't need this
+	pairs := make([]foldPair, len(caseFolds))
+	copy(pairs, caseFolds)
+	slices.SortFunc(pairs, func(a, b foldPair) bool {
+		return a.From < b.From
+	})
+
+	hashes := make([]foldPair, 0, len(pairs))
+	for i, p := range pairs {
+		hashes = append(hashes, foldPair{
+			From: hash(p.From, seed),
+			To:   uint32(i),
+		})
+	}
+	slices.SortFunc(hashes, func(a, b foldPair) bool {
+		return a.From < b.From
+	})
+
+	// TODO: add a comment?
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, "const _CaseFoldsSeed = 0x%04X\n", seed)
+	fmt.Fprintf(w, "const _CaseFoldsShift = 0x%04X\n", caseFoldShift)
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, "var _CaseFolds = [%d]foldPair{\n", caseFoldSize)
+	for _, h := range hashes {
+		p := pairs[h.To]
+		fmt.Fprintf(w, "\t%d: {0x%04X, 0x%04X}, // %q => %q\n", h.From, p.From, p.To, p.From, p.To)
+	}
+	fmt.Fprint(w, "}\n\n")
 }
 
 func runCommand(args ...string) {
@@ -234,7 +401,16 @@ func writeFile(name string, data []byte) {
 		return
 	}
 
-	tmp := fmt.Sprintf("temp.%s.%d", name, time.Now().UnixNano())
+	var tmp string
+	for i := 0; ; i++ {
+		tmp = fmt.Sprintf("temp.%s.%d", name, time.Now().UnixNano())
+		if _, err := os.Lstat(tmp); os.IsNotExist(err) {
+			break
+		}
+		if i >= 1_000 {
+			log.Fatalf("failed to generate tempory file for: %q", name)
+		}
+	}
 	if err := os.WriteFile(tmp, data, 0644); err != nil {
 		log.Fatal(err)
 	}
@@ -247,27 +423,117 @@ func writeFile(name string, data []byte) {
 func writeGo(w *bytes.Buffer) {
 	data := make([]byte, w.Len())
 	copy(data, w.Bytes())
+	src, err := format.Source(data)
+	if err != nil {
+		log.Panic(err)
+	}
 	w.Reset()
-	if _, err := gen.WriteGo(w, "strcase", "", data); err != nil {
+	if _, err := gen.WriteGo(w, "strcase", "", src); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func hashCaseFolds() string {
+	h := sha256.New()
+	b := make([]byte, 8)
+	for _, p := range caseFolds {
+		binary.LittleEndian.PutUint32(b[0:4], p.From)
+		binary.LittleEndian.PutUint32(b[4:8], p.To)
+		h.Write(b)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func hashGenGoFile() string {
+	f, err := os.Open("gen.go")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		log.Panic(err)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func writeUnicodeConstants() {
+	var w bytes.Buffer
+	gen.WriteUnicodeVersion(&w)
+	gen.WriteCLDRVersion(&w)
+	writeGo(&w)
+}
+
+var tableInfo struct {
+	UnicodeVersion string `json:"unicode_version"`
+	CLDRVersion    string `json:"cldr_version"`
+	CaseFoldHash   string `json:"case_fold_hash"`
+	GenGoHash      string `json:"gen_go_hash"`
+}
+
+func loadTableInfo() {
+	data, err := os.ReadFile(".tables.json")
+	if err != nil {
+		return
+	}
+	if err := json.Unmarshal(data, &tableInfo); err != nil {
+		log.Panic(err)
+	}
+}
+
+func updateTableInfoFile(fileHash, foldHash string) {
+	tableInfo.UnicodeVersion = gen.UnicodeVersion()
+	tableInfo.CLDRVersion = gen.CLDRVersion()
+	tableInfo.CaseFoldHash = foldHash
+	tableInfo.GenGoHash = fileHash
+	data, err := json.MarshalIndent(&tableInfo, "", "    ")
+	if err != nil {
+		log.Panic(err)
+	}
+	writeFile(".tables.json", data)
+}
+
+func fileExists(name string) bool {
+	_, err := os.Lstat(name)
+	return err == nil
 }
 
 func main() {
 	skipTests := flag.Bool("skip-tests", false, "skip running tests")
 	dryRun := flag.Bool("dry-run", false,
 		"report if generate would change tables.go and exit non-zero")
-	gen.Init()
 
+	gen.Init()               // TODO: we don't really need this
+	log.SetOutput(os.Stdout) // use stdout instead of stderr
+
+	loadTableInfo()
 	loadCaseFolds()
 	loadCategories()
+	fileHash := hashGenGoFile()
+	foldHash := hashCaseFolds()
+
+	if fileExists("tables.go") &&
+		gen.UnicodeVersion() == tableInfo.UnicodeVersion &&
+		gen.CLDRVersion() == tableInfo.CLDRVersion &&
+		foldHash == tableInfo.CaseFoldHash &&
+		fileHash == tableInfo.GenGoHash {
+
+		log.Printf("gen: exiting - no changes:\n"+
+			"    unicode_version: %q\n"+
+			"    cldr_version:    %q\n"+
+			"    case_fold_hash:  %q\n"+
+			"    gen_go_hash:     %q\n",
+			tableInfo.UnicodeVersion, tableInfo.CLDRVersion,
+			tableInfo.CaseFoldHash, tableInfo.GenGoHash)
+		return
+	}
 
 	var w bytes.Buffer
 	gen.WriteUnicodeVersion(&w)
 	gen.WriteCLDRVersion(&w)
 
 	genFoldMap(&w)
-	genCaseOrbit(&w)
+	genCaseFolds(&w)
 
 	writeGo(&w)
 	testBuild(w.Bytes(), *skipTests)
@@ -283,4 +549,12 @@ func main() {
 	}
 
 	writeFile("tables.go", w.Bytes())
+	updateTableInfoFile(fileHash, foldHash)
+	log.Printf("Successfully generated tables:\n"+
+		"    unicode_version: %q\n"+
+		"    cldr_version:    %q\n"+
+		"    case_fold_hash:  %q\n"+
+		"    gen_go_hash:     %q\n",
+		tableInfo.UnicodeVersion, tableInfo.CLDRVersion,
+		tableInfo.CaseFoldHash, tableInfo.GenGoHash)
 }
