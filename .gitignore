@@ -1,5 +1,6 @@
 *.out
 *.test
+*.txt
 /bin
 /gen
 /vendor
