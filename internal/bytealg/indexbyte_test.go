@@ -4,9 +4,17 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
+
+// // WARN WARN WARN
+// func TestOr(t *testing.T) {
+// 	b := bytes.Repeat([]byte{'A'}, 64)
+// 	OrByte(b)
+// 	fmt.Printf("%q\n", b)
+// }
 
 var quiet = flag.Bool("quiet", false, "quiet test output")
 
@@ -21,7 +29,9 @@ func testIndexByte(t *testing.T, base, name string, fn func([]byte, byte) int) {
 	}
 	var results []string
 	// TODO: test near page boundaries
-	for _, size := range []int{1, 7, 6, 15, 16, 17, 56, 66, 129, 256, 1024, 1027} {
+	for _, size := range []int{1, 7, 6, 15, 16, 17, 56, 66, 129, 256, 1024, 1027,
+		os.Getpagesize() - 1, os.Getpagesize(), os.Getpagesize() + 1} {
+
 		t.Run(fmt.Sprintf("%d", size), func(t *testing.T) {
 			errCount := 0
 			orig := strings.Repeat(base, size)
@@ -114,11 +124,25 @@ func BenchmarkIndexByte(b *testing.B) {
 }
 
 func BenchmarkIndexBytePortable(b *testing.B) {
+	b.Skip("DELETE ME")
 	benchBytes(b, indexSizes, bmIndexByte(indexBytePortable, true))
 }
 
 func BenchmarkIndexByteStdLib(b *testing.B) {
 	benchBytes(b, indexSizes, bmIndexByte(bytes.IndexByte, false))
+}
+
+func BenchmarkIndexByteCutover(b *testing.B) {
+	// s := strings.Repeat("a", 64)
+	for _, size := range [...]int{2, 4, 8, 12, 16, 32, 64} {
+		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
+			s := strings.Repeat("a", size-1) + "b"
+			c := byte('b')
+			for i := 0; i < b.N; i++ {
+				_ = IndexByteString(s, c)
+			}
+		})
+	}
 }
 
 func bmIndexByte(index func([]byte, byte) int, caseless bool) func(b *testing.B, n int) {

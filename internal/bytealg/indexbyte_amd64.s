@@ -48,6 +48,9 @@ TEXT indexbytebody<>(SB), NOSPLIT, $0
 	MOVQ SI, DI
 
 	CMPQ BX, $32
+	JA   avx2
+
+sse:
 	LEAQ -16(SI)(BX*1), AX // AX = address of last 16 bytes
 	JMP  sseloopentry
 
@@ -133,38 +136,47 @@ endofpage:
 	MOVQ     DX, (R8)
 	RET
 
-// TODO: implement AVX2
-//
-// avx2:
-// #ifndef hasAVX2
-// 	CMPB   internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
-// 	JNE sse
-// #endif
-// 	MOVD AX, X0
-// 	LEAQ -32(SI)(BX*1), R11
-// 	VPBROADCASTB  X0, Y1
-// avx2_loop:
-// 	VMOVDQU (DI), Y2
-// 	VPCMPEQB Y1, Y2, Y3
-// 	VPTEST Y3, Y3
-// 	JNZ avx2success
-// 	ADDQ $32, DI
-// 	CMPQ DI, R11
-// 	JLT avx2_loop
-// 	MOVQ R11, DI
-// 	VMOVDQU (DI), Y2
-// 	VPCMPEQB Y1, Y2, Y3
-// 	VPTEST Y3, Y3
-// 	JNZ avx2success
-// 	VZEROUPPER
-// 	MOVQ $-1, (R8)
-// 	RET
-//
-// avx2success:
-// 	VPMOVMSKB Y3, DX
-// 	BSFL DX, DX
-// 	SUBQ SI, DI
-// 	ADDQ DI, DX
-// 	MOVQ DX, (R8)
-// 	VZEROUPPER
-// 	RET
+// TODO: since this is not working try masking again and write a test
+// that modifies the input - so that we can see if it actualy works
+// (looks like the previous mask was not completely set).
+avx2:
+#ifndef hasAVX2
+	CMPB internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
+	JNE  sse
+
+#endif
+	// Create a mask in Y4 that converts text to upper case.
+	MOVD         CX, X0 // 32 (space ' ') already stored in CX
+	VPBROADCASTB X0, Y4
+
+	MOVD         AX, X0
+	LEAQ         -32(SI)(BX*1), R11
+	VPBROADCASTB X0, Y1
+
+avx2_loop:
+	VMOVDQU  (DI), Y2
+	VPOR     Y4, Y2, Y2
+	VPCMPEQB Y1, Y2, Y3
+	VPTEST   Y3, Y3
+	JNZ      avx2success
+	ADDQ     $32, DI
+	CMPQ     DI, R11
+	JLT      avx2_loop
+	MOVQ     R11, DI
+	VMOVDQU  (DI), Y2
+	VPOR     Y4, Y2, Y2
+	VPCMPEQB Y1, Y2, Y3
+	VPTEST   Y3, Y3
+	JNZ      avx2success
+	VZEROUPPER
+	MOVQ     $-1, (R8)
+	RET
+
+avx2success:
+	VPMOVMSKB Y3, DX
+	BSFL      DX, DX
+	SUBQ      SI, DI
+	ADDQ      DI, DX
+	MOVQ      DX, (R8)
+	VZEROUPPER
+	RET
