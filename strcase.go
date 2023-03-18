@@ -1728,6 +1728,11 @@ func makeASCIISet(chars string) (as asciiSet, ok bool) {
 		if c >= utf8.RuneSelf {
 			return as, false
 		}
+		// Can't use ASCII when non-ASCII chars fold to ASCII chars.
+		switch c {
+		case 'K', 'k', 'S', 's':
+			return as, false
+		}
 		as[c/32] |= 1 << (c % 32)
 		if isAlpha(c) {
 			c ^= ' ' // swap case
