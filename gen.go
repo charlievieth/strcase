@@ -26,13 +26,14 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/charlievieth/strcase/internal/gen"
-	"github.com/charlievieth/strcase/internal/ucd"
 	"github.com/schollz/progressbar/v3"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"golang.org/x/term"
 	"golang.org/x/text/unicode/rangetable"
+
+	"github.com/charlievieth/strcase/internal/gen"
+	"github.com/charlievieth/strcase/internal/ucd"
 )
 
 const (
@@ -193,6 +194,7 @@ type span struct {
 }
 
 func generateSpans(start, end, delta int64) []span {
+	maxEnd := end
 	var spans []span
 	for i := start; i <= end; i += delta {
 		start := i
@@ -200,8 +202,8 @@ func generateSpans(start, end, delta int64) []span {
 			start = 1
 		}
 		end := i + delta
-		if end >= end {
-			end = end
+		if end >= maxEnd {
+			end = maxEnd
 		}
 		spans = append(spans, span{start: int64(start), end: int64(end)})
 	}
