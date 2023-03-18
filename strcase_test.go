@@ -714,6 +714,48 @@ func TestIndexRune(t *testing.T) {
 	}
 }
 
+func TestIndexRuneCase(t *testing.T) {
+	tests := []IndexRuneTest{
+		{"", 'a', -1},
+		{"", '☺', -1},
+		{"foo", '☹', -1},
+		{"foo", 'o', 1},
+		{"foo☺bar", '☺', 3},
+		{"foo☺☻☹bar", '☹', 9},
+		{"a A x", 'A', 2},
+		{"some_text=some_value", '=', 9},
+		{"☺a", 'a', 3},
+		{"a☻☺b", '☺', 4},
+
+		// RuneError should match any invalid UTF-8 byte sequence.
+		{"�", '�', 0},
+		{"\xff", '�', 0},
+		{"☻x�", '�', len("☻x")},
+		{"☻x\xe2\x98", '�', len("☻x")},
+		{"☻x\xe2\x98�", '�', len("☻x")},
+		{"☻x\xe2\x98x", '�', len("☻x")},
+
+		// Invalid rune values should never match.
+		{"a☺b☻c☹d\xe2\x98�\xff�\xed\xa0\x80", -1, -1},
+		{"a☺b☻c☹d\xe2\x98�\xff�\xed\xa0\x80", 0xD800, -1}, // Surrogate pair
+		{"a☺b☻c☹d\xe2\x98�\xff�\xed\xa0\x80", utf8.MaxRune + 1, -1},
+
+		// Make sure IndexRune does not panic when the byte being searched
+		// for occurs at the end of the string.
+		{"abcÀ"[:len("abcÀ")-1], 'À', -1},
+		{"abc本"[:len("abc本")-1], '本', -1},
+		{"abc本"[:len("abc本")-2], '本', -1},
+		{"abc𐀀"[:len("abc𐀀")-1], '𐀀', -1},
+		{"abc𐀀"[:len("abc𐀀")-2], '𐀀', -1},
+		{"abc𐀀"[:len("abc𐀀")-3], '𐀀', -1},
+	}
+	for _, tt := range tests {
+		if got := indexRuneCase(tt.in, tt.rune); got != tt.want {
+			t.Errorf("indexRuneCase(%q, %d) = %v; want %v", tt.in, tt.rune, got, tt.want)
+		}
+	}
+}
+
 func TestContainsRune(t *testing.T) {
 	for _, test := range indexRuneTests {
 		got := ContainsRune(test.in, test.rune)
