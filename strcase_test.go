@@ -524,6 +524,37 @@ func TestContains(t *testing.T) {
 	}
 }
 
+var ContainsAnyTests = []struct {
+	str, substr string
+	expected    bool
+}{
+	{"", "", false},
+	{"", "a", false},
+	{"", "abc", false},
+	{"a", "", false},
+	{"a", "a", true},
+	{"aaa", "a", true},
+	{"abc", "xyz", false},
+	{"abc", "xcz", true},
+	{"a☺b☻c☹d", "uvw☻xyz", true},
+	{"aRegExp*", ".(|)*+?^$[]", true},
+	{dots + dots + dots, " ", false},
+
+	// Case-insensitive
+	{"a", "A", true},
+	{"aaa", "A", true},
+	{"αβa", "ΑΒΔ", true},
+}
+
+func TestContainsAny(t *testing.T) {
+	for _, ct := range ContainsAnyTests {
+		if ContainsAny(ct.str, ct.substr) != ct.expected {
+			t.Errorf("ContainsAny(%s, %s) = %v, want %v",
+				ct.str, ct.substr, !ct.expected, ct.expected)
+		}
+	}
+}
+
 // Test that the Rabin-Karp functions can handle a haystack (s) that is
 // smalled than the needle (sep).
 func TestIndexRabinKarpUnicode(t *testing.T) {
@@ -656,6 +687,7 @@ var indexRuneTests = []IndexRuneTest{
 	{"ſ", 's', 0},  // U+0073
 	{"İ", 'İ', 0},  // U+0130
 	{"i", 'İ', -1}, // U+0130
+	{"ſS*ք", 'S', 0},
 }
 
 func TestIndexRune(t *testing.T) {
@@ -863,6 +895,11 @@ var prefixTests = []PrefixTest{
 	{strings.Repeat("\u212a", 8), strings.Repeat("k", 8), true, true},
 	{strings.Repeat("k", 8), strings.Repeat("\u212a", 8), true, true},
 	{"k-k", "\u212a-\u212a", true, true},
+
+	{"a", "bbb", false, true},
+	{"\u212a", strings.Repeat("a", len("\u212a")*2), false, true},
+	{"\u212a", strings.Repeat("a", len("\u212a")*3), false, true},
+	{"\u212a", strings.Repeat("a", len("\u212a")*4), false, true},
 }
 
 func TestHasPrefix(t *testing.T) {
@@ -1022,6 +1059,12 @@ var indexAnyTests = []IndexTest{
 	{"012\x80bcb\x80210", "\xffb", 3},
 	{"0123456\xcf\x80abc", "\xcfb\x80", 10},
 	{"a☺b☻c☹d", "☺"[:1], -1},
+
+	// ASCII chars that are equal to multi-byte runes
+	{"\u212A" + strings.Repeat("x", 16), "k", 0},
+	{strings.Repeat("k", 16), "\u212A", 0},
+	{"\u017F" + strings.Repeat("x", 16), "s", 0},
+	{strings.Repeat("s", 16), "\u017F", 0},
 }
 
 var lastIndexAnyTests = []IndexTest{
@@ -1051,6 +1094,12 @@ var lastIndexAnyTests = []IndexTest{
 	{"kkk", "\u212a", 2},
 	{"☹", "☹"[:1], -1},
 	{"abc" + "☹"[:1], "☹"[:1], len("abc")},
+
+	// ASCII chars that are equal to multi-byte runes
+	{"\u212A" + strings.Repeat("x", 16), "k", 0},
+	{strings.Repeat("k", 16), "\u212A", 15},
+	{"\u017F" + strings.Repeat("x", 16), "s", 0},
+	{strings.Repeat("s", 16), "\u017F", 15},
 }
 
 func TestIndexAny(t *testing.T) {
