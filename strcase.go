@@ -1707,9 +1707,9 @@ func Contains(s, substr string) bool {
 }
 
 // ContainsAny reports whether any Unicode code points in chars are within s.
-// func ContainsAny(s, chars string) bool {
-// 	return IndexAny(s, chars) >= 0
-// }
+func ContainsAny(s, chars string) bool {
+	return IndexAny(s, chars) >= 0
+}
 
 // ContainsRune reports whether the Unicode code point r is within s.
 func ContainsRune(s string, r rune) bool {
