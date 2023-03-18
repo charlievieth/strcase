@@ -126,6 +126,12 @@ var _lower = [256]byte{
 	248, 249, 250, 251, 252, 253, 254, 255,
 }
 
+// containsKelvin returns true if string s contains rune 'K' (Kelvin).
+func containsKelvin(s string) bool {
+	// return strings.Contains(s, "\u212A")
+	return indexRuneX(s, '\u212A') != -1
+}
+
 // HasPrefix tests whether the string s begins with prefix ignoring case.
 func HasPrefix(s, prefix string) bool {
 	ok, _ := hasPrefixUnicode(s, prefix)
@@ -138,7 +144,7 @@ func hasPrefixUnicode(s, prefix string) (bool, bool) {
 	// The max difference in encoded lengths between cases is 2 bytes for
 	// [kK] (Latin - 1 byte) and 'K' (Kelvin - 3 bytes).
 	n := len(s)
-	if n*3 < len(prefix) || (n*2 < len(prefix) && !strings.Contains(prefix, string('\u212A'))) {
+	if n*3 < len(prefix) || (n*2 < len(prefix) && !containsKelvin(prefix)) {
 		return false, true
 	}
 
@@ -222,7 +228,7 @@ func hasSuffixUnicode(s, suffix string) (bool, bool, int) {
 	if nt == 0 {
 		return true, false, ns
 	}
-	if ns*3 < nt || (ns*2 < nt && !strings.Contains(suffix, string('\u212A'))) {
+	if ns*3 < nt || (ns*2 < nt && !containsKelvin(suffix)) {
 		return false, true, 0
 	}
 
@@ -874,7 +880,7 @@ func Index(s, substr string) int {
 		if n > len(s)*3 {
 			return -1
 		}
-		if n > len(s)*2 && !strings.Contains(substr, string('\u212A')) {
+		if n > len(s)*2 && !containsKelvin(substr) {
 			return -1
 		}
 		// Match here is possible due to upper/lower case runes
@@ -913,7 +919,7 @@ func LastIndex(s, substr string) int {
 		if n > len(s)*3 {
 			return -1
 		}
-		if n > len(s)*2 && !strings.Contains(substr, string('\u212A')) {
+		if n > len(s)*2 && !containsKelvin(substr) {
 			return -1
 		}
 		// TODO: calculate the cutoff for brute-force vs. Rabin-Karp
