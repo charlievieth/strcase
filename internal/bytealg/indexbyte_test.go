@@ -5,10 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
-	"unicode"
-	"unicode/utf8"
 )
 
 var quiet = flag.Bool("quiet", false, "quiet test output")
@@ -19,6 +18,7 @@ type IndexTest struct {
 	out int
 }
 
+// From strings/strings_test.go
 var indexTests = []IndexTest{
 	{"", "", 0},
 	{"", "a", -1},
@@ -113,6 +113,8 @@ var indexTests = []IndexTest{
 	{"oxoxoxoxoxoxoxoxoxoxoxox", "oy", -1},
 }
 
+// Make sure we pass the standard library's IndexByte tests
+// From strings/strings_test.go
 func TestIndexByte(t *testing.T) {
 	for _, tt := range indexTests {
 		if len(tt.sep) != 1 {
@@ -125,6 +127,8 @@ func TestIndexByte(t *testing.T) {
 	}
 }
 
+// Make sure we pass the standard library's IndexByte tests
+// From strings/strings_test.go
 func TestIndexByteString(t *testing.T) {
 	for _, tt := range indexTests {
 		if len(tt.sep) != 1 {
@@ -138,35 +142,38 @@ func TestIndexByteString(t *testing.T) {
 }
 
 func testIndexByteASCII(t *testing.T, name string, fn func(s []byte, c byte) int) {
-	s := make([]byte, 0, utf8.RuneSelf)
+	test := func(t *testing.T, s []byte) {
+		t.Run("", func(t *testing.T) {
+			errCount := 0
+			for i, c := range s {
+				o := fn(s, c)
+				if o != i {
+					if !*quiet {
+						t.Errorf(`%s(%q, %q) = %v; want %v`, name, s, c, o, i)
+					}
+					errCount++
+				}
+			}
+			if errCount > 0 {
+				t.Errorf("Failed: %d/%d", errCount, len(s))
+			}
+		})
+	}
+
+	s1 := make([]byte, 0, 256) // forward
 	for i := 0; i < 256; i++ {
 		c := byte(i)
-		if !isAlphaPortable(c) {
-			s = append(s, c)
+		if !('a' <= c && c <= 'z') {
+			s1 = append(s1, c)
 		}
 	}
-	for i, c := range s {
-		o := fn(s, c)
-		if o != i {
-			t.Errorf(`%s(%q, %q) = %v; want %v`, name, s, c, o, i)
-		}
+	s2 := make([]byte, len(s1))
+	for i := len(s1)/2 - 1; i >= 0; i-- {
+		opp := len(s1) - 1 - i
+		s2[i], s2[opp] = s1[opp], s1[i]
 	}
-	// do it in reverse
-	{
-		s := s[:0]
-		for i := 255; i >= 0; i-- {
-			c := byte(i)
-			if !isAlphaPortable(c) {
-				s = append(s, c)
-			}
-		}
-		for i, c := range s {
-			o := fn(s, c)
-			if o != i {
-				t.Errorf(`%s(%q, %q) = %v; want %v`, name, s, c, o, i)
-			}
-		}
-	}
+	test(t, s1)
+	test(t, s2)
 }
 
 func TestIndexByteASCII(t *testing.T) {
@@ -186,7 +193,7 @@ func max(a, b int) int {
 	return b
 }
 
-func testIndexByte(t *testing.T, base, name, replacements string, fn func([]byte, byte) int) {
+func testIndexByte(t *testing.T, base, name, funcName, replacements string, fn func([]byte, byte) int) {
 	const maxErrors = 40
 	if t.Failed() {
 		t.FailNow()
@@ -195,21 +202,25 @@ func testIndexByte(t *testing.T, base, name, replacements string, fn func([]byte
 	if strings.ContainsAny(base, "xX") {
 		t.Fatalf("base string %q may not contain %q", base, "xX")
 	}
+
+	// Test indices 512 bytes on either side of size.
+	const delta = 512
+
+	ob := base
+	base = strings.Repeat(ob, os.Getpagesize()+delta+1) // expand base
+	base = strings.TrimPrefix(base, ob)                 // change data alignment (shift the GC'd ptr by 25)
+
 	var results []string
-
 	for size := 1; size <= os.Getpagesize(); size <<= 1 {
-		t.Run(fmt.Sprintf("%d", size), func(t *testing.T) {
-			const delta = 512 // Test indexes 512 bytes on either side of size
-
-			orig := strings.Repeat(base, (size+delta/len(base))+1)
-			orig = orig[:size]
+		t.Run(fmt.Sprintf("%s/%d", name, size), func(t *testing.T) {
+			orig := base[:size+delta]
 			s1 := make([]byte, len(orig))
 			copy(s1, orig)
 
 			errCount := 0
 			for i := max(0, size-delta*2); i < len(orig); i++ {
 				for j, c := range []byte(replacements) {
-					if unicode.IsLetter(rune(c)) {
+					if isAlphaPortable(c) {
 						if i < len(s1)-1 {
 							s1[i] = c ^ ' ' // swap case
 							s1[i+1] = c
@@ -229,7 +240,12 @@ func testIndexByte(t *testing.T, base, name, replacements string, fn func([]byte
 						}
 						errCount++
 					}
-					copy(s1[i:], orig[i:])
+					if i < len(s1)-1 {
+						s1[i] = orig[i]
+						s1[i+1] = orig[i+1]
+					} else {
+						s1[i] = orig[i]
+					}
 				}
 			}
 			if errCount > 0 {
@@ -238,26 +254,29 @@ func testIndexByte(t *testing.T, base, name, replacements string, fn func([]byte
 		})
 	}
 	if t.Failed() {
-		t.Logf("%s Summary:\n%s", name, strings.Join(results, "\n"))
+		t.Logf("%s Summary:\n%s", funcName, strings.Join(results, "\n"))
 	}
 }
 
 const alphaLower = "abcdefghijklmnopqrstuvwyz" // no X
 const alphaUpper = "ABCDEFGHIJKLMNOPQRSTUVWYZ" // no X
 
+// CEV: I don't trust my ability to write assembly so pedantically test near
+// powers of 2 and the OS page size.
+
 func TestIndexByteLimits(t *testing.T) {
-	testIndexByte(t, alphaLower, "IndexByte", "xX", IndexByte)
-	testIndexByte(t, alphaUpper, "IndexByte", "xX", IndexByte)
-	testIndexByte(t, alphaUpper, "IndexByte", "1", IndexByte)
+	testIndexByte(t, alphaLower, "Lower", "IndexByte", "xX", IndexByte)
+	testIndexByte(t, alphaUpper, "Upper", "IndexByte", "xX", IndexByte)
+	testIndexByte(t, alphaUpper, "Digit", "IndexByte", "1", IndexByte)
 }
 
 func TestIndexByteStringLimits(t *testing.T) {
 	fn := func(s []byte, c byte) int {
 		return IndexByteString(string(s), c)
 	}
-	testIndexByte(t, alphaLower, "IndexByteString", "xX", fn)
-	testIndexByte(t, alphaUpper, "IndexByteString", "xX", fn)
-	testIndexByte(t, alphaUpper, "IndexByteString", "1", fn)
+	testIndexByte(t, alphaLower, "Lower", "IndexByteString", "xX", fn)
+	testIndexByte(t, alphaUpper, "Upper", "IndexByteString", "xX", fn)
+	testIndexByte(t, alphaUpper, "Digit", "IndexByteString", "1", fn)
 }
 
 var bmbuf []byte
@@ -290,17 +309,14 @@ func BenchmarkIndexByte(b *testing.B) {
 	benchBytes(b, indexSizes, bmIndexByte(IndexByte, true))
 }
 
-func BenchmarkIndexBytePortable(b *testing.B) {
-	b.Skip("DELETE ME")
-	benchBytes(b, indexSizes, bmIndexByte(indexBytePortable, true))
-}
-
 func BenchmarkIndexByteStdLib(b *testing.B) {
 	benchBytes(b, indexSizes, bmIndexByte(bytes.IndexByte, false))
 }
 
 func BenchmarkIndexByteCutover(b *testing.B) {
-	// s := strings.Repeat("a", 64)
+	if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
+		b.Skipf("benchmark not relevant to GOARCH: %q", runtime.GOARCH)
+	}
 	for _, size := range [...]int{2, 4, 8, 12, 16, 32, 64} {
 		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
 			s := strings.Repeat("a", size-1) + "b"
