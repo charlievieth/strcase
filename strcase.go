@@ -1,12 +1,4 @@
-// Package strings is a case-insensitive implementation of the strings package.
-// Except where noted, simple Unicode case-folding is used to determine equality.
 package strcase
-
-// TODO: make sure package doc is accurate.
-
-// BUG(cvieth): There is no mechanism for full case folding, that is, for
-// characters that involve multiple runes in the input or output
-// (see: https://pkg.go.dev/unicode#pkg-note-BUG).
 
 //go:generate go run gen.go
 
@@ -1121,11 +1113,6 @@ func indexRuneCase(s string, r rune) int {
 	case !utf8.ValidRune(r):
 		return -1
 	default:
-		// TODO: see if using the strings.Index fast path for
-		// small values is faster here
-		// if len(s) <= 16 {
-		// 	return strings.Index(s, string(r))
-		// }
 		var n int
 		var c0, c1, c2, c3 byte
 		// Inlined version of utf8.EncodeRune
@@ -1163,17 +1150,17 @@ func indexRuneCase(s string, r rune) int {
 				n = 4
 			}
 		}
-		// TODO: check `n > len(s)` here ???
-		if n == len(s) {
+		if n >= len(s) {
 			if string(r) == s {
 				return 0
 			}
 			return -1
 		}
-		// TODO:
-		// 	* search for the last byte since it is the most uniformly distributed
-		//	* test if we should have a cutoff for IndexByte and switch over to
-		//	  iterating runes
+		// TODO: test if we should have a cutoff for IndexByte and switch over
+		// to iterating runes.
+		//
+		// NOTE: searching for the last byte was not always faster (so maybe
+		// not worth investigating in the future).
 		//
 		// Search for r using the second byte of its UTF-8 encoded form
 		// since it is more unique than the first byte. This 4-5x faster
@@ -1246,7 +1233,6 @@ func indexRuneCase(s string, r rune) int {
 //
 // Based on the above we could combine searches using the second byte.
 func indexRune2(s string, lower, upper rune) (int, int) {
-	// WARN: latest changes made this slightly slower
 	if lower|upper < utf8.RuneSelf {
 		return indexByte(s, byte(lower))
 	}
