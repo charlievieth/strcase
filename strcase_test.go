@@ -1152,15 +1152,6 @@ func TestLastIndexAny(t *testing.T) {
 	runIndexTests(t, LastIndexAny, "LastIndexAny", lastIndexAnyTests, false)
 }
 
-func BenchmarkBruteForceIndexASCII(b *testing.B) {
-	if out := bruteForceIndexASCII("x012345678x0a2b4c6d8e", "0A2B4C6D8E"); out != 11 {
-		b.Fatalf("bruteForceIndexASCII(%q, %q) = %d; want %d", "x012345678x0123456789", "0123456789", out, 11)
-	}
-	for i := 0; i < b.N; i++ {
-		bruteForceIndexASCII("x012345678x0123456789", "0123456789")
-	}
-}
-
 func BenchmarkCompare(b *testing.B) {
 	b.Run("Tests", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
