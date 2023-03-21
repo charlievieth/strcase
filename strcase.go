@@ -721,7 +721,7 @@ func shortIndexUnicode(s, substr string) int {
 	i := 0
 
 	// WARN: resolve and benchmark this
-	// TOOD: see if we can stop earlier: `t := len(s) - (len(substr) / 3) + 1`
+	// TODO: see if we can stop earlier: `t := len(s) - (len(substr) / 3) + 1`
 	//
 	// t := len(s) - (utf8.RuneCountInString(substr) + 1)
 	t := len(s) - 1
@@ -1816,7 +1816,7 @@ func IndexNonASCII(s string) int {
 // 	i := 0
 //
 // 	// WARN: resolve and benchmark this
-// 	// TOOD: see if we can stop earlier: `t := len(s) - (len(substr) / 3) + 1`
+// 	// TODO: see if we can stop earlier: `t := len(s) - (len(substr) / 3) + 1`
 // 	//
 // 	// t := len(s) - (utf8.RuneCountInString(substr) + 1)
 // 	t := len(s) - 1
