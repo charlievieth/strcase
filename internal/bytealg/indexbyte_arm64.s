@@ -91,7 +91,6 @@ TEXT indexbytebodyCase<>(SB), NOSPLIT, $0
 	// Input string is not 32-byte aligned. We calculate the
 	// syndrome value for the aligned 32 bytes block containing
 	// the first bytes and mask off the irrelevant part.
-	// CEV: load
 	VLD1.P (R3), [V1.B16, V2.B16]
 	VORR   V7.B16, V1.B16, V1.B16 // Convert to lowercase
 	VORR   V7.B16, V2.B16, V2.B16 // Convert to lowercase
