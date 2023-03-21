@@ -353,21 +353,3 @@ func bmIndexByte(index func([]byte, byte) int, caseless bool) func(b *testing.B,
 func isAlphaPortable(c byte) bool {
 	return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z'
 }
-
-func indexBytePortable(s []byte, c byte) int {
-	n := bytes.IndexByte(s, c)
-	if n == 0 || !isAlphaPortable(c) {
-		return n
-	}
-
-	// TODO: calculate the optimal cutoff
-	if n > 0 && len(s) >= 16 {
-		s = s[:n] // limit search space
-	}
-
-	c ^= ' ' // swap case
-	if o := bytes.IndexByte(s, c); n == -1 || (o != -1 && o < n) {
-		n = o
-	}
-	return n
-}
