@@ -32,3 +32,9 @@ const offsetX86HasAVX2 = unsafe.Offsetof(cpu.X86.HasAVX2)
 
 func IndexByte(s []byte, c byte) int
 func IndexByteString(s string, c byte) int
+
+// WARN: new
+func IndexNonASCII(s string) int
+
+// WARN: rename
+func IndexByteNonASCII(s []byte) int
