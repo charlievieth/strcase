@@ -96,7 +96,7 @@ calibrate:
 
 .PHONY: vet-strcase
 vet-strcase:
-	@$(GO) vet
+	@$(GO) vet ./...
 
 .PHONY: vet-gen
 vet-gen:
