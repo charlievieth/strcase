@@ -21,14 +21,14 @@ jobs:
       - uses: actions/cache@v3
         name: Cache richgo
         with:
-          path: bin/richgo
-          key: ${{ runner.os }}-richgo-${{ hashFiles('*Makefile*') }}
+          path: bin
+          key: ${{ runner.os }}-richgo-${{ hashFiles('**/richgo') }}
 
       - uses: actions/cache@v3
         name: Cache golangci-lint
         with:
-          path: bin/golangci-lint
-          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('*Makefile*') }}
+          path: bin
+          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/golangci-lint') }}
 
       - uses: actions/setup-go@v4
         with:
