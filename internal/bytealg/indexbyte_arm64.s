@@ -1,6 +1,9 @@
-// Copyright 2018 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// Copyright 2023 Charlie Vieth. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
+// The following code is modified version of the standard library's
+// internal/bytealg/indexbyte_armd64.s the Go LICENSE can be found in
+// the go.LICENSE file.
 
 #include "textflag.h"
 

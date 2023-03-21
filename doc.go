@@ -1,3 +1,6 @@
+// Copyright 2023 Charlie Vieth. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 // Package strcase is a fast case-insensitive implementation of the Go standard
 // library's [strings] package.
 //
