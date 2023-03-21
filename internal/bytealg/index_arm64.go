@@ -21,5 +21,11 @@ func Cutover(n int) int {
 	return 4 + n>>4
 }
 
-func IndexByte(s []byte, c byte) int
+func IndexByte(b []byte, c byte) int
 func IndexByteString(s string, c byte) int
+
+// WARN: new
+func IndexNonASCII(s string) int
+
+// WARN: rename
+func IndexByteNonASCII(b []byte) int
