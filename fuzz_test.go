@@ -536,9 +536,9 @@ func cryptoRandInt(t testing.TB) int64 {
 }
 
 func runRandomTest(t *testing.T, fn func(t testing.TB, rr *rand.Rand)) {
-	n := 500
+	n := 2_500
 	if testing.Short() {
-		n = 50
+		n = 100
 	}
 	seeds := []int64{
 		1,
@@ -551,7 +551,6 @@ func runRandomTest(t *testing.T, fn func(t testing.TB, rr *rand.Rand)) {
 			t.Fatal(`Cannot combine "-short" and "-exhaustive" flags`)
 		}
 		d := 1_000_000 * len(seeds)
-		// d := 250_000 * len(seeds)
 		numCPU := runtime.NumCPU()
 		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 			// Avoid using low-power cores.
