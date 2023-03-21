@@ -26,12 +26,6 @@ jobs:
           # The Makefile sets the version of richgo and golangci-lint
           key: ${{ runner.os }}-bin-${{ hashFiles('**/Makefile') }}
 
-      # - uses: actions/cache@v3
-      #   name: Cache golangci-lint
-      #   with:
-      #     path: bin
-      #     key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/Makefile') }}
-
       - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
@@ -43,63 +37,5 @@ jobs:
       - name: Test Generate
         run: make testgenerate
 
-# name: Test
-#
-# on:
-#   push:
-#     branches: [ master ]
-#   pull_request:
-#     branches: [ master ]
-#
-# jobs:
-#   test-unix:
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         platform:
-#         - ubuntu
-#         go:
-#         - 19
-#     name: '${{ matrix.platform }} | 1.${{ matrix.go }}.x'
-#     runs-on: ${{ matrix.platform }}-latest
-#     steps:
-#
-#     - uses: actions/setup-go@v3
-#       with:
-#         go-version: 1.${{ matrix.go }}.x
-#
-#     - uses: actions/checkout@v3
-#
-#     - uses: actions/cache@v3
-#       with:
-#         path: ~/go/pkg/mod
-#         key: ${{ runner.os }}-1.${{ matrix.go }}.x-${{ hashFiles('**/go.sum') }}
-#         restore-keys: ${{ runner.os }}-1.${{ matrix.go }}.x-
-#
-#     - name: Test
-#       run: make exhaustive GO_COVER_FLAGS=''
-#
-#   test-win:
-#     strategy:
-#       fail-fast: false
-#       matrix:
-#         go:
-#         - 19
-#     name: 'windows | 1.${{ matrix.go }}.x'
-#     runs-on: windows-latest
-#     steps:
-#
-#     - uses: actions/setup-go@v3
-#       with:
-#         go-version: 1.${{ matrix.go }}.x
-#
-#     - uses: actions/checkout@v3
-#
-#     - uses: actions/cache@v3
-#       with:
-#         path: ~/go/pkg/mod
-#         key: ${{ runner.os }}-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
-#         restore-keys: ${{ runner.os }}-${{ matrix.go }}-
-#
-#     - name: Test
-#       run: go test -exhaustive
+      - name: Vet
+        run: make vet
