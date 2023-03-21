@@ -5,9 +5,12 @@
 // library can search multiple bytes simultaneously (SIMD or whatever).
 // Otherwise, a simple for loop should be used.
 //
-// NOTE(cev): the arch build tags included here was picked by me browsing the
+// NOTE(cev): The arch build tags included here were picked by me browsing the
 // assembly implementations of indexbye_{GOARCH}.s and if it looked fancy and
 // complicated I assume it used SIMD so included it here - so could be wrong.
+//
+// This list should be revisited when new versions of Go are released, or by
+// anyone who either has access to the hardware or understands the assembly.
 
 package bytealg
 
