@@ -1,19 +1,18 @@
 #include "go_asm.h"
 #include "textflag.h"
 
-TEXT ·IndexByteNonASCII(SB), NOSPLIT, $0-24
+TEXT ·IndexByteNonASCII(SB), NOSPLIT, $0-32
 	MOVQ b_base+0(FP), SI
 	MOVQ b_len+8(FP), BX
 	LEAQ ret+24(FP), R8
 
 	JMP indexByteBodyNonASCII<>(SB)
 
-TEXT ·IndexNonASCII(SB), NOSPLIT, $0-16
+TEXT ·IndexNonASCII(SB), NOSPLIT, $0-24
 	MOVQ s_base+0(FP), SI
 	MOVQ s_len+8(FP), BX
 	LEAQ ret+16(FP), R8
 
-	MOVB c+16(FP), AL
 	JMP  indexByteBodyNonASCII<>(SB)
 
 // input:
