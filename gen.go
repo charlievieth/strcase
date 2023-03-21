@@ -534,10 +534,10 @@ func main() {
 	}
 
 	log.Printf("gen: updating due to the following changes:\n"+
-		"    unicode_version: %q => %q\n"+
-		"    cldr_version:    %q =? %q\n"+
-		"    case_fold_hash:  %q =? %q\n"+
-		"    gen_go_hash:     %q =? %q\n\n",
+		"    unicode_version: %q   => %q\n"+
+		"    cldr_version:    %q       => %q\n"+
+		"    case_fold_hash:  %q\t=> %q\n"+
+		"    gen_go_hash:     %q\t=> %q\n\n",
 		gen.UnicodeVersion(), tableInfo.UnicodeVersion,
 		gen.CLDRVersion(), tableInfo.CLDRVersion,
 		foldHash[:8], tableInfo.CaseFoldHash[:8],
@@ -546,7 +546,7 @@ func main() {
 		log.Println("gen: would change tables.go " +
 			"(remove -dry-run flag to update the generated files)")
 		log.Println("gen: exiting now")
-		return
+		os.Exit(1)
 	}
 
 	var w bytes.Buffer
