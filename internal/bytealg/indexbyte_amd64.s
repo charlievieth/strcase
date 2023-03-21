@@ -12,12 +12,12 @@ TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	MOVB c+24(FP), AL
 	LEAQ ret+32(FP), R8
 
-	LEAL	-65(AX), CX
-	CMPB	CL, $25
-	JLS index_case
-	ADDL    $-97, AX
-	CMPB    AL, $25
-	JHI index
+	LEAL -65(AX), CX
+	CMPB CL, $25
+	JLS  index_case
+	ADDL $-97, AX
+	CMPB AL, $25
+	JHI  index
 
 index_case:
 	MOVB c+24(FP), AL
@@ -34,12 +34,12 @@ TEXT ·IndexByteString(SB), NOSPLIT, $0-32
 	MOVB c+16(FP), AL
 	LEAQ ret+24(FP), R8
 
-	LEAL	-65(AX), CX
-	CMPB	CL, $25
-	JLS index_case
-	ADDL    $-97, AX
-	CMPB    AL, $25
-	JHI index
+	LEAL -65(AX), CX
+	CMPB CL, $25
+	JLS  index_case
+	ADDL $-97, AX
+	CMPB AL, $25
+	JHI  index
 
 index_case:
 	MOVB c+16(FP), AL
