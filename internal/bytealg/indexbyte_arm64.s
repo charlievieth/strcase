@@ -13,10 +13,10 @@ TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	// Test if c is a letter.
 	SUB  $65, R1, R3
 	CMPW $25, R3
-	BLS  index_case
+	BLS  index_case  // c is a letter
 	SUB  $97, R1, R3
 	CMPW $25, R3
-	BHI  index
+	BHI  index       // c is a letter
 
 index_case:
 	B indexbytebodyCase<>(SB)
@@ -44,8 +44,8 @@ index_case:
 index:
 	B indexbytebody<>(SB)
 
-// indexbytebodyCase is like indexbytebody but ignores case and the byte being
-// searched for must be a ASCII letter.
+// indexbytebodyCase is a case insensitive version indexbytebody
+// the byte being sought *must* be an ASCII letter.
 //
 // input:
 //   R0: data
@@ -179,7 +179,7 @@ fail:
 	MOVD R0, (R8)
 	RET
 
-// indexbytebody is the same as internal/bytealg/indexbyte_arm64.s
+// indexbytebody is the same as internal/bytealg/indexbyte_arm64.s (go1.20)
 //
 // input:
 //   R0: data

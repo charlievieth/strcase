@@ -12,9 +12,9 @@ TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	MOVB c+24(FP), AL
 	LEAQ ret+32(FP), R8
 
-	LEAL -65(AX), CX
+	LEAL -65(AX), CX // Check if the byte is a ASCII letter
 	CMPB CL, $25
-	JLS  index_case
+	JLS  index_case  // Byte sought is a ASCII letter
 	ADDL $-97, AX
 	CMPB AL, $25
 	JHI  index
@@ -34,9 +34,9 @@ TEXT ·IndexByteString(SB), NOSPLIT, $0-32
 	MOVB c+16(FP), AL
 	LEAQ ret+24(FP), R8
 
-	LEAL -65(AX), CX
+	LEAL -65(AX), CX // Check if the byte is a ASCII letter
 	CMPB CL, $25
-	JLS  index_case
+	JLS  index_case  // Byte sought is a ASCII letter
 	ADDL $-97, AX
 	CMPB AL, $25
 	JHI  index
@@ -49,6 +49,9 @@ index:
 	MOVB c+16(FP), AL
 	JMP  indexbytebody<>(SB)
 
+// indexbytebodyCase is a case insensitive version indexbytebody
+// the byte being sought *must* be an ASCII letter.
+//
 // input:
 //   SI: data
 //   BX: data len
@@ -57,7 +60,7 @@ index:
 TEXT indexbytebodyCase<>(SB), NOSPLIT, $0
 	// Shuffle X0 around so that each byte contains
 	// the character we're looking for.
-	ORL       $32, AX
+	ORL       $32, AX    // Convert byte to lowercase
 	MOVD      AX, X0
 	PUNPCKLBW X0, X0
 	PUNPCKLBW X0, X0
@@ -161,7 +164,7 @@ endofpage:
 	SHRL     $16, DX           // Shift desired bits down to bottom of register.
 	BSFL     DX, DX            // Find first set bit.
 	JZ       failure           // No set bit, failure.
-	MOVQ     DX, (R8)
+	MOVQ     DX, (R8
 	RET
 
 // TODO: since this is not working try masking again and write a test
@@ -183,7 +186,7 @@ avx2:
 
 avx2_loop:
 	VMOVDQU  (DI), Y2
-	VPOR     Y4, Y2, Y2
+	VPOR     Y4, Y2, Y2  // Convert data to lowercase
 	VPCMPEQB Y1, Y2, Y3
 	VPTEST   Y3, Y3
 	JNZ      avx2success
@@ -192,7 +195,7 @@ avx2_loop:
 	JLT      avx2_loop
 	MOVQ     R11, DI
 	VMOVDQU  (DI), Y2
-	VPOR     Y4, Y2, Y2
+	VPOR     Y4, Y2, Y2  // Convert data to lowercase
 	VPCMPEQB Y1, Y2, Y3
 	VPTEST   Y3, Y3
 	JNZ      avx2success
@@ -209,6 +212,8 @@ avx2success:
 	VZEROUPPER
 	RET
 
+// indexbytebody is the same as internal/bytealg/indexbyte_amd64.s (go1.20)
+//
 // input:
 //   SI: data
 //   BX: data len
