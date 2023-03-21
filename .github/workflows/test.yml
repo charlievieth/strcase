@@ -18,17 +18,19 @@ jobs:
           path: DATA
           key: ${{ runner.os }}-data-${{ hashFiles('**/*.txt') }}
 
+      # Cache richgo and golangci-lint
       - uses: actions/cache@v3
-        name: Cache richgo
+        name: Cache bin
         with:
           path: bin
-          key: ${{ runner.os }}-richgo-${{ hashFiles('**/richgo') }}
+          # The Makefile sets the version of richgo and golangci-lint
+          key: ${{ runner.os }}-bin-${{ hashFiles('**/Makefile') }}
 
-      - uses: actions/cache@v3
-        name: Cache golangci-lint
-        with:
-          path: bin
-          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/golangci-lint') }}
+      # - uses: actions/cache@v3
+      #   name: Cache golangci-lint
+      #   with:
+      #     path: bin
+      #     key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/Makefile') }}
 
       - uses: actions/setup-go@v4
         with:
