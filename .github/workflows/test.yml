@@ -21,13 +21,19 @@ jobs:
       - uses: actions/cache@v3
         name: Cache richgo
         with:
-          path: bin
-          key: ${{ runner.os }}-richgo-${{ hashFiles('**/richgo') }}
+          path: bin/richgo
+          key: ${{ runner.os }}-richgo-${{ hashFiles('*Makefile*') }}
 
-      - uses: actions/setup-go@v3
+      - uses: actions/cache@v3
+        name: Cache golangci-lint
         with:
-          go-version: 1.19
-          cache: true
+          path: bin/golangci-lint
+          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('*Makefile*') }}
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.20
+          # TODO: set 'check-latest: true' to use the latest Go version
 
       - name: Test
         run: make ci
