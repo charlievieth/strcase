@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -113,32 +112,49 @@ var indexTests = []IndexTest{
 	{"oxoxoxoxoxoxoxoxoxoxoxox", "oy", -1},
 }
 
-// Make sure we pass the standard library's IndexByte tests
-// From strings/strings_test.go
-func TestIndexByte(t *testing.T) {
+func testIndex(t *testing.T, name string, fn func(s string, c byte) int) {
 	for _, tt := range indexTests {
 		if len(tt.sep) != 1 {
 			continue
 		}
-		pos := IndexByte([]byte(tt.s), tt.sep[0])
+		pos := fn(tt.s, tt.sep[0])
 		if pos != tt.out {
-			t.Errorf(`IndexByte(%q, %q) = %v; want %v`, tt.s, tt.sep[0], pos, tt.out)
+			t.Errorf(`%s(%q, %q) = %v; want %v`, name, tt.s, tt.sep[0], pos, tt.out)
+		}
+		// Uppercase s
+		{
+			s := strings.ToUpper(tt.s)
+			pos := fn(s, tt.sep[0])
+			if pos != tt.out {
+				t.Errorf(`%s(%q, %q) = %v; want %v`, name, s, tt.sep[0], pos, tt.out)
+			}
+		}
+		// Uppercase c
+		{
+			c := tt.sep[0]
+			if 'a' <= c && c <= 'z' {
+				c -= 'a' - 'A'
+			}
+			pos := fn(tt.s, c)
+			if pos != tt.out {
+				t.Errorf(`%s(%q, %q) = %v; want %v`, name, tt.s, c, pos, tt.out)
+			}
 		}
 	}
 }
 
 // Make sure we pass the standard library's IndexByte tests
 // From strings/strings_test.go
+func TestIndexByte(t *testing.T) {
+	testIndex(t, "IndexByte", func(s string, c byte) int {
+		return IndexByte([]byte(s), c)
+	})
+}
+
+// Make sure we pass the standard library's IndexByte tests
+// From strings/strings_test.go
 func TestIndexByteString(t *testing.T) {
-	for _, tt := range indexTests {
-		if len(tt.sep) != 1 {
-			continue
-		}
-		pos := IndexByteString(tt.s, tt.sep[0])
-		if pos != tt.out {
-			t.Errorf(`IndexByteString(%q, %q) = %v; want %v`, tt.s, tt.sep[0], pos, tt.out)
-		}
-	}
+	testIndex(t, "IndexByteString", IndexByteString)
 }
 
 func testIndexByteASCII(t *testing.T, name string, fn func(s []byte, c byte) int) {
@@ -311,21 +327,6 @@ func BenchmarkIndexByte(b *testing.B) {
 
 func BenchmarkIndexByteStdLib(b *testing.B) {
 	benchBytes(b, indexSizes, bmIndexByte(bytes.IndexByte, false))
-}
-
-func BenchmarkIndexByteCutover(b *testing.B) {
-	if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
-		b.Skipf("benchmark not relevant to GOARCH: %q", runtime.GOARCH)
-	}
-	for _, size := range [...]int{2, 4, 8, 12, 16, 32, 64} {
-		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
-			s := strings.Repeat("a", size-1) + "b"
-			c := byte('b')
-			for i := 0; i < b.N; i++ {
-				_ = IndexByteString(s, c)
-			}
-		})
-	}
 }
 
 func bmIndexByte(index func([]byte, byte) int, caseless bool) func(b *testing.B, n int) {
