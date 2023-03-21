@@ -1,6 +1,16 @@
+# Open Source License Acknowledgements
+
+The `strcase` library is licensed under the terms of the [MIT License](./LICENSE).
+
+The `strcase` utilizes some modified code and logic from the
+[Go](https://go.dev/) standard library. 
+The Go [LICENSE](https://github.com/golang/go/blob/master/LICENSE) is reproduced
+below:
+
+```
 The MIT License (MIT)
 
-Copyright (c) 2023 Charlie Vieth
+Copyright (c) 2022 Charlie Vieth
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +29,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### golang/go
+License: BSD 3-Clause   
+https://github.com/golang/go/blob/master/LICENSE   
+Copyright (c) 2009 The Go Authors. All rights reserved.
