@@ -167,7 +167,7 @@ endofpage:
 	SHRL     $16, DX           // Shift desired bits down to bottom of register.
 	BSFL     DX, DX            // Find first set bit.
 	JZ       failure           // No set bit, failure.
-	MOVQ     DX, (R8
+	MOVQ     DX, R8
 	RET
 
 // TODO: since this is not working try masking again and write a test
