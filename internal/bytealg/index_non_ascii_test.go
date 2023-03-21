@@ -6,18 +6,6 @@ import (
 	"unicode/utf8"
 )
 
-func filterIndexTests(fn func(t IndexTest) bool, tests ...[]IndexTest) []IndexTest {
-	var out []IndexTest
-	for _, a := range tests {
-		for _, t := range a {
-			if fn == nil || fn(t) {
-				out = append(out, t)
-			}
-		}
-	}
-	return out
-}
-
 // These tests fail with strcasestr.
 var unicodeIndexTests = []IndexTest{
 	// Map Kelvin 'K' (U+212A) to lowercase latin 'k'.
@@ -94,7 +82,9 @@ func init() {
 	}
 }
 
-func TestIndexNonASCII(t *testing.T) {
+func testIndexNonASCII(t *testing.T, name string, fn func(s string) int) {
+	const maxFailures = 80
+
 	index := func(s string) int {
 		for i, r := range s {
 			if r >= utf8.RuneSelf {
@@ -104,88 +94,61 @@ func TestIndexNonASCII(t *testing.T) {
 		return -1
 	}
 
-	const maxFailures = 80
-
-	fails := 0
-	tests := filterIndexTests(nil, indexTests, unicodeIndexTests)
-	for _, test := range tests {
-		want := index(test.s)
-		got := IndexNonASCII(test.s)
-		if got != want {
-			fails++
-			if fails <= maxFailures {
-				t.Errorf("IndexNonASCII(%q) = %d; want: %d", test.s, got, want)
+	t.Run("IndexTests", func(t *testing.T) {
+		fails := 0
+		tests := append([]IndexTest(nil), indexTests...)
+		tests = append(tests, unicodeIndexTests...)
+		for _, test := range tests {
+			want := index(test.s)
+			got := IndexNonASCII(test.s)
+			if got != want {
+				fails++
+				if fails <= maxFailures {
+					t.Errorf("%s(%q) = %d; want: %d", name, test.s, got, want)
+				}
 			}
 		}
-	}
 
-	long := strings.Repeat("a", 4096) + "βaβa"
-	idx := index(long)
-	for i := 0; i < len(long); i++ {
-		s := long[i:]
-		want := idx - i
-		if want < 0 {
-			want = index(s)
+		if fails > 0 {
+			t.Errorf("Failed: %d/%d", fails, len(tests))
 		}
-		got := IndexNonASCII(s)
-		if got != want {
-			fails++
-			if fails <= maxFailures {
-				t.Errorf("IndexNonASCII(long[%d:]) = %d; want: %d", i, got, want)
+	})
+
+	t.Run("LongString", func(t *testing.T) {
+		fails := 0
+
+		long := strings.Repeat("a", 4096) + "βaβa"
+		idx := index(long)
+		for i := 0; i < len(long); i++ {
+			s := long[i:]
+			want := idx - i
+			if want < 0 {
+				want = index(s)
+			}
+			got := IndexNonASCII(s)
+			if got != want {
+				fails++
+				if fails <= maxFailures {
+					t.Errorf("%s(long[%d:]) = %d; want: %d", name, i, got, want)
+				}
 			}
 		}
-	}
 
-	if fails > 0 {
-		t.Errorf("Failed: %d/%d", fails, len(tests))
-	}
+		if fails > 0 {
+			t.Errorf("Failed: %d/%d", fails, len(long))
+		}
+	})
+
+}
+
+func TestIndexNonASCII(t *testing.T) {
+	testIndexNonASCII(t, "IndexNonASCII", IndexNonASCII)
 }
 
 func TestIndexByteNonASCII(t *testing.T) {
-	index := func(s string) int {
-		for i, r := range s {
-			if r >= utf8.RuneSelf {
-				return i
-			}
-		}
-		return -1
-	}
-
-	const maxFailures = 80
-
-	fails := 0
-	tests := filterIndexTests(nil, indexTests, unicodeIndexTests)
-	for _, test := range tests {
-		want := index(test.s)
-		got := IndexByteNonASCII([]byte(test.s))
-		if got != want {
-			fails++
-			if fails <= maxFailures {
-				t.Errorf("IndexByteNonASCII(%q) = %d; want: %d", test.s, got, want)
-			}
-		}
-	}
-
-	long := strings.Repeat("a", 4096) + "βaβa"
-	idx := index(long)
-	for i := 0; i < len(long); i++ {
-		s := long[i:]
-		want := idx - i
-		if want < 0 {
-			want = index(s)
-		}
-		got := IndexNonASCII(s)
-		if got != want {
-			fails++
-			if fails <= maxFailures {
-				t.Errorf("IndexNonASCII(long[%d:]) = %d; want: %d", i, got, want)
-			}
-		}
-	}
-
-	if fails > 0 {
-		t.Errorf("Failed: %d/%d", fails, len(tests))
-	}
+	testIndexNonASCII(t, "IndexByteNonASCII", func(s string) int {
+		return IndexByteNonASCII([]byte(s))
+	})
 }
 
 func benchIndexNonASCII(b *testing.B, sizes []int, f func(b *testing.B, n int)) {
