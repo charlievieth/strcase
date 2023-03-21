@@ -116,9 +116,12 @@ golangci-lint-gen: override GOLANGCI_EXTRA_FLAGS += --build-tags=gen gen.go
 golangci-lint-gen: override GOLANGCI_SKIP =
 
 # Run golangci-lint
-.PHONY: golangci-lint golangci-lint-gen
-golangci-lint golangci-lint-gen: bin/golangci-lint
+.PHONY: golangci-lint-strcase golangci-lint-gen
+golangci-lint-strcase golangci-lint-gen: bin/golangci-lint
 	@$(GOLANGCI) run $(GOLANGCI_FLAGS)
+
+.PHONY: golangci-lint
+golangci-lint: golangci-lint-strcase golangci-lint-gen
 
 .PHONY: lint
 lint: vet golangci-lint golangci-lint-gen
