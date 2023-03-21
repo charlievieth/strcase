@@ -22,7 +22,7 @@ GOLANGCI             ?= $(GOBIN)/golangci-lint
 GOLANGCI_VERSION     ?= v1.52.0
 GOLANGCI_SORT        ?= --sort-results
 GOLANGCI_COLOR       ?= --color=always
-GOLANGCI_SKIP        ?= --skip-dirs='internal/(gen|ucd)'
+GOLANGCI_SKIP        ?= --skip-dirs='/(gen|phash)($$|/)'
 GOLANGCI_EXTRA_FLAGS ?=
 GOLANGCI_FLAGS       ?= $(GOLANGCI_SORT) $(GOLANGCI_COLOR) $(GOLANGCI_SKIP) $(GOLANGCI_EXTRA_FLAGS)
 
