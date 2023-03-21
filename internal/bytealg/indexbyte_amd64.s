@@ -8,7 +8,6 @@
 #include "go_asm.h"
 #include "textflag.h"
 
-// TODO: use bytes.IndexByte if c is not alpha
 TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	MOVQ b_base+0(FP), SI
 	MOVQ b_len+8(FP), BX
@@ -30,7 +29,6 @@ index:
 	MOVB c+24(FP), AL
 	JMP  indexbytebody<>(SB)
 
-// TODO: use bytes.IndexByte if c is not alpha
 TEXT ·IndexByteString(SB), NOSPLIT, $0-32
 	MOVQ s_base+0(FP), SI
 	MOVQ s_len+8(FP), BX
@@ -170,9 +168,6 @@ endofpage:
 	MOVQ     DX, (R8)
 	RET
 
-// TODO: since this is not working try masking again and write a test
-// that modifies the input - so that we can see if it actualy works
-// (looks like the previous mask was not completely set).
 avx2:
 #ifndef hasAVX2
 	CMPB internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
