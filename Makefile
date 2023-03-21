@@ -52,7 +52,7 @@ exhaustive: override GO_TEST_FLAGS += -exhaustive
 
 .PHONY: test testshort testverbose exhaustive
 test testshort testverbose exhaustive:
-	@$(GO_TEST)
+	@$(GO_TEST) ./...
 
 # Assert that there are no skipped tests
 .PHONY: testskipped
