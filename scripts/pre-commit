@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Check if 'go generate' needs to be run.
+# TODO: check if .tables.json is not staged.
+
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    against=HEAD
+else
+    # Initial commit: diff against an empty tree object
+    against=$(git hash-object -t tree /dev/null)
+fi
+
+# Redirect output to stderr.
+exec 1>&2
+
+if git diff --cached --name-only --diff-filter=M -z "${against}" |
+    grep --null --quiet '^gen\.go$'; then
+
+    # Project root
+    root="$(go list -f '{{.Dir}}' github.com/charlievieth/strcase)"
+    exit_code=0
+
+    if ! go run "${root}/gen.go" -dry-run &>/dev/null; then
+        out="$(go run "${root}/gen.go" -dry-run || true)"
+        echo "Error: Attempt to update gen.go without re-running 'go generate'."
+        echo ""
+        echo "This will cause failures in CI."
+        echo ""
+        echo "Output of 'go run ${root}/gen.go -dry-run':"
+        echo ""
+        echo "${out}"
+
+        exit_code=1
+    fi
+
+    # Changes to gen.go changes .tables.json so they should always be
+    # committed together.
+    if ! git diff --cached --name-only --diff-filter=M -z HEAD |
+        grep --null --quiet '^\.tables\.json$'; then
+
+        echo "Error: please stage your changes to '.tables.json'"
+        echo ""
+        echo "The '.tables.json' file is used by 'gen.go' to determine"
+        echo "when the Unicode tables need to be updated and they should"
+        echo "always be committed together."
+        echo ""
+
+        exit_code=1
+    fi
+    exit $exit_code
+fi
