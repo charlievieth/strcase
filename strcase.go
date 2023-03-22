@@ -6,12 +6,10 @@ package strcase
 //go:generate go run gen.go
 
 import (
-	"math/bits"
 	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-	"unsafe"
 
 	"github.com/charlievieth/strcase/internal/bytealg"
 )
@@ -1705,86 +1703,15 @@ func LastIndexAny(s, chars string) int {
 	return -1
 }
 
-// TODO: does this matter?
-// See: golang.org/x/sys/cpu.hostByteOrder
-const littleEndian = runtime.GOARCH == "386" ||
-	runtime.GOARCH == "amd64" ||
-	runtime.GOARCH == "amd64p32" ||
-	runtime.GOARCH == "alpha" ||
-	runtime.GOARCH == "arm" ||
-	runtime.GOARCH == "arm64" ||
-	runtime.GOARCH == "loong64" ||
-	runtime.GOARCH == "mipsle" ||
-	runtime.GOARCH == "mips64le" ||
-	runtime.GOARCH == "mips64p32le" ||
-	runtime.GOARCH == "nios2" ||
-	runtime.GOARCH == "ppc64le" ||
-	runtime.GOARCH == "riscv" ||
-	runtime.GOARCH == "riscv64" ||
-	runtime.GOARCH == "sh"
-
-// WARN: rename
-// TODO: see if using aligned loads if faster on amd64
-// TODO: write in assembly
+// IndexNonASCII returns the index of first non-ASCII rune in s, or -1
+// if s consists only of ASCII characters.
 func IndexNonASCII(s string) int {
-	const wordSize = int(unsafe.Sizeof(uintptr(0)))
+	return bytealg.IndexNonASCII(s)
+}
 
-	// TODO: support big endian
-	if !littleEndian {
-		for i := 0; i < len(s); i++ {
-			if s[i] >= utf8.RuneSelf {
-				return i
-			}
-		}
-		return -1
-	}
-
-	if len(s) < 8 {
-		for i := 0; i < len(s); i++ {
-			if s[i] >= utf8.RuneSelf {
-				return i
-			}
-		}
-		return -1
-	}
-
-	b := *(*[]byte)(unsafe.Pointer(&s))
-	n := len(b) / wordSize
-	sliceHeader := struct {
-		p   unsafe.Pointer
-		len int
-		cap int
-	}{unsafe.Pointer(&b[0]), n, n}
-
-	var i int
-	if wordSize == 8 {
-		const mask64 uint64 = 0x8080808080808080
-		us := *(*[]uint64)(unsafe.Pointer(&sliceHeader))
-		for i := 0; i < len(us); i++ {
-			if m := us[i] & mask64; m != 0 {
-				return i*wordSize + bits.TrailingZeros64(m)/8
-			}
-		}
-		i *= wordSize
-
-	} else /* wordSize == 4 */ {
-		const mask32 uint32 = 0x80808080
-		us := *(*[]uint32)(unsafe.Pointer(&sliceHeader))
-		for i := 0; i < len(us); i++ {
-			if m := us[i] & mask32; m != 0 {
-				return i*wordSize + bits.TrailingZeros32(m)/8
-			}
-		}
-		i *= wordSize
-	}
-
-	// Check remaining bytes
-	for ; i < len(s); i++ {
-		if s[i] >= utf8.RuneSelf {
-			return i
-		}
-	}
-	return -1
+// ContainsNonASCII returns true if s contains non-ASCII characters.
+func ContainsNonASCII(s string) bool {
+	return bytealg.IndexNonASCII(s) >= 0
 }
 
 // WARN WARN WARN WARN WARN WARN WARN WARN WARN WARN

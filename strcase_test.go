@@ -884,27 +884,52 @@ func TestIndexNonASCII(t *testing.T) {
 		return -1
 	}
 
-	tests := filterIndexTests(nil, indexTests, unicodeIndexTests)
-	tw := &testWrapper{T: t}
-	for _, test := range tests {
-		want := index(test.s)
-		got := IndexNonASCII(test.s)
-		if got != want {
-			tw.Errorf("IndexNonASCII(%q) = %d; want: %d", test.s, got, want)
+	t.Run("IndexTests", func(t *testing.T) {
+		tests := append([]IndexTest(nil), indexTests...)
+		tests = append(tests, unicodeIndexTests...)
+		for _, test := range tests {
+			want := index(test.s)
+			got := IndexNonASCII(test.s)
+			if got != want {
+				t.Errorf("IndexNonASCII(%q) = %d; want: %d", test.s, got, want)
+			}
 		}
+	})
+
+	t.Run("LongString", func(t *testing.T) {
+		long := strings.Repeat("a", 4096) + "βaβa"
+		idx := index(long)
+		for i := 0; i < len(long); i++ {
+			s := long[i:]
+			want := idx - i
+			if want < 0 {
+				want = index(s)
+			}
+			got := IndexNonASCII(s)
+			if got != want {
+				t.Errorf("IndexNonASCII(long[%d:]) = %d; want: %d", i, got, want)
+			}
+		}
+	})
+}
+
+func TestContainsNonASCII(t *testing.T) {
+	contains := func(s string) bool {
+		for i := 0; i < len(s); i++ {
+			if s[i] >= utf8.RuneSelf {
+				return true
+			}
+		}
+		return false
 	}
 
-	long := strings.Repeat("a", 4096) + "βaβa"
-	idx := index(long)
-	for i := 0; i < len(long); i++ {
-		s := long[i:]
-		want := idx - i
-		if want < 0 {
-			want = index(s)
-		}
-		got := IndexNonASCII(s)
+	tests := append([]IndexTest(nil), indexTests...)
+	tests = append(tests, unicodeIndexTests...)
+	for _, test := range tests {
+		want := contains(test.s)
+		got := ContainsNonASCII(test.s)
 		if got != want {
-			tw.Errorf("IndexNonASCII(long[%d:]) = %d; want: %d", i, got, want)
+			t.Errorf("ContainsNonASCII(%q) = %t; want: %t", test.s, got, want)
 		}
 	}
 }
