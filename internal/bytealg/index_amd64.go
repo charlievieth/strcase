@@ -30,6 +30,10 @@ func Cutover(n int) int {
 
 const offsetX86HasAVX2 = unsafe.Offsetof(cpu.X86.HasAVX2)
 
+// Make golangci-lint think offsetX86HasAVX2 is accessed since it
+// cannot see that offsetX86HasAVX2 is accessed in assembly.
+const _ = offsetX86HasAVX2
+
 func IndexByte(b []byte, c byte) int
 func IndexByteString(s string, c byte) int
 
