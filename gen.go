@@ -289,7 +289,9 @@ func genCaseFoldHashValues(inputs []uint32) (tableSize int, hashSeed uint32) {
 						mu.Unlock()
 					}
 				}
-				bar.Add64(sp.end - sp.start)
+				if err := bar.Add64(sp.end - sp.start); err != nil {
+					log.Panicf("error updating progress bar: %v", err)
+				}
 			}
 		}(i, inputs)
 	}
@@ -460,13 +462,6 @@ func hashGenGoFile() string {
 		log.Panic(err)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func writeUnicodeConstants() {
-	var w bytes.Buffer
-	gen.WriteUnicodeVersion(&w)
-	gen.WriteCLDRVersion(&w)
-	writeGo(&w)
 }
 
 var tableInfo struct {
