@@ -6,6 +6,10 @@ on:
     branches: [ master, devel ]
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.txt'
+      - '**/*.json'
   workflow_dispatch:
 
 jobs:
