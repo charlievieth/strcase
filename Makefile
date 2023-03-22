@@ -41,7 +41,13 @@ cyan = $(shell { tput setaf 6 || tput AF 6; } 2>/dev/null)
 term-reset = $(shell { tput sgr0 || tput me; } 2>/dev/null)
 
 .PHONY: all
-all: test
+all: test install
+
+# Install pre-commit hooks and download modules
+.PHONY: install
+install: pre-commit
+	@go mod download
+	@go install
 
 # Run verbose tests
 testverbose: override GO_TEST_FLAGS += -v
@@ -144,6 +150,16 @@ lint-comments:
 .PHONY: generate
 generate:
 	@$(GO) generate
+
+# Install pre-commit hook
+# TODO: omit on Windows ???
+.git/hooks/pre-commit: scripts/pre-commit
+	@mkdir -p $(MAKEFILE_DIR)/.git/hooks
+	ln -s $(MAKEFILE_DIR)/scripts/pre-commit $(MAKEFILE_DIR)/.git/hooks/pre-commit
+
+# Install pre-commit hooks
+# TODO: omit on Windows ???
+pre-commit: .git/hooks/pre-commit
 
 .PHONY: clean
 clean:
