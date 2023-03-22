@@ -100,7 +100,7 @@ func testIndexNonASCII(t *testing.T, name string, fn func(s string) int) {
 		tests = append(tests, unicodeIndexTests...)
 		for _, test := range tests {
 			want := index(test.s)
-			got := IndexNonASCII(test.s)
+			got := fn(test.s)
 			if got != want {
 				fails++
 				if fails <= maxFailures {
@@ -125,7 +125,7 @@ func testIndexNonASCII(t *testing.T, name string, fn func(s string) int) {
 			if want < 0 {
 				want = index(s)
 			}
-			got := IndexNonASCII(s)
+			got := fn(s)
 			if got != want {
 				fails++
 				if fails <= maxFailures {
