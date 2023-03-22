@@ -39,3 +39,6 @@ jobs:
 
       - name: Vet
         run: make vet
+
+      - name: golangci-lint
+        run: make golangci-lint
