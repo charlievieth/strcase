@@ -14,5 +14,7 @@ functions allocate memory, and it is optimized for GOARCH `amd64` and `arm64`.
 - Accurate: Unicode simple folding is used to determine equality.
    - Any matched text would also match with [`strings.EqualFold`](https://pkg.go.dev/strings#EqualFold).
 - Fast: strcase is optimized for `amd64` and `arm64`.
+   - The `IndexByte` and `IndexNonASCII` functions are implemented in assembly
+     and use SSE/AVX2 on `amd64` and Neon on `arm64`.
 - Zero allocation: none of the strcase functions allocated memory.
 - Thoroughly tested and fuzzed.
