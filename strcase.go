@@ -1646,10 +1646,10 @@ func IndexAny(s, chars string) int {
 			i := IndexRune(s, r)
 			if i != -1 && (n == -1 || i < n) {
 				n = i
+				if n == 0 {
+					break
+				}
 				s = s[:n]
-			}
-			if n == 0 {
-				break
 			}
 		}
 		return n
