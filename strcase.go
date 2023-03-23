@@ -1640,6 +1640,20 @@ func IndexAny(s, chars string) int {
 			return -1
 		}
 	}
+	if len(s) > len(chars)*2 {
+		n := -1
+		for _, r := range chars {
+			i := IndexRune(s, r)
+			if i != -1 && (n == -1 || i < n) {
+				n = i
+				s = s[:n]
+			}
+			if n == 0 {
+				break
+			}
+		}
+		return n
+	}
 	for i, c := range s {
 		if IndexRune(chars, c) >= 0 {
 			return i
