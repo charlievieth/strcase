@@ -6,13 +6,12 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/charlievieth/strcase"
 )
 
-var benchStdLib = flag.Bool("stdlib", false, "Use strings.Index in benchmarks (for comparison)")
-
-const benchmarkString = "some_text=some☺value"
+var benchStdLib = flag.Bool("stdlib", false, "Use the stdlib's strings package instead of strcase (for comparison)")
 
 func benchIndexRune(b *testing.B, s string, r rune) {
 	if *benchStdLib {
@@ -109,6 +108,10 @@ func benchLastIndexAny(b *testing.B, s, cutset string) {
 		}
 	}
 }
+
+// The below benchmarks are from src/strings/strings_test.go
+
+const benchmarkString = "some_text=some☺value"
 
 func BenchmarkIndexRune(b *testing.B) {
 	if got := strings.IndexRune(benchmarkString, '☺'); got != 14 {
@@ -305,5 +308,104 @@ func BenchmarkIndexPeriodic(b *testing.B) {
 			s := strings.Repeat("a"+strings.Repeat(" ", skip-1), 1<<16/skip)
 			benchIndex(b, s, key)
 		})
+	}
+}
+
+// The below benchmarks are from src/bytes/bytes_test.go
+
+var bmbuf []byte
+
+func valName(x int) string {
+	if s := x >> 20; s<<20 == x {
+		return fmt.Sprintf("%dM", s)
+	}
+	if s := x >> 10; s<<10 == x {
+		return fmt.Sprintf("%dK", s)
+	}
+	return fmt.Sprint(x)
+}
+
+func benchBytes(b *testing.B, sizes []int, f func(b *testing.B, n int)) {
+	for _, n := range sizes {
+		b.Run(valName(n), func(b *testing.B) {
+			if len(bmbuf) < n {
+				bmbuf = make([]byte, n)
+			}
+			b.SetBytes(int64(n))
+			f(b, n)
+		})
+	}
+}
+
+var indexSizes = []int{10, 32, 4 << 10, 4 << 20, 64 << 20}
+
+func BenchmarkIndexByte_Bytes(b *testing.B) {
+	if *benchStdLib {
+		benchBytes(b, indexSizes, bmIndexByte(strings.IndexByte))
+	} else {
+		benchBytes(b, indexSizes, bmIndexByte(strcase.IndexByte))
+	}
+}
+
+func bmIndexByte(index func(string, byte) int) func(b *testing.B, n int) {
+	return func(b *testing.B, n int) {
+		buf := bmbuf[0:n]
+		buf[n-1] = 'x'
+		s := string(buf)
+		for i := 0; i < b.N; i++ {
+			j := index(s, 'x')
+			if j != n-1 {
+				b.Fatal("bad index", j)
+			}
+		}
+		buf[n-1] = '\x00'
+	}
+}
+
+func BenchmarkIndexRune_Bytes(b *testing.B) {
+	if *benchStdLib {
+		benchBytes(b, indexSizes, bmIndexRune(strings.IndexRune))
+	} else {
+		benchBytes(b, indexSizes, bmIndexRune(strcase.IndexRune))
+	}
+}
+
+func BenchmarkIndexRuneASCII_Bytes(b *testing.B) {
+	if *benchStdLib {
+		benchBytes(b, indexSizes, bmIndexRuneASCII(strings.IndexRune))
+	} else {
+		benchBytes(b, indexSizes, bmIndexRuneASCII(strcase.IndexRune))
+	}
+}
+
+func bmIndexRuneASCII(index func(string, rune) int) func(b *testing.B, n int) {
+	return func(b *testing.B, n int) {
+		buf := bmbuf[0:n]
+		buf[n-1] = 'x'
+		s := string(buf)
+		for i := 0; i < b.N; i++ {
+			j := index(s, 'x')
+			if j != n-1 {
+				b.Fatal("bad index", j)
+			}
+		}
+		buf[n-1] = '\x00'
+	}
+}
+
+func bmIndexRune(index func(string, rune) int) func(b *testing.B, n int) {
+	return func(b *testing.B, n int) {
+		buf := bmbuf[0:n]
+		utf8.EncodeRune(buf[n-3:], '世')
+		s := string(buf)
+		for i := 0; i < b.N; i++ {
+			j := index(s, '世')
+			if j != n-3 {
+				b.Fatal("bad index", j)
+			}
+		}
+		buf[n-3] = '\x00'
+		buf[n-2] = '\x00'
+		buf[n-1] = '\x00'
 	}
 }
