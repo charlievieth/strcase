@@ -1286,8 +1286,8 @@ func BenchmarkIndexRabinKarpRussian(b *testing.B) {
 
 // WARN: dev only
 func BenchmarkIndexRuneRussian(b *testing.B) {
-	want := strings.IndexRune(russianText, 'Е')
-	if got := IndexRune(russianText, 'Е'); got != want {
+	want := strings.IndexRune(russianText, 'ж')
+	if got := IndexRune(russianText, 'ж'); got != want {
 		b.Fatalf("got: %d want: %d", got, want)
 	}
 	for i := 0; i < b.N; i++ {
