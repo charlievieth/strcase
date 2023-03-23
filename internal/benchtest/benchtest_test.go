@@ -14,6 +14,9 @@ import (
 var benchStdLib = flag.Bool("stdlib", false, "Use the stdlib's strings package instead of strcase (for comparison)")
 
 func benchIndexRune(b *testing.B, s string, r rune) {
+	if strings.IndexRune(s, r) != strcase.IndexRune(s, r) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(s, r)
@@ -26,6 +29,9 @@ func benchIndexRune(b *testing.B, s string, r rune) {
 }
 
 func benchIndex(b *testing.B, s, substr string) {
+	if strings.Index(s, substr) != strcase.Index(s, substr) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.Index(s, substr)
@@ -38,6 +44,9 @@ func benchIndex(b *testing.B, s, substr string) {
 }
 
 func benchIndexByte(b *testing.B, s string, c byte) {
+	if strings.IndexByte(s, c) != strcase.IndexByte(s, c) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(s, c)
@@ -50,6 +59,9 @@ func benchIndexByte(b *testing.B, s string, c byte) {
 }
 
 func benchLastIndex(b *testing.B, s, substr string) {
+	if strings.LastIndex(s, substr) != strcase.LastIndex(s, substr) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(s, substr)
@@ -62,6 +74,9 @@ func benchLastIndex(b *testing.B, s, substr string) {
 }
 
 func benchEqualFold(b *testing.B, s1, s2 string) {
+	if strings.EqualFold(s1, s2) != (strcase.Compare(s1, s2) == 0) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.EqualFold(s1, s2)
@@ -74,6 +89,9 @@ func benchEqualFold(b *testing.B, s1, s2 string) {
 }
 
 func benchCount(b *testing.B, s, substr string) {
+	if strings.Count(s, substr) != strcase.Count(s, substr) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.Count(s, substr)
@@ -86,6 +104,9 @@ func benchCount(b *testing.B, s, substr string) {
 }
 
 func benchIndexAny(b *testing.B, s, cutset string) {
+	if strings.IndexAny(s, cutset) != strcase.IndexAny(s, cutset) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.IndexAny(s, cutset)
@@ -98,6 +119,9 @@ func benchIndexAny(b *testing.B, s, cutset string) {
 }
 
 func benchLastIndexAny(b *testing.B, s, cutset string) {
+	if strings.LastIndexAny(s, cutset) != strcase.LastIndexAny(s, cutset) {
+		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndexAny(s, cutset)
