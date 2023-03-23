@@ -952,8 +952,18 @@ func LastIndex(s, substr string) int {
 
 // FIXME: document
 func IndexByte(s string, c byte) int {
-	i, _ := indexByte(s, c)
-	return i
+	// Fast check for bytes that can't be folded to from Unicode chars.
+	// This shaves one or two nanoseconds from IndexByte, which is
+	// meaningful when s is small.
+	//
+	// TODO: see we can get this function inlined.
+	switch c {
+	case 'K', 'S', 'k', 's':
+		i, _ := indexByte(s, c)
+		return i
+	default:
+		return bytealg.IndexByteString(s, c)
+	}
 }
 
 func indexByte(s string, c byte) (int, int) {
