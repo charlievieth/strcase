@@ -2,6 +2,7 @@ package strcase_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/charlievieth/strcase"
 )
@@ -21,6 +22,64 @@ func ExampleCompare() {
 	// 1
 	// 0
 	// 0
+}
+
+// Case insensitive sort using strcase.Compare.
+func ExampleCompare_sort() {
+	a := []string{
+		"b",
+		"a",
+		"α",
+		"B",
+		"Α", // U+0391
+		"A",
+	}
+	sort.SliceStable(a, func(i, j int) bool {
+		return strcase.Compare(a[i], a[j]) < 0
+	})
+	fmt.Printf("%q\n", a)
+	// Output:
+	// ["a" "A" "b" "B" "α" "Α"]
+}
+
+// Case insensitive search using strcase.Compare.
+func ExampleCompare_search() {
+	a := []string{
+		"a",
+		"b",
+		"α",
+	}
+	s := "B" // string being searched for
+	i := sort.Search(len(a), func(i int) bool {
+		return strcase.Compare(a[i], s) >= 0
+	})
+
+	fmt.Printf("%d: %q\n", i, a[i])
+	// Output:
+	// 1: "b"
+}
+
+// Use strcase.Compare and sort.Find to search a string slice.
+func ExampleCompare_find() {
+	a := []string{
+		"a",
+		"b",
+		"α",
+	}
+	for _, s := range []string{"A", "B", "Z"} {
+		i, found := sort.Find(len(a), func(i int) int {
+			return strcase.Compare(s, a[i])
+		})
+		if found {
+			fmt.Printf("%q found at index %d\n", s, i)
+		} else {
+			fmt.Printf("%q not found", s)
+		}
+	}
+	// Output:
+	// "A" found at index 0
+	// "B" found at index 1
+	// "Z" not found
 }
 
 func ExampleContains() {
