@@ -313,7 +313,7 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	hi := len(caseRange)
 	for lo < hi {
 		m := lo + (hi-lo)/2
-		cr := caseRange[m]
+		cr := &caseRange[m] // CEV: taking the address is ~20% faster
 		if rune(cr.Lo) <= r && r <= rune(cr.Hi) {
 			if delta := cr.Delta[unicode.UpperCase]; delta > unicode.MaxRune {
 				// In an Upper-Lower sequence, which always starts with
