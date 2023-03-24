@@ -24,7 +24,7 @@ func ExampleCompare() {
 	// 0
 }
 
-// Case insensitive sort using strcase.Compare.
+// Case insensitive sort using [strcase.Compare].
 func ExampleCompare_sort() {
 	a := []string{
 		"b",
@@ -42,7 +42,7 @@ func ExampleCompare_sort() {
 	// ["a" "A" "b" "B" "α" "Α"]
 }
 
-// Case insensitive search using strcase.Compare.
+// Case insensitive search using [strcase.Compare].
 func ExampleCompare_search() {
 	a := []string{
 		"a",
@@ -59,7 +59,7 @@ func ExampleCompare_search() {
 	// 1: "b"
 }
 
-// Use strcase.Compare and sort.Find to search a string slice.
+// Using [strcase.Compare] and [sort.Find] to search a string slice.
 func ExampleCompare_find() {
 	a := []string{
 		"a",
