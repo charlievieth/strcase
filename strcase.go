@@ -1600,15 +1600,38 @@ type asciiSet [8]uint32
 
 // makeASCIISet creates a set of ASCII characters and reports whether all
 // characters in chars are ASCII.
-func makeASCIISet(chars string) (as asciiSet, ok bool) {
-	for i := 0; i < len(chars); i++ {
+func makeASCIISet(s, chars string) (as asciiSet, ok bool) {
+	i := 0
+	for ; i < len(chars); i++ {
 		c := chars[i]
 		if c >= utf8.RuneSelf {
 			return as, false
 		}
-		// Can't use ASCII when non-ASCII chars fold to ASCII chars.
-		switch c {
-		case 'K', 'k', 'S', 's':
+		as[c/32] |= 1 << (c % 32)
+		if isAlpha(c) {
+			c ^= ' ' // swap case
+			as[c/32] |= 1 << (c % 32)
+			// Can't use ASCII when non-ASCII chars fold to ASCII chars.
+			switch c {
+			case 'K', 'k', 'S', 's':
+				// Checking if s contains only ASCII and using asciiSet is
+				// faster than falling back to the Unicode aware search.
+				// This holds true even on systems where ContainsNonASCII
+				// does not use SIMD (tested on arm).
+				if !ContainsNonASCII(s) {
+					i++
+					goto ascii // ASCII fast path that elides this check
+				}
+				return as, false
+			}
+		}
+	}
+
+ascii:
+	// ASCII fast path for when we know s does not contain Unicode.
+	for ; i < len(chars); i++ {
+		c := chars[i]
+		if c >= utf8.RuneSelf {
 			return as, false
 		}
 		as[c/32] |= 1 << (c % 32)
@@ -1641,7 +1664,7 @@ func IndexAny(s, chars string) int {
 		return IndexRune(s, r)
 	}
 	if len(s) > 8 {
-		if as, isASCII := makeASCIISet(chars); isASCII {
+		if as, isASCII := makeASCIISet(s, chars); isASCII {
 			for i := 0; i < len(s); i++ {
 				if as.contains(s[i]) {
 					return i
@@ -1690,7 +1713,7 @@ func LastIndexAny(s, chars string) int {
 		return -1
 	}
 	if len(s) > 8 {
-		if as, isASCII := makeASCIISet(chars); isASCII {
+		if as, isASCII := makeASCIISet(s, chars); isASCII {
 			for i := len(s) - 1; i >= 0; i-- {
 				if as.contains(s[i]) {
 					return i
