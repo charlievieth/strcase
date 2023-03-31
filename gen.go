@@ -20,8 +20,10 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,6 +32,7 @@ import (
 	"unicode"
 
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"golang.org/x/term"
@@ -40,8 +43,12 @@ import (
 )
 
 const (
-	caseFoldShift = 19
-	caseFoldSize  = 8192
+	caseFoldShift        = 19
+	caseFoldSize         = 8192
+	foldMapShift         = 24  // WARN: rename
+	foldMapSize          = 256 // WARN: rename
+	upperLowerTableSize  = 16384 / 2
+	upperLowerTableShift = 18 + 1
 )
 
 // Unicode categories used to construct the fold maps
@@ -140,6 +147,7 @@ func genFoldMap(w *bytes.Buffer) {
 			runes[r] = append(runes[r], ff...)
 		}
 	})
+	// FIXME: fix the below since we have to work around it in the code
 	// WARN: we should not need to add this manually
 	runes['İ'] = append(runes['İ'], 'İ')
 	runes['ß'] = append(runes['ß'], 'ẞ')
@@ -150,6 +158,18 @@ func genFoldMap(w *bytes.Buffer) {
 			rs = append(rs, k)
 		}
 		runes[k] = dedupe(rs)
+	}
+
+	{
+		input := make([]uint32, len(runes))
+		for i, r := range maps.Keys(runes) {
+			input[i] = uint32(r)
+		}
+		tableSize, hashSeed := genFoldMapHashValues(input)
+		fmt.Println("####################################")
+		fmt.Printf("Size: %d\n", tableSize)
+		fmt.Printf("Seed: %d\n", hashSeed)
+		fmt.Println("####################################")
 	}
 
 	if len(runes) == 0 {
@@ -185,13 +205,6 @@ func genFoldMap(w *bytes.Buffer) {
 	printRangeMap(w, "_FoldMapExcludingUpperLower", "[2]rune", noUpperLower)
 }
 
-func hash(x, c uint32) uint32 {
-	m := x * c
-	return m >> caseFoldShift
-}
-
-var emptySeen [caseFoldSize]bool
-
 type span struct {
 	start, end int64
 }
@@ -221,6 +234,26 @@ func shuffleSpans(spans []span) []span {
 	return spans
 }
 
+func hash(seed, key, shift uint32) uint32 {
+	m := seed * key
+	return m >> shift
+}
+
+// Fibonacci hashing
+// https://en.wikipedia.org/wiki/Hash_function#Fibonacci_hashing
+// https://probablydance.com/2018/06/16/fibonacci-hashing-the-optimization-that-the-world-forgot-or-a-better-alternative-to-integer-modulo/
+func hash2(seed, k, s uint32) uint32 {
+	// WARN WARN WARN WARN WARN WARN WARN WARN
+	panic("TODO: see if using a better hash algo is worth it")
+	// x ^= x >> 18
+	// m = (x * c) % 2**32
+	// k *= 2654435769
+	// k ^= k >> s
+	// m := seed * k
+	// return m >> s
+}
+
+// TODO: generalize this function
 func genCaseFoldHashValues(inputs []uint32) (tableSize int, hashSeed uint32) {
 	const delta = 500_000
 
@@ -257,15 +290,16 @@ func genCaseFoldHashValues(inputs []uint32) (tableSize int, hashSeed uint32) {
 		go func(id int, inputs []uint32) {
 			defer wg.Done()
 			seen := new([caseFoldSize]bool)
+			empty := new([caseFoldSize]bool)
 			for sp := range ch {
 				best := atomic.LoadInt64(&bestIdx)
 			Loop:
 				for i := sp.start; i <= sp.end && best >= int64(len(inputs)); i++ {
 					maxIdx := int64(0)
-					*seen = emptySeen
+					*seen = *empty
 					seed := uint32(i)
 					for _, x := range inputs {
-						u := int64(hash(seed, x))
+						u := int64(hash(seed, x, caseFoldShift))
 						if u > best {
 							continue Loop
 						}
@@ -303,6 +337,191 @@ func genCaseFoldHashValues(inputs []uint32) (tableSize int, hashSeed uint32) {
 	return int(bestIdx), bestSeed
 }
 
+// TODO: generalize this function
+func genFoldMapHashValues(inputs []uint32) (tableSize int, hashSeed uint32) {
+	const delta = 500_000
+
+	// This can take awhile so use a progress bar.
+	var bar *progressbar.ProgressBar
+	if term.IsTerminal(syscall.Stdout) {
+		bar = progressbar.Default(math.MaxUint32)
+	} else {
+		bar = progressbar.DefaultSilent(math.MaxUint32)
+	}
+
+	numCPU := runtime.NumCPU()
+	if numCPU >= 8 {
+		numCPU -= 2
+	}
+
+	ch := make(chan *span, numCPU*2)
+	go func() {
+		spans := shuffleSpans(generateSpans(1, math.MaxUint32, delta))
+		for i := range spans {
+			ch <- &spans[i]
+		}
+		close(ch)
+	}()
+
+	var (
+		bestIdx  = int64(math.MaxInt64)
+		bestSeed uint32
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+	)
+	for i := 0; i < numCPU; i++ {
+		wg.Add(1)
+		go func(id int, inputs []uint32) {
+			defer wg.Done()
+			seen := new([foldMapSize]bool)
+			empty := new([foldMapSize]bool)
+			for sp := range ch {
+				best := atomic.LoadInt64(&bestIdx)
+			Loop:
+				for i := sp.start; i <= sp.end && best >= int64(len(inputs)); i++ {
+					maxIdx := int64(0)
+					*seen = *empty
+					seed := uint32(i)
+					for _, x := range inputs {
+						u := int64(hash(seed, x, foldMapShift))
+						if u > best {
+							continue Loop
+						}
+						if seen[u] {
+							continue Loop
+						}
+						seen[u] = true
+						if u > maxIdx {
+							maxIdx = u
+						}
+					}
+					best = atomic.LoadInt64(&bestIdx)
+					if maxIdx < best {
+						// Use mutex to simplify updating both values
+						mu.Lock()
+						best = atomic.LoadInt64(&bestIdx) // re-check
+						if maxIdx < best {
+							atomic.StoreInt64(&bestIdx, maxIdx)
+							atomic.StoreUint32(&bestSeed, seed)
+						}
+						mu.Unlock()
+					}
+				}
+				if err := bar.Add64(sp.end - sp.start); err != nil {
+					log.Panicf("error updating progress bar: %v", err)
+				}
+			}
+		}(i, inputs)
+	}
+	wg.Wait()
+
+	if bestIdx == math.MaxInt64 || bestSeed == 0 {
+		log.Panic("failed to generate hash values for fold map table")
+	}
+	return int(bestIdx), bestSeed
+}
+
+func shiftHash(seed, key, shift uint32) uint32 {
+	key |= key << 24 // fill top bits not occupied by unicode.MaxRune
+	// key |= key << 21 // fill top bits
+	m := seed * key
+	return m >> shift
+}
+
+func clear(a []bool) {
+	for i := range a {
+		a[i] = false
+	}
+}
+
+// TODO: generalize this function
+func genToUpperLowerTableValues(inputs []uint32) (tableSize int, hashSeed uint32) {
+	const delta = 500_000
+
+	// This can take awhile so use a progress bar.
+	var bar *progressbar.ProgressBar
+	if term.IsTerminal(syscall.Stdout) {
+		bar = progressbar.Default(math.MaxUint32)
+	} else {
+		bar = progressbar.DefaultSilent(math.MaxUint32)
+	}
+	// WARN WARN WARN WARN
+	// bar = progressbar.DefaultSilent(math.MaxUint32)
+
+	numCPU := runtime.NumCPU()
+	if numCPU >= 8 {
+		numCPU -= 2
+	}
+
+	ch := make(chan *span, numCPU*2)
+	go func() {
+		spans := shuffleSpans(generateSpans(1, math.MaxUint32, delta))
+		for i := range spans {
+			ch <- &spans[i]
+		}
+		close(ch)
+	}()
+
+	var (
+		bestIdx  = int64(math.MaxInt64)
+		bestSeed uint32
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+	)
+	for i := 0; i < numCPU; i++ {
+		wg.Add(1)
+		go func(id int, inputs []uint32) {
+			defer wg.Done()
+			seen := new([upperLowerTableSize]bool)
+			empty := new([upperLowerTableSize]bool)
+			for sp := range ch {
+				best := atomic.LoadInt64(&bestIdx)
+			Loop:
+				for i := sp.start; i <= sp.end && best >= int64(len(inputs)); i++ {
+					maxIdx := int64(0)
+					*seen = *empty
+					seed := uint32(i)
+					for _, x := range inputs {
+						// WARN WARN WARN WARN
+						// u := int64(hash(seed, x, upperLowerTableShift))
+						u := int64(shiftHash(seed, x, upperLowerTableShift))
+						if u > best {
+							continue Loop
+						}
+						if seen[u] {
+							continue Loop
+						}
+						seen[u] = true
+						if u > maxIdx {
+							maxIdx = u
+						}
+					}
+					best = atomic.LoadInt64(&bestIdx)
+					if maxIdx < best {
+						// Use mutex to simplify updating both values
+						mu.Lock()
+						best = atomic.LoadInt64(&bestIdx) // re-check
+						if maxIdx < best {
+							atomic.StoreInt64(&bestIdx, maxIdx)
+							atomic.StoreUint32(&bestSeed, seed)
+						}
+						mu.Unlock()
+					}
+				}
+				if err := bar.Add64(sp.end - sp.start); err != nil {
+					log.Panicf("error updating progress bar: %v", err)
+				}
+			}
+		}(i, inputs)
+	}
+	wg.Wait()
+
+	if bestIdx == math.MaxInt64 || bestSeed == 0 {
+		log.Panic("failed to generate hash values for fold map table")
+	}
+	return int(bestIdx), bestSeed
+}
+
 func genCaseFolds(w *bytes.Buffer) {
 	log.Println("Generating values for _CaseFolds table (this may take a long time)...")
 	inputs := make([]uint32, len(caseFolds))
@@ -329,7 +548,7 @@ func genCaseFolds(w *bytes.Buffer) {
 	hashes := make([]foldPair, 0, len(pairs))
 	for i, p := range pairs {
 		hashes = append(hashes, foldPair{
-			From: hash(p.From, seed),
+			From: hash(p.From, seed, caseFoldShift),
 			To:   uint32(i),
 		})
 	}
@@ -346,6 +565,216 @@ func genCaseFolds(w *bytes.Buffer) {
 	for _, h := range hashes {
 		p := pairs[h.To]
 		fmt.Fprintf(w, "\t%d: {0x%04X, 0x%04X}, // %q => %q\n", h.From, p.From, p.To, p.From, p.To)
+	}
+	fmt.Fprint(w, "}\n\n")
+}
+
+// WARN: rename
+func genFoldTable(w *bytes.Buffer) {
+	log.Println("Generating values for _FoldMap table (this may take a long time)...")
+
+	runes := make(map[rune][]rune)
+	rangetable.Visit(categories, func(r rune) {
+		ff := folds(r)
+		if len(ff) > 2 {
+			runes[r] = append(runes[r], ff...)
+		}
+		// WARN
+		if len(ff) == 1 && unicode.ToUpper(r) != unicode.ToLower(r) {
+			runes[r] = append(runes[r], ff...)
+		}
+	})
+	// FIXME: fix the below since we have to work around it in the code
+	// WARN: we should not need to add this manually
+	runes['İ'] = append(runes['İ'], 'İ')
+	runes['ß'] = append(runes['ß'], 'ẞ')
+
+	keys := make([]uint32, 0, len(runes))
+	for k, rs := range runes {
+		// Make sure the key is included (was an issue with: 'ß')
+		if !slices.Contains(rs, k) {
+			rs = append(rs, k)
+		}
+		runes[k] = dedupe(rs)
+		keys = append(keys, uint32(k))
+	}
+
+	start := time.Now()
+	maxIdx, seed := genFoldMapHashValues(keys)
+	if maxIdx < foldMapSize/2 {
+		// Error if the algorithm found a table size that is a smaller power of 2
+		log.Panicf("Hash table size can be reduced to %d or less...", foldMapSize/2)
+	}
+	log.Printf("Successfully generated _FoldMap values in: %s", time.Since(start))
+	log.Printf("    max_index: %d", maxIdx)
+	log.Printf("    seed:      %d", seed)
+
+	// Make key the first element of the rune slice
+	folds := make([][]rune, 0, len(runes))
+	for k, rs := range runes {
+		if rs[0] != k {
+			a := []rune{k}
+			for _, r := range rs {
+				if r != k {
+					a = append(a, r)
+				}
+			}
+			rs = a
+		}
+		folds = append(folds, rs)
+	}
+	slices.SortFunc(folds, func(f1, f2 []rune) bool {
+		return f1[0] < f2[0]
+		h1 := hash(uint32(f1[0]), seed, foldMapShift)
+		h2 := hash(uint32(f2[0]), seed, foldMapShift)
+		return h1 < h2
+	})
+
+	// TODO: add a comment?
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, "const _FoldMapSeed = 0x%04X\n", seed)
+	// fmt.Fprintf(w, "const _FoldMapShift = 0x%04X\n", foldMapShift)
+	fmt.Fprintf(w, "const _FoldMapShift = %d\n", foldMapShift)
+	fmt.Fprint(w, "\n")
+	// fmt.Fprintf(w, "var _FoldMap = [%d][4]uint32{\n", foldMapSize)
+	fmt.Fprintf(w, "var _FoldMap = [%d][4]uint16{\n", foldMapSize)
+	for _, ff := range folds {
+		fmt.Fprintf(w, "\t%d: {0x%04X", hash(uint32(ff[0]), seed, foldMapShift), ff[0])
+		for _, f := range ff[1:] {
+			fmt.Fprintf(w, ", 0x%04X", f)
+		}
+		fmt.Fprintf(w, "}, // %q\n", ff)
+		// fmt.Fprintln(w, "},")
+	}
+	fmt.Fprint(w, "}\n\n")
+
+	// noUpperLower := make(map[rune][]rune)
+	type runeSet struct {
+		r uint32
+		a [2]rune
+	}
+
+	var noUpperLower []runeSet
+	for k, rs := range runes {
+		u := unicode.ToUpper(k)
+		l := unicode.ToLower(k)
+		a := make([]rune, 0, 2)
+		for _, r := range rs {
+			if r != u && r != l {
+				a = append(a, r)
+			}
+		}
+		if len(a) > 2 {
+			log.Fatalf("fold set excluding upper/lower %q "+
+				"must have 2 or less elements got: %d", a, len(a))
+		}
+		switch len(a) {
+		case 0:
+			a = append(a, k, k)
+		case 1:
+			a = append(a, a[0])
+		}
+		slices.Sort(a)
+		noUpperLower = append(noUpperLower, runeSet{uint32(k), [2]rune{a[0], a[1]}})
+	}
+	slices.SortFunc(noUpperLower, func(c1, c2 runeSet) bool {
+		return c1.r < c2.r
+		h1 := hash(uint32(c1.r), seed, foldMapShift)
+		h2 := hash(uint32(c2.r), seed, foldMapShift)
+		return h1 < h2
+	})
+
+	// WARN: use [3]uint16 to pack bytes
+	// TODO: add a comment?
+	fmt.Fprintln(w, "")
+	fmt.Fprintf(w, "const _FoldMapExcludingUpperLowerSeed = 0x%04X\n", seed)
+	fmt.Fprintf(w, "const _FoldMapExcludingUpperLowerShift = %d\n", foldMapShift)
+	fmt.Fprintln(w, "")
+	fmt.Fprintf(w, "var _FoldMapExcludingUpperLower = [%d]struct {\n", foldMapSize)
+	fmt.Fprintln(w, "\tr uint16")
+	fmt.Fprintln(w, "\ta [2]uint16")
+	fmt.Fprintln(w, "}{")
+	for _, c := range noUpperLower {
+		h := hash(uint32(c.r), seed, foldMapShift)
+		if c.a[0] > math.MaxUint16 {
+			log.Fatalf("rune 0x%04X is larger than MaxUint16 0x%04X", c.a[0], math.MaxUint16)
+		}
+		if c.a[1] > math.MaxUint16 {
+			log.Fatalf("rune 0x%04X is larger than MaxUint16 0x%04X", c.a[1], math.MaxUint16)
+		}
+		fmt.Fprintf(w, "\t%d: {0x%04X, [2]uint16{0x%04X, 0x%04X}}, // %q: [%q, %q]\n",
+			h, c.r, c.a[0], c.a[1], c.r, c.a[0], c.a[1])
+	}
+	fmt.Fprint(w, "}\n\n")
+}
+
+func keysSorted[M ~map[K]V, K constraints.Ordered, V any](m M) []K {
+	r := make([]K, 0, len(m))
+	for k := range m {
+		r = append(r, k)
+	}
+	slices.Sort(r)
+	return r
+}
+
+func genUpperLowerTable(w *bytes.Buffer) {
+	log.Println("Generating values for _UpperLower table (this may take a long time)...")
+
+	const docComment = `
+// _UpperLower stores upper/lower case pairs of Unicode code points.
+// This takes up more space than the stdlib's "unicode" package, but
+// is roughly ~4x faster.`
+
+	type Case struct {
+		Rune  rune `json:"rune"`
+		Upper rune `json:"upper"`
+		Lower rune `json:"lower"`
+	}
+	var cases []Case
+
+	// WARN: handle special cases !!!
+	var special []Case // special cases where Rune != Upper or Lower
+
+	for r := rune('A'); r <= unicode.MaxRune; r++ {
+		l := unicode.ToLower(r)
+		u := unicode.ToUpper(r)
+		if l != r || r != u {
+			if l == r || u == r {
+				cases = append(cases, Case{Rune: r, Upper: u, Lower: l})
+			} else {
+				special = append(special, Case{Rune: r, Upper: u, Lower: l})
+			}
+		}
+	}
+
+	keys := make([]uint32, len(cases))
+	for i, c := range cases {
+		keys[i] = uint32(c.Rune)
+	}
+	// TODO: this is probably not necessary
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+
+	start := time.Now()
+	maxIdx, seed := genToUpperLowerTableValues(keys)
+	if maxIdx < upperLowerTableSize/2 {
+		// Error if the algorithm found a table size that is a smaller power of 2
+		log.Panicf("Hash table size can be reduced to %d or less...", upperLowerTableSize/2)
+	}
+	log.Printf("Successfully generated _UpperLower values in: %s", time.Since(start))
+	log.Printf("    max_index: %d", maxIdx)
+	log.Printf("    seed:      %d", seed)
+
+	// TODO: add a comment?
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, "const _UpperLowerSeed = 0x%04X\n", seed)
+	fmt.Fprintf(w, "const _UpperLowerShift = %d\n", upperLowerTableShift)
+	fmt.Fprint(w, "\n")
+	fmt.Fprintln(w, strings.TrimSpace(docComment))
+	fmt.Fprintf(w, "var _UpperLower = [%d][2]uint32{\n", upperLowerTableSize)
+	for _, c := range cases {
+		fmt.Fprintf(w, "\t%d: {0x%04X, 0x%04X}, // %q => %q\n",
+			shiftHash(seed, uint32(c.Rune), upperLowerTableShift), c.Upper, c.Lower, c.Upper, c.Lower)
 	}
 	fmt.Fprint(w, "}\n\n")
 }
@@ -502,9 +931,46 @@ func main() {
 	skipTests := flag.Bool("skip-tests", false, "skip running tests")
 	dryRun := flag.Bool("dry-run", false,
 		"report if generate would change tables.go and exit non-zero")
+	cpuprofile := flag.String("cpuprofile", "",
+		"write cpu profile to `file`\n"+
+			"NOTE: this traps SIGINT.\n"+
+			"  First SIGINT the cpu profile is written to `file`.\n"+
+			"  Second SIGINT the program aborts.")
 
-	gen.Init()               // TODO: we don't really need this
+	// TODO: we don't really need this
+	flag.Parse()
+
+	log.SetPrefix("")
+	log.SetFlags(log.Lshortfile)
 	log.SetOutput(os.Stdout) // use stdout instead of stderr
+
+	// WARN WARN WARN
+	log.Println("WARN WARN WARN WARN WARN WARN WARN WARN WARN")
+	log.Println("")
+	log.Println("Use uint16 where possible")
+	log.Println("")
+	log.Println("WARN WARN WARN WARN WARN WARN WARN WARN WARN")
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+		ch := make(chan os.Signal, 4)
+		signal.Notify(ch, os.Interrupt)
+		go func() {
+			<-ch
+			log.Println("writing CPU profile: next interrupt will stop the program")
+			pprof.StopCPUProfile()
+			f.Close()
+			signal.Reset(os.Interrupt)
+		}()
+	}
 
 	loadTableInfo()
 	loadCaseFolds()
@@ -548,8 +1014,9 @@ func main() {
 	gen.WriteUnicodeVersion(&w)
 	gen.WriteCLDRVersion(&w)
 
-	genFoldMap(&w)
 	genCaseFolds(&w)
+	genUpperLowerTable(&w)
+	genFoldTable(&w)
 
 	writeGo(&w)
 	testBuild(w.Bytes(), *skipTests)
