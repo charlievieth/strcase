@@ -442,7 +442,9 @@ func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, tes
 			}
 			var foldable bool
 			for _, r := range test.sep {
-				_, foldable = _FoldMap[r]
+				// TODO: delete me
+				// _, foldable = _FoldMap[r]
+				foldable := foldMap(r) != nil
 				if foldable {
 					break
 				}

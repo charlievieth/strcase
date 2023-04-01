@@ -6,12 +6,17 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/charlievieth/strcase"
 )
 
-var benchStdLib = flag.Bool("stdlib", false, "Use the stdlib's strings package instead of strcase (for comparison)")
+var benchStdLib = flag.Bool("stdlib", false,
+	"Use the stdlib's strings package instead of strcase (for comparison)")
+
+var benchLower = flag.Bool("stdlib-case", false,
+	"Convert case with strings.ToUpper")
 
 func benchIndexRune(b *testing.B, s string, r rune) {
 	if strings.IndexRune(s, r) != strcase.IndexRune(s, r) {
@@ -20,6 +25,10 @@ func benchIndexRune(b *testing.B, s string, r rune) {
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(s, r)
+		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.IndexRune(strings.ToUpper(s), unicode.ToUpper(r))
 		}
 	} else {
 		for i := 0; i < b.N; i++ {
@@ -36,6 +45,10 @@ func benchIndex(b *testing.B, s, substr string) {
 		for i := 0; i < b.N; i++ {
 			strings.Index(s, substr)
 		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.Index(strings.ToUpper(s), strings.ToUpper(substr))
+		}
 	} else {
 		for i := 0; i < b.N; i++ {
 			strcase.Index(s, substr)
@@ -50,6 +63,10 @@ func benchIndexByte(b *testing.B, s string, c byte) {
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(s, c)
+		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.IndexByte(strings.ToUpper(s), byte(unicode.ToUpper(rune(c))))
 		}
 	} else {
 		for i := 0; i < b.N; i++ {
@@ -66,6 +83,10 @@ func benchLastIndex(b *testing.B, s, substr string) {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(s, substr)
 		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.LastIndex(strings.ToUpper(s), strings.ToUpper(substr))
+		}
 	} else {
 		for i := 0; i < b.N; i++ {
 			strcase.LastIndex(s, substr)
@@ -81,6 +102,8 @@ func benchEqualFold(b *testing.B, s1, s2 string) {
 		for i := 0; i < b.N; i++ {
 			strings.EqualFold(s1, s2)
 		}
+	} else if *benchLower {
+		b.Skip("skipping test not relevant with -lower flag")
 	} else {
 		for i := 0; i < b.N; i++ {
 			strcase.Compare(s1, s2)
@@ -95,6 +118,10 @@ func benchCount(b *testing.B, s, substr string) {
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.Count(s, substr)
+		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.Count(strings.ToUpper(s), strings.ToUpper(substr))
 		}
 	} else {
 		for i := 0; i < b.N; i++ {
@@ -111,6 +138,10 @@ func benchIndexAny(b *testing.B, s, cutset string) {
 		for i := 0; i < b.N; i++ {
 			strings.IndexAny(s, cutset)
 		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.IndexAny(strings.ToUpper(s), strings.ToUpper(cutset))
+		}
 	} else {
 		for i := 0; i < b.N; i++ {
 			strcase.IndexAny(s, cutset)
@@ -125,6 +156,10 @@ func benchLastIndexAny(b *testing.B, s, cutset string) {
 	if *benchStdLib {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndexAny(s, cutset)
+		}
+	} else if *benchLower {
+		for i := 0; i < b.N; i++ {
+			strings.LastIndexAny(strings.ToUpper(s), strings.ToUpper(cutset))
 		}
 	} else {
 		for i := 0; i < b.N; i++ {
@@ -366,6 +401,14 @@ var indexSizes = []int{10, 32, 4 << 10, 4 << 20, 64 << 20}
 func BenchmarkIndexByte_Bytes(b *testing.B) {
 	if *benchStdLib {
 		benchBytes(b, indexSizes, bmIndexByte(strings.IndexByte))
+	} else if *benchLower {
+		fn := func(s string, c byte) int {
+			if 'a' <= c && c <= 'z' {
+				c -= 'a' - 'A'
+			}
+			return strings.IndexByte(strings.ToUpper(s), c)
+		}
+		benchBytes(b, indexSizes, bmIndexByte(fn))
 	} else {
 		benchBytes(b, indexSizes, bmIndexByte(strcase.IndexByte))
 	}
@@ -389,6 +432,11 @@ func bmIndexByte(index func(string, byte) int) func(b *testing.B, n int) {
 func BenchmarkIndexRune_Bytes(b *testing.B) {
 	if *benchStdLib {
 		benchBytes(b, indexSizes, bmIndexRune(strings.IndexRune))
+	} else if *benchLower {
+		fn := func(s string, r rune) int {
+			return strings.IndexRune(strings.ToUpper(s), unicode.ToUpper(r))
+		}
+		benchBytes(b, indexSizes, bmIndexRune(fn))
 	} else {
 		benchBytes(b, indexSizes, bmIndexRune(strcase.IndexRune))
 	}
@@ -397,6 +445,11 @@ func BenchmarkIndexRune_Bytes(b *testing.B) {
 func BenchmarkIndexRuneASCII_Bytes(b *testing.B) {
 	if *benchStdLib {
 		benchBytes(b, indexSizes, bmIndexRuneASCII(strings.IndexRune))
+	} else if *benchLower {
+		fn := func(s string, r rune) int {
+			return strings.IndexRune(strings.ToUpper(s), unicode.ToUpper(r))
+		}
+		benchBytes(b, indexSizes, bmIndexRuneASCII(fn))
 	} else {
 		benchBytes(b, indexSizes, bmIndexRuneASCII(strcase.IndexRune))
 	}
