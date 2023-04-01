@@ -24,9 +24,12 @@ type foldPair struct {
 	To   uint32
 }
 
+// TODO: rename to "foldCase"
+//
 // caseFold returns the Unicode simple case-fold for r, if one exists, or r
 // unmodified, if one does not exist.
 func caseFold(r rune) rune {
+	// TODO: check if r is ASCII here?
 	u := uint32(r)
 	h := (u * _CaseFoldsSeed) >> _CaseFoldsShift
 	p := _CaseFolds[h]
@@ -47,19 +50,14 @@ func foldMap(r rune) *[4]uint16 {
 	return nil
 }
 
-// TODO: use or remove
-// var zeroRune2 [2]rune
-
-// TODO: return only one value
-// TODO: return [2]uint16
-func foldMapExcludingUpperLower(r rune) ([2]rune, bool) {
+func foldMapExcludingUpperLower(r rune) [2]rune {
 	u := uint32(r)
 	h := (u * _FoldMapSeed) >> _FoldMapShift
 	p := &_FoldMapExcludingUpperLower[h]
 	if uint32(p.r) == u {
-		return [2]rune{rune(p.a[0]), rune(p.a[1])}, true
+		return [2]rune{rune(p.a[0]), rune(p.a[1])}
 	}
-	return [2]rune{0, 0}, false
+	return [2]rune{}
 }
 
 func clamp(n int) int {
@@ -340,68 +338,27 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 		}
 		return r, r, false
 	}
-
-	if true {
-		// WARN: move this to a function
-		// Hash rune r and seee if it's in the _UpperLower table.
-		u := uint32(r)
-		h := u | u<<24
-		h *= _UpperLowerSeed
-		h >>= _UpperLowerShift
-		p := _UpperLower[h]
-		if p[0] == u || p[1] == u {
-			return rune(p[0]), rune(p[1]), true
-		}
-		switch r {
-		case 'ǅ':
-			return 'Ǆ', 'ǆ', true
-		case 'ǈ':
-			return 'Ǉ', 'ǉ', true
-		case 'ǋ':
-			return 'Ǌ', 'ǌ', true
-		case 'ǲ':
-			return 'Ǳ', 'ǳ', true
-		}
-		return r, r, false
-	} else {
-		// binary search over ranges
-		caseRange := unicode.CaseRanges
-		lo := 0
-		hi := len(caseRange)
-		for lo < hi {
-			m := lo + (hi-lo)/2
-			cr := &caseRange[m] // CEV: taking the address is ~20% faster
-			if rune(cr.Lo) <= r && r <= rune(cr.Hi) {
-				if delta := cr.Delta[unicode.UpperCase]; delta > unicode.MaxRune {
-					// In an Upper-Lower sequence, which always starts with
-					// an UpperCase letter, the real deltas always look like:
-					//	{0, 1, 0}    UpperCase (Lower is next)
-					//	{-1, 0, -1}  LowerCase (Upper, Title are previous)
-					// The characters at even offsets from the beginning of the
-					// sequence are upper case; the ones at odd offsets are lower.
-					// The correct mapping can be done by clearing or setting the low
-					// bit in the sequence offset.
-					// The constants UpperCase and TitleCase are even while LowerCase
-					// is odd so we take the low bit from _case.
-					upper = rune(cr.Lo) + ((r-rune(cr.Lo))&^1 | rune(unicode.UpperCase&1))
-				} else {
-					upper = r + delta
-				}
-				if delta := cr.Delta[unicode.LowerCase]; delta > unicode.MaxRune {
-					lower = rune(cr.Lo) + ((r-rune(cr.Lo))&^1 | rune(unicode.LowerCase&1))
-				} else {
-					lower = r + delta
-				}
-				return upper, lower, true
-			}
-			if r < rune(cr.Lo) {
-				hi = m
-			} else {
-				lo = m + 1
-			}
-		}
-		return r, r, false
+	// WARN: move this to a function
+	// Hash rune r and seee if it's in the _UpperLower table.
+	u := uint32(r)
+	h := u | u<<24
+	h *= _UpperLowerSeed
+	h >>= _UpperLowerShift
+	p := _UpperLower[h]
+	if p[0] == u || p[1] == u {
+		return rune(p[0]), rune(p[1]), true
 	}
+	switch r {
+	case 'ǅ':
+		return 'Ǆ', 'ǆ', true
+	case 'ǈ':
+		return 'Ǉ', 'ǉ', true
+	case 'ǋ':
+		return 'Ǌ', 'ǌ', true
+	case 'ǲ':
+		return 'Ǳ', 'ǳ', true
+	}
+	return r, r, false
 }
 
 func bruteForceIndexUnicode(s, substr string) int {
@@ -409,10 +366,10 @@ func bruteForceIndexUnicode(s, substr string) int {
 
 	u0, sz0 := utf8.DecodeRuneInString(substr)
 	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
-	// folds0, hasFolds0 := _FoldMapExcludingUpperLower[u0]
-	// folds1, hasFolds1 := _FoldMapExcludingUpperLower[u1]
-	folds0, hasFolds0 := foldMapExcludingUpperLower(u0)
-	folds1, hasFolds1 := foldMapExcludingUpperLower(u1)
+	folds0 := foldMapExcludingUpperLower(u0)
+	folds1 := foldMapExcludingUpperLower(u1)
+	hasFolds0 := folds0[0] != 0
+	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
 
 	// Ugly hack
@@ -586,10 +543,10 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 
 	u0, sz0 := utf8.DecodeLastRuneInString(substr)
 	u1, sz1 := utf8.DecodeLastRuneInString(substr[:len(substr)-sz0])
-	// folds0, hasFolds0 := _FoldMapExcludingUpperLower[u0]
-	// folds1, hasFolds1 := _FoldMapExcludingUpperLower[u1]
-	folds0, hasFolds0 := foldMapExcludingUpperLower(u0)
-	folds1, hasFolds1 := foldMapExcludingUpperLower(u1)
+	folds0 := foldMapExcludingUpperLower(u0)
+	folds1 := foldMapExcludingUpperLower(u1)
+	hasFolds0 := folds0[0] != 0
+	hasFolds1 := folds1[0] != 0
 	needle := substr[:len(substr)-sz0-sz1]
 
 	// Ugly hack
@@ -757,10 +714,10 @@ func shortIndexUnicode(s, substr string) int {
 	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
-	// folds0, hasFolds0 := _FoldMapExcludingUpperLower[u0]
-	// folds1, hasFolds1 := _FoldMapExcludingUpperLower[u1]
-	folds0, hasFolds0 := foldMapExcludingUpperLower(u0)
-	folds1, hasFolds1 := foldMapExcludingUpperLower(u1)
+	folds0 := foldMapExcludingUpperLower(u0)
+	folds1 := foldMapExcludingUpperLower(u1)
+	hasFolds0 := folds0[0] != 0
+	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
 
 	// Ugly hack
@@ -857,10 +814,10 @@ func indexUnicode(s, substr string) int {
 	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
-	// folds0, hasFolds0 := _FoldMapExcludingUpperLower[u0]
-	// folds1, hasFolds1 := _FoldMapExcludingUpperLower[u1]
-	folds0, hasFolds0 := foldMapExcludingUpperLower(u0)
-	folds1, hasFolds1 := foldMapExcludingUpperLower(u1)
+	folds0 := foldMapExcludingUpperLower(u0)
+	folds1 := foldMapExcludingUpperLower(u1)
+	hasFolds0 := folds0[0] != 0
+	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
 
 	// Ugly hack

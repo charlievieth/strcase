@@ -4,6 +4,8 @@
 //go:build gen
 // +build gen
 
+// gen generates the Unicode lookup tables used by strcase. The tables must
+// be regenerated if this code is changed (`go generate`).
 package main
 
 import (
@@ -40,13 +42,14 @@ import (
 	"github.com/charlievieth/strcase/internal/ucd"
 )
 
+// TODO: consider renaming the generated tables
 const (
 	caseFoldShift        = 19
 	caseFoldSize         = 8192
-	foldMapShift         = 24  // WARN: rename
-	foldMapSize          = 256 // WARN: rename
-	upperLowerTableSize  = 16384 / 2
-	upperLowerTableShift = 18 + 1
+	foldMapShift         = 24
+	foldMapSize          = 256
+	upperLowerTableSize  = 8192
+	upperLowerTableShift = 19
 )
 
 // Unicode categories used to construct the fold maps
@@ -134,10 +137,12 @@ func shiftHash(seed, key, shift uint32) uint32 {
 type HashConfig struct {
 	TableName string
 	TableSize int
-	HashShift uint32
-	ShiftHash bool
+	HashShift uint32 // TODO: this can be calculated from TableSize
+	ShiftHash bool   // Use shiftHash instead of hash
 }
 
+// GenerateHashValues performs a brute-force search for the best possible
+// multiplicative hash seed for inputs. All uint32 values are checked.
 func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
 	const delta = 524_288
 
@@ -297,12 +302,11 @@ func genCaseFolds(w *bytes.Buffer) {
 		return a.From < b.From
 	})
 
-	// TODO: add a comment?
 	fmt.Fprint(w, "\n")
-	fmt.Fprintln(w, "// _CaseFolds stores all Unicode simple case-folds.")
 	fmt.Fprintf(w, "const _CaseFoldsSeed = 0x%04X\n", seed)
 	fmt.Fprintf(w, "const _CaseFoldsShift = 0x%04X\n", caseFoldShift)
 	fmt.Fprint(w, "\n")
+	fmt.Fprintln(w, "// _CaseFolds stores all Unicode simple case-folds.")
 	fmt.Fprintf(w, "var _CaseFolds = [%d]foldPair{\n", caseFoldSize)
 	for _, h := range hashes {
 		p := pairs[h.To]
@@ -319,7 +323,7 @@ func dedupe(r []rune) []rune {
 	return slices.Compact(r)
 }
 
-// WARN: rename
+// TODO: consider renaming this table
 func genFoldTable(w *bytes.Buffer) {
 	runes := make(map[rune][]rune)
 	rangetable.Visit(categories, func(r rune) {
@@ -327,7 +331,6 @@ func genFoldTable(w *bytes.Buffer) {
 		if len(ff) > 2 {
 			runes[r] = append(runes[r], ff...)
 		}
-		// WARN
 		if len(ff) == 1 && unicode.ToUpper(r) != unicode.ToLower(r) {
 			runes[r] = append(runes[r], ff...)
 		}
@@ -373,11 +376,11 @@ func genFoldTable(w *bytes.Buffer) {
 	})
 
 	fmt.Fprint(w, "\n")
-	fmt.Fprintln(w, "// _FoldMap stores the Unicode case-folds for characters "+
-		"that have two or more folds.")
 	fmt.Fprintf(w, "const _FoldMapSeed = 0x%04X\n", seed)
 	fmt.Fprintf(w, "const _FoldMapShift = %d\n", foldMapShift)
 	fmt.Fprint(w, "\n")
+	fmt.Fprintln(w, "// _FoldMap stores the Unicode case-folds for characters "+
+		"that have two or more folds.")
 	fmt.Fprintf(w, "var _FoldMap = [%d][4]uint16{\n", foldMapSize)
 	for _, ff := range folds {
 		fmt.Fprintf(w, "\t%d: {0x%04X", hash(uint32(ff[0]), seed, foldMapShift), ff[0])
@@ -388,7 +391,6 @@ func genFoldTable(w *bytes.Buffer) {
 	}
 	fmt.Fprint(w, "}\n\n")
 
-	// noUpperLower := make(map[rune][]rune)
 	type runeSet struct {
 		r uint32
 		a [2]rune
@@ -426,8 +428,6 @@ func genFoldTable(w *bytes.Buffer) {
 // have two or more folds, but excludes the uppercase and lowercase forms of the
 // character.`
 
-	// WARN: use [3]uint16 to pack bytes
-	// TODO: add a comment?
 	fmt.Fprintln(w, "")
 	fmt.Fprintf(w, "const _FoldMapExcludingUpperLowerSeed = 0x%04X\n", seed)
 	fmt.Fprintf(w, "const _FoldMapExcludingUpperLowerShift = %d\n", foldMapShift)
@@ -704,7 +704,6 @@ func main() {
 			"  First SIGINT the cpu profile is written to `file`.\n"+
 			"  Second SIGINT the program aborts.")
 
-	// TODO: we don't really need this
 	flag.Parse()
 
 	log.SetPrefix("")
