@@ -2,5 +2,10 @@
     "unicode_version": "13.0.0",
     "cldr_version": "32",
     "case_fold_hash": "3ab0454d1a85064a4c401b9a0c7162bd08a306ebd0dc34065b25701e6d38dba9",
-    "gen_go_hash": "a165833df2c66c2a97bed1f909d54733cb6f725730449163b6b2475f1ef103de"
+    "gen_go_hash": "1e5cbc53484d9fa0f5222ebb0d3694307924b623c9a9483baf95a0647f5b0e4a",
+    "table_hashes": {
+        "_CaseFolds": 2422855,
+        "_FoldMap": 2521300993,
+        "_UpperLower": 2548563816
+    }
 }
