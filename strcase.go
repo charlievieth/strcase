@@ -86,10 +86,10 @@ func Compare(s, t string) int {
 		if sr|tr >= utf8.RuneSelf {
 			goto hasUnicode
 		}
-		if sr == tr || _lower[sr] == _lower[tr] {
+		if sr == tr || _lower[sr&0x7F] == _lower[tr&0x7F] {
 			continue
 		}
-		if _lower[sr] < _lower[tr] {
+		if _lower[sr&0x7F] < _lower[tr&0x7F] {
 			return -1
 		}
 		return 1
@@ -132,8 +132,7 @@ func isAlpha(c byte) bool {
 	return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z'
 }
 
-// TODO: change to 128 bytes and use a mask
-var _lower = [256]byte{
+var _lower = [128]byte{
 	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
 	21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, ' ', '!', '"', '#', '$', '%',
 	'&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4',
@@ -142,15 +141,6 @@ var _lower = [256]byte{
 	's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '[', '\\', ']', '^', '_', '`', 'a',
 	'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
 	'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', 127,
-	128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142,
-	143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157,
-	158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
-	173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187,
-	188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202,
-	203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217,
-	218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232,
-	233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247,
-	248, 249, 250, 251, 252, 253, 254, 255,
 }
 
 // containsKelvin returns true if string s contains rune 'K' (Kelvin).
@@ -190,21 +180,10 @@ func hasPrefixUnicode(s, prefix string) (bool, bool) {
 	for ; i < len(s) && i < len(prefix); i++ {
 		sr := s[i]
 		tr := prefix[i]
-		if sr|tr >= utf8.RuneSelf {
+		if (sr|tr)&utf8.RuneSelf != 0 {
 			goto hasUnicode
 		}
-
-		// Easy case.
-		if tr == sr {
-			continue
-		}
-
-		// Make sr < tr to simplify what follows.
-		if tr < sr {
-			tr, sr = sr, tr
-		}
-		// ASCII only, sr/tr must be upper/lower case
-		if 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A' {
+		if tr == sr || _lower[sr&0x7F] == _lower[tr&0x7F] {
 			continue
 		}
 		return false, i == len(s)-1
@@ -224,9 +203,7 @@ hasUnicode:
 		var sr rune
 		if s[0] < utf8.RuneSelf {
 			sr, s = rune(s[0]), s[1:]
-			if 'A' <= sr && sr <= 'Z' {
-				sr += 'a' - 'A'
-			}
+			sr = rune(_lower[sr&0x7F])
 		} else {
 			r, size := utf8.DecodeRuneInString(s)
 			sr, s = caseFold(r), s[size:]
@@ -1601,13 +1578,13 @@ func indexRabinKarpUnicode(s, substr string) int {
 		var s0, s1 rune
 		var n0, n1 int
 		if s[j] < utf8.RuneSelf {
-			s0, n0 = rune(_lower[s[j]]), 1
+			s0, n0 = rune(_lower[s[j]&0x7F]), 1
 		} else {
 			s0, n0 = utf8.DecodeRuneInString(s[j:])
 			s0 = caseFold(s0)
 		}
 		if s[i] < utf8.RuneSelf {
-			s1, n1 = rune(_lower[s[i]]), 1
+			s1, n1 = rune(_lower[s[i]&0x7F]), 1
 		} else {
 			s1, n1 = utf8.DecodeRuneInString(s[i:])
 			s1 = caseFold(s1)
