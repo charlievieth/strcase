@@ -1392,9 +1392,6 @@ func lastIndexRune(s string, r rune) int {
 						return i
 					}
 				}
-			default:
-				// TODO: consider removing
-				panic("internal error: invalid number of folds") // This should never happen
 			}
 		} else {
 			u, l, _ := toUpperLower(r)
