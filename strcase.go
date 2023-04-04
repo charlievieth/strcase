@@ -296,14 +296,6 @@ hasUnicode:
 	return len(t) == 0, len(s) == 0, len(s)
 }
 
-// WARN: rename
-func shiftHash(seed, key, shift uint32) uint32 {
-	key |= key << 24 // fill top bits not occupied by unicode.MaxRune
-	// key |= key << 21 // fill top bits
-	m := seed * key
-	return m >> shift
-}
-
 // toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
 func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	if r <= unicode.MaxASCII {
@@ -315,7 +307,6 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 		}
 		return r, r, false
 	}
-	// WARN: move this to a function
 	// Hash rune r and seee if it's in the _UpperLower table.
 	u := uint32(r)
 	h := u | u<<24
