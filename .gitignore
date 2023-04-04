@@ -5,3 +5,4 @@
 /gen
 /vendor
 /DATA
+/internal/phash
