@@ -784,15 +784,21 @@ func main() {
 		}
 		return a
 	}
+	chop := func(s string, n int) string {
+		if len(s) >= n {
+			return s[:n]
+		}
+		return s
+	}
 	log.Printf("gen: would update tables.go due to the following changes:\n"+
 		"    unicode_version: %s   => %s\n"+
 		"    cldr_version:    %s       => %s\n"+
 		"    case_fold_hash:  %s => %s\n"+
 		"    gen_go_hash:     %s => %s\n\n",
-		colorize(gen.UnicodeVersion(), tableInfo.UnicodeVersion,
-			gen.CLDRVersion(), tableInfo.CLDRVersion,
-			foldHash[:8], tableInfo.CaseFoldHash[:8],
-			fileHash[:8], tableInfo.GenGoHash[:8])...)
+		colorize(tableInfo.UnicodeVersion, gen.UnicodeVersion(),
+			tableInfo.CLDRVersion, gen.CLDRVersion(),
+			chop(tableInfo.CaseFoldHash, 8), chop(foldHash, 8),
+			chop(tableInfo.GenGoHash, 8), chop(fileHash, 8))...)
 	if *dryRun {
 		log.Printf("%s gen: would change tables.go "+
 			"(remove -dry-run flag to update the generated files)\n", ansi(33, "WARN:"))
