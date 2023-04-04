@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -697,7 +698,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false,
 		"report if generate would change tables.go and exit non-zero")
 	updateGenHash := flag.Bool("update-gen-hash", false,
-		`only update the hash if the gen.go file stored in ".tables.go" (CAREFUL)`)
+		`only update the hash of the gen.go file stored in ".tables.go" (CAREFUL)`)
 	cpuprofile := flag.String("cpuprofile", "",
 		"write cpu profile to `file`\n"+
 			"NOTE: this traps SIGINT.\n"+
@@ -749,23 +750,53 @@ func main() {
 			"    case_fold_hash:  %q\n"+
 			"    gen_go_hash:     %q\n",
 			tableInfo.UnicodeVersion, tableInfo.CLDRVersion,
-			tableInfo.CaseFoldHash, tableInfo.GenGoHash)
+			tableInfo.CaseFoldHash[:8], tableInfo.GenGoHash[:8])
 		return
 	}
 
-	log.Printf("gen: updating due to the following changes:\n"+
-		"    unicode_version: %q   => %q\n"+
-		"    cldr_version:    %q       => %q\n"+
-		"    case_fold_hash:  %q\t=> %q\n"+
-		"    gen_go_hash:     %q\t=> %q\n\n",
-		gen.UnicodeVersion(), tableInfo.UnicodeVersion,
-		gen.CLDRVersion(), tableInfo.CLDRVersion,
-		foldHash[:8], tableInfo.CaseFoldHash[:8],
-		fileHash[:8], tableInfo.GenGoHash[:8])
+	isTerm := term.IsTerminal(syscall.Stdout)
+	ansi := func(color int, s string) string {
+		if !isTerm {
+			return s
+		}
+		return fmt.Sprintf("\x1b[%d;m%s\x1b[0;m", color, s)
+	}
+	colorize := func(args ...string) []any {
+		if len(args)&1 != 0 {
+			log.Panicf("number of args (%d) must be even!", len(args))
+		}
+		// Quote args since we can't use '%q' in log.Printf
+		for i, s := range args {
+			args[i] = strconv.Quote(s)
+		}
+		// Colorize args that have changed if output is a terminal
+		if isTerm {
+			for i := 0; i < len(args); i += 2 {
+				if args[i] != args[i+1] {
+					args[i] = ansi(32, args[i])     // green
+					args[i+1] = ansi(31, args[i+1]) // red
+				}
+			}
+		}
+		a := make([]any, len(args))
+		for i, s := range args {
+			a[i] = s
+		}
+		return a
+	}
+	log.Printf("gen: would update tables.go due to the following changes:\n"+
+		"    unicode_version: %s   => %s\n"+
+		"    cldr_version:    %s       => %s\n"+
+		"    case_fold_hash:  %s => %s\n"+
+		"    gen_go_hash:     %s => %s\n\n",
+		colorize(gen.UnicodeVersion(), tableInfo.UnicodeVersion,
+			gen.CLDRVersion(), tableInfo.CLDRVersion,
+			foldHash[:8], tableInfo.CaseFoldHash[:8],
+			fileHash[:8], tableInfo.GenGoHash[:8])...)
 	if *dryRun {
-		log.Println("gen: would change tables.go " +
-			"(remove -dry-run flag to update the generated files)")
-		log.Println("gen: exiting now")
+		log.Printf("%s gen: would change tables.go "+
+			"(remove -dry-run flag to update the generated files)\n", ansi(33, "WARN:"))
+		log.Printf("%s gen: exiting now\n", ansi(33, "WARN:"))
 		os.Exit(1)
 	}
 
@@ -801,5 +832,5 @@ func main() {
 		"    case_fold_hash:  %q\n"+
 		"    gen_go_hash:     %q\n",
 		tableInfo.UnicodeVersion, tableInfo.CLDRVersion,
-		tableInfo.CaseFoldHash, tableInfo.GenGoHash)
+		tableInfo.CaseFoldHash[:8], tableInfo.GenGoHash[:8])
 }
