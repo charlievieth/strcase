@@ -166,6 +166,6 @@ pre-commit: .git/hooks/pre-commit
 
 .PHONY: clean
 clean:
-	rm -f cpu.out mem.out
-	rm -rf DATA bin
-	$(GO) clean -i -cache
+	@rm -f cpu*.out mem*.out
+	@rm -rf DATA bin
+	@$(GO) clean -i -cache
