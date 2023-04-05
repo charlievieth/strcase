@@ -296,20 +296,25 @@ func BenchmarkCountTortureOverlapping(b *testing.B) {
 	benchCount(b, A, B)
 }
 
+// NB: we count "a" instead of "=" here, which differs from the stdlib
+// but is a more accurate benchmark since for non-Alpha ASCII chars we
+// use strings.Count.
 func BenchmarkCountByte(b *testing.B) {
+	if strcase.Count(benchmarkString, "a") != 1 {
+		b.Fatalf("strcase.Count(%q, %q) != 1", benchmarkString, "a")
+	}
 	indexSizes := []int{10, 32, 4 << 10, 4 << 20, 64 << 20}
 	benchStr := strings.Repeat(benchmarkString,
 		(indexSizes[len(indexSizes)-1]+len(benchmarkString)-1)/len(benchmarkString))
 	benchFunc := func(b *testing.B, benchStr string) {
 		b.SetBytes(int64(len(benchStr)))
-		benchCount(b, benchStr, "=")
+		benchCount(b, benchStr, "a") // NB: "a" instead of "="
 	}
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
 			benchFunc(b, benchStr[:size])
 		})
 	}
-
 }
 
 func BenchmarkIndexAnyASCII(b *testing.B) {
