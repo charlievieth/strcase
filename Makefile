@@ -16,6 +16,9 @@ RICHGO_VERSION ?= v0.3.11
 COMMENTS       ?= 'TODO|WARN|FIXME|CEV'
 GREP           ?= \grep
 GREP_COLOR     ?= --color=always
+GREP_COMMENTS  ?= --line-number --extended-regexp --recursive \
+                  --exclude-dir=ucd --exclude-dir=gen --exclude-dir=vendor \
+                  --include='*.go' --include=Makefile
 xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
@@ -70,7 +73,9 @@ test testshort testverbose testinvalid exhaustive:
 .PHONY: testskipped
 testskipped:
 	@if $(MAKE) testverbose | $(xgrep) --fixed-strings -- '--- SKIP:'; then \
-		echo '$(red)FAIL: $(cyan)skipped tests$(term-reset)';               \
+		echo '';                                                            \
+		echo '$(red)FAIL: $(cyan)^^^ skipped tests ^^^$(term-reset)';       \
+		echo '';                                                            \
 		exit 1;                                                             \
 	fi
 
@@ -143,10 +148,10 @@ lint: vet golangci-lint golangci-lint-gen
 # NOTE: not currently part of the "lint" target.
 .PHONY: lint-comments
 lint-comments:
-	@if $(xgrep) --line-number --extended-regexp $(COMMENTS) Makefile *.go; then \
-		echo '';                                                                 \
-		echo '$(red)FAIL: $(cyan)address comments!$(term-reset)';                \
-		exit 1;                                                                  \
+	@if $(xgrep) $(GREP_COMMENTS) $(COMMENTS); then               \
+		echo '';                                                  \
+		echo '$(red)FAIL: $(cyan)address comments!$(term-reset)'; \
+		exit 1;                                                   \
 	fi
 
 # Generate tables.go file
