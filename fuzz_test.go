@@ -888,43 +888,23 @@ func TestIndexRuneFuzz(t *testing.T) {
 	})
 }
 
-// WARN: remove once no longer needed
 func hasPrefixRunes(s, prefix []rune) (bool, bool) {
 	if len(s) < len(prefix) {
 		return false, true
 	}
 	var i int
 	for i = 0; i < len(prefix); i++ {
-		sr := s[i]
-		pr := prefix[i]
+		sr := caseFold(s[i])
+		pr := caseFold(prefix[i])
+		if !utf8.ValidRune(sr) {
+			sr = utf8.RuneError
+		}
+		if !utf8.ValidRune(pr) {
+			pr = utf8.RuneError
+		}
 		if sr == pr {
 			continue
 		}
-		// Make sr < tr to simplify what follows.
-		if pr < sr {
-			pr, sr = sr, pr
-		}
-		// Fast check for ASCII.
-		if pr < utf8.RuneSelf {
-			// ASCII only, sr/pr must be upper/lower case
-			if 'A' <= sr && sr <= 'Z' && pr == sr+'a'-'A' {
-				continue
-			}
-			return false, i == len(s)-1
-		}
-		if caseFold(sr) == caseFold(pr) {
-			continue
-		}
-
-		// // General case. SimpleFold(x) returns the next equivalent rune > x
-		// // or wraps around to smaller values.
-		// r := unicode.SimpleFold(sr)
-		// for r != sr && r < pr {
-		// 	r = unicode.SimpleFold(r)
-		// }
-		// if r == pr {
-		// 	continue
-		// }
 		return false, i == len(s)-1
 	}
 	return i == len(prefix), i == len(s)
