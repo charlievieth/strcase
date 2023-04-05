@@ -486,3 +486,47 @@ func bmIndexRune(index func(string, rune) int) func(b *testing.B, n int) {
 		buf[n-1] = '\x00'
 	}
 }
+
+// WARN: not part of the stdlib
+func portableIndexNonASCII(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return i
+		}
+	}
+	return -1
+}
+
+// WARN: not part of the stdlib
+func BenchmarkIndexNonASCII_Bytes(b *testing.B) {
+	if testing.Short() {
+		b.Skip("short test")
+	}
+	if *benchLower {
+		b.Skip("skipping: benchmark not relevant with -stdlib-case flag")
+		return
+	}
+	if *benchStdLib {
+		benchBytes(b, indexSizes, bmIndexNonASCII(portableIndexNonASCII))
+	} else {
+		benchBytes(b, indexSizes, bmIndexNonASCII(strcase.IndexNonASCII))
+	}
+}
+
+// WARN: not part of the stdlib
+func bmIndexNonASCII(index func(string) int) func(b *testing.B, n int) {
+	return func(b *testing.B, n int) {
+		buf := bmbuf[0:n]
+		utf8.EncodeRune(buf[n-3:], '世')
+		s := string(buf)
+		for i := 0; i < b.N; i++ {
+			j := index(s)
+			if j != n-3 {
+				b.Fatal("bad index", j)
+			}
+		}
+		buf[n-3] = '\x00'
+		buf[n-2] = '\x00'
+		buf[n-1] = '\x00'
+	}
+}
