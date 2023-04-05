@@ -8,6 +8,7 @@ GO_COVER_MODE  ?= count
 GO_COVER_FLAGS ?= -cover -covermode=$(GO_COVER_MODE)
 GO_TEST_FLAGS  ?=
 GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS)
+GO_GOGC        ?= 800
 RICHGO         ?= $(GOBIN)/richgo
 RICHGO_VERSION ?= v0.3.11
 
@@ -63,7 +64,7 @@ exhaustive: override GO_TEST_FLAGS += -exhaustive
 
 .PHONY: test testshort testverbose testinvalid exhaustive
 test testshort testverbose testinvalid exhaustive:
-	@$(GO_TEST) ./...
+	@GOGC=$(GO_GOGC) $(GO_TEST) ./...
 
 # Assert that there are no skipped tests
 .PHONY: testskipped
