@@ -248,6 +248,26 @@ func ExampleLastIndexByte() {
 	// 7
 }
 
+func ExampleIndexNonASCII() {
+	fmt.Println(strcase.IndexNonASCII("日a本b語ç日"))
+	fmt.Println(strcase.IndexNonASCII("abc語"))
+	fmt.Println(strcase.IndexNonASCII("abc"))
+	// Output:
+	// 0
+	// 3
+	// -1
+}
+
+func ExampleContainsNonASCII() {
+	fmt.Println(strcase.ContainsNonASCII("日a本b語ç日"))
+	fmt.Println(strcase.ContainsNonASCII("abc語"))
+	fmt.Println(strcase.ContainsNonASCII("abc"))
+	// Output:
+	// true
+	// true
+	// false
+}
+
 // // Картѣ ꙟтѫѧ а сфѫнтꙋлꙋй апостоль
 // 	// КАРТѢ ꙞТѪѦ А СФѪНТꙊЛꙊЙ АПОСТОЛЬ
 // 	fmt.Println(strcase.LastIndexByte("Hello, Картѣ", 'Ѣ'))
