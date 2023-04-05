@@ -103,7 +103,7 @@ func benchEqualFold(b *testing.B, s1, s2 string) {
 			strings.EqualFold(s1, s2)
 		}
 	} else if *benchLower {
-		b.Skip("skipping test not relevant with -lower flag")
+		b.Skip("skipping: benchmark not relevant with -stdlib-case flag")
 	} else {
 		for i := 0; i < b.N; i++ {
 			strcase.Compare(s1, s2)
