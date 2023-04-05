@@ -1061,68 +1061,52 @@ func IndexRune(s string, r rune) int {
 // indexRune returns the index of the first instance of the Unicode code point
 // r (ignoring case) and the size of the rune that matched.
 func indexRune(s string, r rune) (int, int) {
-	if len(s) == 0 {
-		return -1, 1
-	}
-	if 0 <= r && r < utf8.RuneSelf {
+	// TODO: handle invalid runes
+	switch {
+	case 0 <= r && r < utf8.RuneSelf:
+		// TODO: Check if we can use bytealg.IndexByteString directly.
 		return indexByte(s, byte(r))
-	}
-	// WARN: use a function for Len(folds)
-	if folds := foldMap(r); folds != nil {
-		size := utf8.RuneLen(r)
-		n := indexRuneCase(s, r)
-		if n == 0 {
-			return 0, size
-		}
-		if n > 0 {
-			s = s[:n]
-		}
-		for i := 0; i < len(folds); i++ {
-			rr := rune(folds[i])
-			if rr == r {
-				continue
+	case r == utf8.RuneError:
+		for i, r := range s {
+			if r == utf8.RuneError {
+				return i, utf8.RuneLen(r)
 			}
-			if rr == 0 {
-				break
+		}
+		return -1, 1
+	case !utf8.ValidRune(r):
+		return -1, 1
+	default:
+		// TODO: use a function for len(folds)
+		if folds := foldMap(r); folds != nil {
+			size := utf8.RuneLen(r)
+			n := indexRuneCase(s, r)
+			if n == 0 {
+				return 0, size
 			}
-			o := indexRuneCase(s, rr)
-			if o != -1 && (n == -1 || o < n) {
-				n = o
+			if n > 0 {
 				s = s[:n]
-				size = utf8.RuneLen(rr)
 			}
+			for i := 0; i < len(folds); i++ {
+				rr := rune(folds[i])
+				if rr == r {
+					continue
+				}
+				if rr == 0 {
+					break
+				}
+				o := indexRuneCase(s, rr)
+				if o != -1 && (n == -1 || o < n) {
+					n = o
+					s = s[:n]
+					size = utf8.RuneLen(rr)
+				}
+			}
+			return n, size
+		} else if u, l, ok := toUpperLower(r); ok {
+			return indexRune2(s, l, u)
 		}
-		return n, size
-	} else if u, l, ok := toUpperLower(r); ok {
-		return indexRune2(s, l, u)
+		return indexRuneCase(s, r), utf8.RuneLen(r)
 	}
-	// TODO: use a perfect hash for this
-	// if folds, hasFolds := _FoldMap[r]; hasFolds {
-	// 	size := utf8.RuneLen(r)
-	// 	n := indexRuneCase(s, r)
-	// 	if n == 0 {
-	// 		return 0, size
-	// 	}
-	// 	if n > 0 {
-	// 		s = s[:n]
-	// 	}
-	// 	for i := 0; i < len(folds); i++ {
-	// 		rr := folds[i]
-	// 		if rr == r {
-	// 			continue
-	// 		}
-	// 		o := indexRuneCase(s, rr)
-	// 		if o != -1 && (n == -1 || o < n) {
-	// 			n = o
-	// 			s = s[:n]
-	// 			size = utf8.RuneLen(rr)
-	// 		}
-	// 	}
-	// 	return n, size
-	// } else if u, l, ok := toUpperLower(r); ok {
-	// 	return indexRune2(s, l, u)
-	// }
-	return indexRuneCase(s, r), utf8.RuneLen(r)
 }
 
 // WARN: case-sensitive

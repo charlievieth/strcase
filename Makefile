@@ -54,11 +54,15 @@ testverbose: override GO_TEST_FLAGS += -v
 testshort: override GO_TEST_FLAGS += -short
 testshort: override GO_COVER_FLAGS = ''
 
+# Fuzz test with invalid runes
+testinvalid: override GO_TEST_FLAGS += -invalid
+testinvalid: override GO_TEST_FLAGS += -run 'Test\w+Fuzz'
+
 # Run exhaustive fuzz tests
 exhaustive: override GO_TEST_FLAGS += -exhaustive
 
-.PHONY: test testshort testverbose exhaustive
-test testshort testverbose exhaustive:
+.PHONY: test testshort testverbose testinvalid exhaustive
+test testshort testverbose testinvalid exhaustive:
 	@$(GO_TEST) ./...
 
 # Assert that there are no skipped tests

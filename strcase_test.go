@@ -85,6 +85,10 @@ var compareTests = []CompareTest{
 	{"αabc", "αABD", -1},
 	{"αabd", "αABC", 1},
 	{strings.Repeat("\u212a", 8), strings.Repeat("k", 8), 0},
+
+	// Invalid UTF-8 should be considered equal (mapped to RuneError)
+	{"a" + string(utf8.RuneError), "a" + string(unicode.MaxRune+1), 0},
+	{"a" + string(utf8.RuneError), "a\xFF", 0},
 }
 
 func mustHaveCstr(t testing.TB) {
@@ -96,6 +100,20 @@ func mustHaveCstr(t testing.TB) {
 }
 
 func TestCompare(t *testing.T) {
+	// Test the tests (NOTE: we may want to remove this at some point since
+	// strings.ToLower is not always correct).
+	for i, test := range compareTests {
+		got := strings.Compare(strings.ToLower(test.s), strings.ToLower(test.t))
+		if got != test.out {
+			t.Errorf("%d: strings.Compare(%q, %q) = %d; want: %d",
+				i, strings.ToLower(test.s), strings.ToLower(test.t), got, test.out)
+		}
+	}
+	if t.Failed() {
+		t.Fatal("invalid Compare tests")
+		return
+	}
+
 	for _, test := range compareTests {
 		got := Compare(test.s, test.t)
 		if got != test.out {
@@ -118,6 +136,9 @@ func TestCompareReference(t *testing.T) {
 
 	t.Run("Strcasecmp", func(t *testing.T) {
 		for _, test := range compareTests {
+			if !utf8.ValidString(test.s) || !utf8.ValidString(test.t) {
+				continue
+			}
 			if hasUnicode(test.s) || hasUnicode(test.t) {
 				continue
 			}
@@ -130,6 +151,9 @@ func TestCompareReference(t *testing.T) {
 
 	t.Run("Wcscasecmp", func(t *testing.T) {
 		for _, test := range compareTests {
+			if !utf8.ValidString(test.s) || !utf8.ValidString(test.t) {
+				continue
+			}
 			got := cstr.Wcscasecmp(test.s, test.t)
 			if got != test.out {
 				t.Errorf("Wcscasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
@@ -666,6 +690,7 @@ var indexRuneTests = []IndexRuneTest{
 	{"some_text=some_value", '=', 9},
 	{"☺a", 'a', 3},
 	{"a☻☺b", '☺', 4},
+	{"abc𐀀", '𐀀', 3},
 
 	// RuneError should match any invalid UTF-8 byte sequence.
 	{"�", '�', 0},
@@ -1236,6 +1261,9 @@ func TestCaseFold(t *testing.T) {
 			if x != r {
 				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", r, x, r)
 			}
+		}
+		if r := caseFold(utf8.RuneError); r != utf8.RuneError {
+			t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", utf8.RuneError, r, utf8.RuneError)
 		}
 	})
 	t.Run("ValidFolds", func(t *testing.T) {

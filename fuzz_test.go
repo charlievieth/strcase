@@ -258,21 +258,7 @@ func TestRandRune(t *testing.T) {
 	})
 }
 
-var invalidRunes = flag.Bool("invalid", false, "fuzz test with invalid runes")
-
-// WARN WARN WARN WARN
-var _randRunes []rune
-
-func init() {
-	rr := rand.New(rand.NewSource(1))
-	_randRunes = make([]rune, 1024*1024)
-	for i := range _randRunes {
-		_randRunes[i] = randRune(rr)
-	}
-	rr.Shuffle(len(_randRunes), func(i, j int) {
-		_randRunes[i], _randRunes[j] = _randRunes[j], _randRunes[i]
-	})
-}
+var invalidRunes = flag.Bool("invalid", false, "Run fuzz tests with invalid runes.")
 
 func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
 	if cap(rs) < n {
@@ -282,7 +268,7 @@ func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
 	}
 	if *invalidRunes {
 		for i := range rs {
-			rs[i] = rune(rr.Int31())
+			rs[i] = rune(rr.Int31n(unicode.MaxRune))
 		}
 		return rs
 	}
@@ -584,38 +570,25 @@ func runRandomTest(t *testing.T, fn func(t testing.TB, rr *rand.Rand)) {
 	}
 }
 
-func allFolds(sr rune) []rune {
-	r := unicode.SimpleFold(sr)
-	runes := make([]rune, 1, 2)
-	runes[0] = sr
-	for r != sr {
-		runes = append(runes, r)
-		r = unicode.SimpleFold(r)
-	}
-	return runes
-}
-
 // indexRunesReference is a slow, but accurate case-insensitive version of strings.Index
 func indexRunesReference(s, sep []rune) int {
-	if n := len(sep); n == 0 {
-		return 0
-	} else if n > len(s) {
-		return -1
+	rs := append([]rune(nil), s...)
+	rsep := append([]rune(nil), sep...)
+	for i := 0; i < len(rs); i++ {
+		rs[i] = caseFold(rs[i])
 	}
-	ff := allFolds(sep[0])
-	n := 0
-	for i := 0; i < len(s); i++ {
-		sr := s[i]
-		for _, rr := range ff {
-			if sr == rr {
-				if ok, _ := hasPrefixRunes(s[i:], sep); ok {
-					return n
-				}
-			}
-		}
-		n += utf8.RuneLen(sr)
+	for i := 0; i < len(rsep); i++ {
+		rsep[i] = caseFold(rsep[i])
 	}
-	return -1
+	ss := string(rs)
+	i := strings.Index(ss, string(rsep))
+	if i < 0 {
+		return i
+	}
+	// Case fold conversion can change string length so
+	// figure out the index into the original string s.
+	n := utf8.RuneCountInString(ss[:i])
+	return len(string(s[:n]))
 }
 
 func encodedLen(rs []rune) int {
@@ -640,18 +613,23 @@ func lastIndexRunesReference(s, sep []rune) int {
 	case n > len(s):
 		return -1
 	default:
-		ff := allFolds(sep[0])
-		for i := len(s) - n; i >= 0; i-- {
-			sr := s[i]
-			for _, rr := range ff {
-				if sr == rr {
-					if ok, _ := hasPrefixRunes(s[i:i+n], sep); ok {
-						return encodedLen(s[:i])
-					}
-				}
-			}
+		rs := append([]rune(nil), s...)
+		rsep := append([]rune(nil), sep...)
+		for i := 0; i < len(rs); i++ {
+			rs[i] = caseFold(rs[i])
 		}
-		return -1
+		for i := 0; i < len(rsep); i++ {
+			rsep[i] = caseFold(rsep[i])
+		}
+		ss := string(rs)
+		i := strings.LastIndex(ss, string(rsep))
+		if i < 0 {
+			return i
+		}
+		// Case fold conversion can change string length so
+		// figure out the index into the original string s.
+		n := utf8.RuneCountInString(ss[:i])
+		return len(string(s[:n]))
 	}
 }
 
@@ -718,13 +696,11 @@ func TestBruteForceIndexUnicodeFuzz(t *testing.T) {
 }
 
 func generateIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _sep string, out int) {
+	const maxLength = 42
 
 	match := rr.Float64() < 0.5
-
-	for lim := 32; lim > 0; lim-- {
-		// WARN WARN WARN
-		ns := rr.Intn(32) + 1
-		// ns := rr.Intn(64) + 1
+	for lim := maxLength; lim > 0; lim-- {
+		ns := rr.Intn(maxLength) + 1
 		s := randRunes(rr, ns, ascii)
 		nsep := intn(rr, len(s)-1) + 1
 		o := intn(rr, len(s)-nsep)
@@ -756,17 +732,15 @@ func TestIndexFuzz(t *testing.T) {
 				"Got:  %d\n"+
 				"Want: %d\n"+
 				"\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
+				"S:    %+q\n"+
+				"Sep:  %+q\n"+
 				"Lower:\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
+				"S:    %+q\n"+
+				"Sep:  %+q\n"+
 				"\n",
 				s, sep, got, out,
-				strconv.QuoteToASCII(s),
-				strconv.QuoteToASCII(sep),
-				strconv.QuoteToASCII(strings.ToLower(s)),
-				strconv.QuoteToASCII(strings.ToLower(sep)),
+				s, sep,
+				strings.ToLower(s), strings.ToLower(sep),
 			)
 		}
 	})
@@ -848,17 +822,24 @@ func TestLastIndexFuzz(t *testing.T) {
 
 func generateIndexRuneArgs(t testing.TB, rr *rand.Rand) (string, rune, int) {
 	index := func(s []rune, r rune) int {
-		ff := allFolds(r)
-		n := 0
-		for _, rr := range s {
-			for _, rf := range ff {
-				if rr == rf {
-					return n
+		switch {
+		case r == utf8.RuneError:
+			for i, r := range string(s) {
+				if r == utf8.RuneError {
+					return i
 				}
 			}
-			n += utf8.RuneLen(rr)
+			return -1
+		case !utf8.ValidRune(r):
+			return -1
+		default:
+			for i, rr := range s {
+				if rr == r || caseFold(rr) == caseFold(r) {
+					return len(string(s[:i]))
+				}
+			}
+			return -1
 		}
-		return -1
 	}
 	contains := func(s []rune, r rune) bool {
 		return index(s, r) != -1
@@ -884,26 +865,24 @@ func generateIndexRuneArgs(t testing.TB, rr *rand.Rand) (string, rune, int) {
 
 func TestIndexRuneFuzz(t *testing.T) {
 	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
-		s, r, out := generateIndexRuneArgs(t, rr)
+		s, r, want := generateIndexRuneArgs(t, rr)
 		got := IndexRune(s, r)
-		if got != out {
+		if got != want {
 			t.Errorf("IndexRune\n"+
 				"S:    %q\n"+
-				"Sep:  %q\n"+
+				"Sep:  %q (%+q)\n"+
 				"Got:  %d\n"+
 				"Want: %d\n"+
 				"\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
+				"S:    %+q\n"+
+				"Sep:  %+q\n"+
 				"Lower:\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
+				"S:    %+q\n"+
+				"Sep:  %+q\n"+
 				"\n",
-				s, r, got, out,
-				strconv.QuoteToASCII(s),
-				strconv.QuoteToASCII(string(r)),
-				strconv.QuoteToASCII(strings.ToLower(s)),
-				strconv.QuoteToASCII(strings.ToLower(string(r))),
+				s, r, r, got, want,
+				s, r,
+				strings.ToLower(s), unicode.ToLower(r),
 			)
 		}
 	})
@@ -1108,6 +1087,14 @@ func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, strin
 		for i := 0; i < len(s) && i < len(t); i++ {
 			sr := caseFold(s[i])
 			tr := caseFold(t[i])
+			// Convert invalid runes to RuneError since that
+			// is what utf8.DecodeRuneInString does.
+			if !utf8.ValidRune(sr) {
+				sr = utf8.RuneError
+			}
+			if !utf8.ValidRune(tr) {
+				tr = utf8.RuneError
+			}
 			if sr != tr {
 				return clamp(int(sr) - int(tr))
 			}
@@ -1151,18 +1138,21 @@ func TestCompareFuzz(t *testing.T) {
 			s0, s1, want := generateCompareArgs(t, rr, ascii)
 			got := Compare(s0, s1)
 			if got != want {
-				t.Errorf("Compare(%q, %q) = %d; want: %d\n"+
-					"Args:\n"+
-					"  s:   %s\n"+
-					"  sep: %s\n"+
+				t.Errorf("Compare\n"+
+					"S:    %q\n"+
+					"Sep:  %q\n"+
+					"Got:  %d\n"+
+					"Want: %d\n"+
+					"\n"+
+					"S:    %+q\n"+
+					"Sep:  %+q\n"+
 					"Lower:\n"+
-					"  s:   %s\n"+
-					"  sep: %s\n",
+					"S:    %+q\n"+
+					"Sep:  %+q\n"+
+					"\n",
 					s0, s1, got, want,
-					strconv.QuoteToASCII(s0),
-					strconv.QuoteToASCII(s1),
-					strconv.QuoteToASCII(strings.ToLower(s0)),
-					strconv.QuoteToASCII(strings.ToLower(s1)),
+					s0, s1,
+					strings.ToLower(s0), strings.ToLower(s1),
 				)
 			}
 			if got == 0 && !strings.EqualFold(s0, s1) {
