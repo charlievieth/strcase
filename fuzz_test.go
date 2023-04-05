@@ -113,11 +113,8 @@ var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
 	unicode.Zs,     // Zs is the set of Unicode characters in category Zs (Separator, space).
 }...)
 
-var (
-	// TODO: generate these
-	foldableRunes   = generateFoldableRunes()
-	nonControlRunes = generateNonControlRunes()
-)
+// TODO: generate these
+var foldableRunes = generateFoldableRunes()
 
 func generateFoldableRunes() []rune {
 	n := 0
@@ -136,26 +133,6 @@ func generateFoldableRunes() []rune {
 	return a
 }
 
-func generateNonControlRunes() []rune {
-	n := 0
-	rangetable.Visit(unicodeCategories, func(rune) {
-		n++
-	})
-	runes := make([]rune, 0, n)
-	rangetable.Visit(unicodeCategories, func(r rune) {
-		if r >= utf8.RuneSelf && r != utf8.RuneError && utf8.ValidRune(r) {
-			runes = append(runes, r)
-		}
-	})
-	// TODO: consider shuffling the runes and using slices of them
-	// to speed up string generation.
-	return runes
-}
-
-func randNonControlRune(rr *rand.Rand) rune {
-	return nonControlRunes[rr.Intn(len(nonControlRunes))]
-}
-
 func randASCII(rr *rand.Rand) byte {
 	return byte(rr.Intn('~'-' '+1)) + ' '
 }
@@ -170,55 +147,13 @@ func randRune(rr *rand.Rand) (r rune) {
 		// TODO: is this correct?
 		return foldableRunes[rr.Intn(len(foldableRunes))]
 	case f <= 0.75:
-		return randNonControlRune(rr)
+		return rune(rr.Int31n(unicode.MaxRune)) // may be invalid
 	default:
 		return rune(randASCII(rr))
 	}
 }
 
-func TestRandNonControlRune(t *testing.T) {
-	N := 5_000
-	if testing.Short() {
-		N = 500
-	}
-
-	seen := make(map[rune]struct{}, N)
-	rr := rand.New(rand.NewSource(1))
-	for i := 0; i < N; i++ {
-		r := randNonControlRune(rr)
-		if _, ok := seen[r]; !ok {
-			seen[r] = struct{}{}
-		}
-	}
-	ff := float64(len(seen)) / float64(N) * 100
-	if ff < 95.0 {
-		t.Errorf("Only generated %d/%d (%.2f%%) random runes: want: %.2f%%",
-			len(seen), N, ff, 95.0)
-	}
-
-	fails := 0
-	for r := range seen {
-		if r < utf8.RuneSelf {
-			t.Errorf("ASCII: %q", r)
-			fails++
-		}
-		if fails >= 50 {
-			t.Fatal("Too many errors:", fails)
-		}
-	}
-}
-
 func TestRandRune(t *testing.T) {
-	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
-		// This test is executed between 50 and 400 times
-		for i := 0; i < 40; i++ {
-			r := randRune(rr)
-			if !unicode.Is(unicodeCategories, r) {
-				t.Errorf("Invalid: %q (%U)", string(r), r)
-			}
-		}
-	})
-
 	t.Run("Distribution", func(t *testing.T) {
 		N := 5_000
 		if testing.Short() {
