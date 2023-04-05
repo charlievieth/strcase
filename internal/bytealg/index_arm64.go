@@ -21,11 +21,16 @@ func Cutover(n int) int {
 	return 4 + n>>4
 }
 
+//go:noescape
 func IndexByte(b []byte, c byte) int
+
+//go:noescape
 func IndexByteString(s string, c byte) int
 
-// WARN: new
+//go:noescape
 func IndexNonASCII(s string) int
 
-// WARN: rename
+//go:noescape
 func IndexByteNonASCII(b []byte) int
+
+// TODO: implement Count

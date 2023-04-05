@@ -34,11 +34,16 @@ const offsetX86HasAVX2 = unsafe.Offsetof(cpu.X86.HasAVX2)
 // cannot see that offsetX86HasAVX2 is accessed in assembly.
 const _ = offsetX86HasAVX2
 
+//go:noescape
 func IndexByte(b []byte, c byte) int
+
+//go:noescape
 func IndexByteString(s string, c byte) int
 
-// WARN: new
+//go:noescape
 func IndexNonASCII(s string) int
 
-// WARN: rename
+//go:noescape
 func IndexByteNonASCII(b []byte) int
+
+// TODO: implement Count
