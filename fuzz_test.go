@@ -139,6 +139,8 @@ func randASCII(rr *rand.Rand) byte {
 
 func randRune(rr *rand.Rand) (r rune) {
 	switch f := rr.Float64(); {
+	case f <= 0.01:
+		return invalidRune(rr)
 	case f <= 0.05:
 		return 'İ'
 	case f <= 0.1:
@@ -195,6 +197,22 @@ func TestRandRune(t *testing.T) {
 
 var invalidRunes = flag.Bool("invalid", false, "Run fuzz tests with invalid runes.")
 
+func invalidRune(rr *rand.Rand) rune {
+	const surrogateMin = 0xD800
+	const surrogateMax = 0xDFFF
+	return rune(rr.Intn(surrogateMax-surrogateMin) + surrogateMin)
+}
+
+func TestInvalidRune(t *testing.T) {
+	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < 10_000; i++ {
+		r := invalidRune(rr)
+		if utf8.ValidRune(r) {
+			t.Fatalf("utf8.ValidRune(%q) = %t; want: %t", r, true, false)
+		}
+	}
+}
+
 func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
 	if cap(rs) < n {
 		rs = make([]rune, n)
@@ -204,6 +222,10 @@ func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
 	if *invalidRunes {
 		for i := range rs {
 			rs[i] = rune(rr.Int31n(unicode.MaxRune))
+		}
+		// Add an invalid rune half of the time
+		if i := rr.Intn(len(rs)*2 + 1); i < len(rs) {
+			rs[i] = invalidRune(rr)
 		}
 		return rs
 	}
