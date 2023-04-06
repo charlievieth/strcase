@@ -1094,6 +1094,14 @@ func indexRune(s string, r rune) (int, int) {
 	}
 }
 
+func cutoverIndexRune(n int) int {
+	// TODO: Merge this with cutover() which is identical.
+	if runtime.GOARCH != "arm64" {
+		return (n + 16) / 8
+	}
+	return 4 + n>>4
+}
+
 // indexRuneCase is a *case-sensitive* version of strings.IndexRune that is
 // generally faster for Unicode characters since it searches for the rune's
 // second byte, which is generally more unique, instead of the first byte,
@@ -1171,6 +1179,7 @@ func indexRuneCase(s string, r rune) int {
 		// when all the text is Unicode.
 		switch n {
 		case 2:
+			fails := 0
 			i := 1
 			t := len(s)
 			for i < t {
@@ -1184,9 +1193,17 @@ func indexRuneCase(s string, r rune) int {
 				if s[i-1] == c0 {
 					return i - 1
 				}
+				fails++
 				i++
+				if fails > cutoverIndexRune(i) {
+					if j := strings.Index(s[i:], string(r)); j != -1 {
+						return i + j
+					}
+					return -1
+				}
 			}
 		case 3:
+			fails := 0
 			i := 1
 			t := len(s) - 1
 			for i < t {
@@ -1200,9 +1217,17 @@ func indexRuneCase(s string, r rune) int {
 				if s[i-1] == c0 && s[i+1] == c2 {
 					return i - 1
 				}
+				fails++
 				i++
+				if fails > cutoverIndexRune(i) {
+					if j := strings.Index(s[i:], string(r)); j != -1 {
+						return i + j
+					}
+					return -1
+				}
 			}
 		case 4:
+			fails := 0
 			i := 1
 			t := len(s) - 2
 			for i < t {
@@ -1216,7 +1241,14 @@ func indexRuneCase(s string, r rune) int {
 				if s[i-1] == c0 && s[i+1] == c2 && s[i+2] == c3 {
 					return i - 1
 				}
+				fails++
 				i++
+				if fails > cutoverIndexRune(i) {
+					if j := strings.Index(s[i:], string(r)); j != -1 {
+						return i + j
+					}
+					return -1
+				}
 			}
 		}
 		return -1

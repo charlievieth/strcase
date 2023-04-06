@@ -1363,6 +1363,62 @@ func BenchmarkIndexRuneFastPath(b *testing.B) {
 	}
 }
 
+var bmbuf []byte
+
+func valName(x int) string {
+	if s := x >> 20; s<<20 == x {
+		return fmt.Sprintf("%dM", s)
+	}
+	if s := x >> 10; s<<10 == x {
+		return fmt.Sprintf("%dK", s)
+	}
+	return fmt.Sprint(x)
+}
+
+var indexSizes = []int{10, 32, 4 << 10, 4 << 20, 64 << 20}
+
+func benchBytesUnicode(b *testing.B, sizes []int, f func(b *testing.B, n int, s string)) {
+	// These character all have the same second byte (0x90)
+	const _s = "𐀀𐀁𐀂𐀃𐀄𐀅𐀆𐀇𐀈𐀉𐀊𐀋𐀍𐀎𐀏𐀐𐀑𐀒𐀓𐀔𐀕𐀖𐀗𐀘𐀙𐀚𐀛𐀜𐀝𐀞𐀟𐀠"
+	const s = _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s // 2048
+	for _, n := range sizes {
+		b.Run(valName(n), func(b *testing.B) {
+			if len(bmbuf) < n {
+				bmbuf = make([]byte, n)
+			}
+			p := bmbuf
+			for len(p) > 0 {
+				i := copy(p, s)
+				p = p[i:]
+			}
+			copy(bmbuf[len(bmbuf)-len("𐀤"):], "𐀤")
+			b.SetBytes(int64(n))
+			f(b, n, string(bmbuf))
+		})
+	}
+}
+
+func bmIndexRune(index func(string, rune) int) func(b *testing.B, n int, s string) {
+	return func(b *testing.B, n int, s string) {
+		for i := 0; i < b.N; i++ {
+			j := index(s, '𐀤')
+			if j != n-4 {
+				b.Fatal("bad index", j)
+			}
+		}
+	}
+}
+
+// Torture test IndexRune. This is useful for calculating the cutover
+// for when we should switch to strings.Index in indexRuneCase.
+func BenchmarkIndexRuneTorture_Bytes(b *testing.B) {
+	if *benchStdLib {
+		benchBytesUnicode(b, indexSizes, bmIndexRune(strings.IndexRune))
+	} else {
+		benchBytesUnicode(b, indexSizes, bmIndexRune(IndexRune))
+	}
+}
+
 func BenchmarkIndexByte(b *testing.B) {
 	const ch = 'V'
 	if got := IndexByte(benchmarkString, ch); got != 17 {
