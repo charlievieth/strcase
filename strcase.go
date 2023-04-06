@@ -1168,9 +1168,6 @@ func indexRuneCase(s string, r rune) int {
 			}
 			return -1
 		}
-		// TODO: test if we should have a cutoff for IndexByte and switch over
-		// to iterating runes.
-		//
 		// NOTE: searching for the last byte was not always faster (so maybe
 		// not worth investigating in the future).
 		//

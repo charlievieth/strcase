@@ -553,6 +553,8 @@ func TestContains(t *testing.T) {
 	}
 }
 
+const a32 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" // "a" repeated 32 times
+
 var ContainsAnyTests = []struct {
 	str, substr string
 	expected    bool
@@ -565,6 +567,10 @@ var ContainsAnyTests = []struct {
 	{"aaa", "a", true},
 	{"abc", "xyz", false},
 	{"abc", "xcz", true},
+	{"bas", "SsKs", true},
+	{"bak", "SsKs", true},
+	{a32 + "\u212a", "k", true},
+	{a32 + "\u212a", "K", true},
 	{"a☺b☻c☹d", "uvw☻xyz", true},
 	{"aRegExp*", ".(|)*+?^$[]", true},
 	{dots + dots + dots, " ", false},
@@ -573,6 +579,14 @@ var ContainsAnyTests = []struct {
 	{"a", "A", true},
 	{"aaa", "A", true},
 	{"αβa", "ΑΒΔ", true},
+
+	// Use asciiSet only if str is all ASCII
+	{a32, "sS", false},
+	{a32, "kK", false},
+	// Cannot use asciiSet fallback to Unicode aware algorithm
+	{a32 + "\u212a", "sS", false},
+	{a32 + "\u212a", "kK", true},
+	{a32, "kK" + "\u212a", false},
 }
 
 func TestContainsAny(t *testing.T) {
