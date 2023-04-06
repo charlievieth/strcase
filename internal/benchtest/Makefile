@@ -1,5 +1,6 @@
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_DIR  := $(dir $(MAKEFILE_PATH))
+PATH          := $(MAKEFILE_DIR)/bin:$(PATH)
 
 COUNT          ?= 1   # Number of benchmark iterations (`-count` flag)
 TIMEOUT        ?= 60m # Benchmark timeout (`-timeout` flag)
