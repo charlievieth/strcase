@@ -9,7 +9,7 @@ GO_COVER_FLAGS ?= -cover -covermode=$(GO_COVER_MODE)
 GO_TEST_FLAGS  ?=
 GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS)
 GO_GOGC        ?= 800
-RICHGO         ?= $(GOBIN)/richgo
+RICHGO         ?= richgo
 RICHGO_VERSION ?= v0.3.11
 
 # Options for linting comments
@@ -22,7 +22,7 @@ GREP_COMMENTS  ?= --line-number --extended-regexp --recursive \
 xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
-GOLANGCI               ?= $(GOBIN)/golangci-lint
+GOLANGCI               ?= golangci-lint
 GOLANGCI_VERSION       ?= v1.52.1
 GOLANGCI_SORT          ?= --sort-results
 GOLANGCI_COLOR         ?= --color=always
@@ -31,10 +31,15 @@ GOLANGCI_EXTRA_LINTERS ?= --enable=misspell,goimports,gofmt,gocheckcompilerdirec
 GOLANGCI_EXTRA_FLAGS   ?=
 GOLANGCI_FLAGS         ?= $(GOLANGCI_SORT) $(GOLANGCI_COLOR) $(GOLANGCI_SKIP) $(GOLANGCI_EXTRA_LINTERS) $(GOLANGCI_EXTRA_FLAGS)
 
-# Benchmark options
-NO_TESTS = ^$
-# WARN: unused
-INDEX_BENCHMARKS = ^BenchmarkIndex('\$'|Hard|Torture|Periodic(Unicode)?)
+# Windows exe extension
+GEN_TARGET      = $(GOBIN)/gen
+RICHGO_TARGET   = $(GOBIN)/$(RICHGO)
+GOLANGCI_TARGET = $(GOBIN)/golangci-lint
+ifeq ($(OS),Windows_NT)
+	GEN_TARGET = $(GEN_TARGET).exe
+	RICHGO_TARGET = $(RICHGO_TARGET).exe
+	GOLANGCI_TARGET = $(GOLANGCI_TARGET).exe
+endif
 
 # Color support.
 red = $(shell { tput setaf 1 || tput AF 1; } 2>/dev/null)
@@ -79,23 +84,31 @@ testskipped:
 		exit 1;                                                             \
 	fi
 
+# Build gen
+bin/gen: gen.go
+	@mkdir -p $(GOBIN)
+	@GOBIN=$(GOBIN) $(GO) install -tags=gen gen.go
+
 # Test that `go generate` does not change tables.go
 .PHONY: testgenerate
-testgenerate:
-	@$(GO) run -tags gen gen.go -dry-run -skip-tests
+testgenerate: bin/gen
+	@if ! $(GEN_TARGET) -dry-run -skip-tests >/dev/null; then \
+		$(GEN_TARGET) -dry-run -skip-tests;                   \
+	fi;
 
 # Run all tests (slow)
 .PHONY: testall
 testall: exhaustive testskipped testgenerate calibrate
 
-bin/richgo:
+# Install richgo
+bin/richgo: Makefile
 	@echo '$(yellow)INFO:$(term-reset) Installing richgo version: $(RICHGO_VERSION)'
 	@mkdir -p $(GOBIN)
 	@GOBIN=$(GOBIN) $(GO) install github.com/kyoh86/richgo@$(RICHGO_VERSION)
 
 # Actual ci target (separate because so that we can override GO)
 .PHONY: .ci
-.ci: GO = $(RICHGO)
+.ci: GO = $(RICHGO_TARGET)
 .ci: export RICHGO_FORCE_COLOR=1
 .ci: testverbose
 
@@ -123,7 +136,7 @@ vet-gen:
 vet: vet-strcase vet-gen
 
 # Install golangci-lint
-bin/golangci-lint:
+bin/golangci-lint: Makefile
 	@echo '$(yellow)INFO:$(term-reset) Installing golangci-lint version: $(GOLANGCI_VERSION)'
 	@mkdir -p $(GOBIN)
 	@GOBIN=$(GOBIN) $(GO) install \
@@ -135,7 +148,7 @@ golangci-lint-gen: override GOLANGCI_SKIP =
 # Run golangci-lint
 .PHONY: golangci-lint-strcase golangci-lint-gen
 golangci-lint-strcase golangci-lint-gen: bin/golangci-lint
-	@$(GOLANGCI) run $(GOLANGCI_FLAGS)
+	@$(GOLANGCI_TARGET) run $(GOLANGCI_FLAGS)
 
 .PHONY: golangci-lint
 golangci-lint: golangci-lint-strcase golangci-lint-gen
