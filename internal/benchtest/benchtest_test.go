@@ -16,7 +16,7 @@ var benchStdLib = flag.Bool("stdlib", false,
 	"Use the stdlib's strings package instead of strcase (for comparison)")
 
 var benchLower = flag.Bool("stdlib-case", false,
-	"Convert case with strings.ToUpper")
+	"Convert case with strings.ToUpper before using the stdlib's strings package")
 
 func benchIndexRune(b *testing.B, s string, r rune) {
 	if strings.IndexRune(s, r) != strcase.IndexRune(s, r) {
