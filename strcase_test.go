@@ -992,6 +992,7 @@ var prefixTests = []PrefixTest{
 	{"abc", "abd", false, true},
 	{"abcdefghijk", "abcdefghijX", false, true},
 	{"abcdefghijk", "abcdefghij\u212A", true, true},
+	{"abcdefghijk", "abcdefghij\u212Axyz", true, true},
 	{"abcdefghijk☺", "abcdefghij\u212A", true, false},
 	{"abcdefghijkz", "abcdefghij\u212Ay", false, true},
 	{"abcdefghijKz", "abcdefghij\u212Ay", false, true},
@@ -1040,6 +1041,24 @@ func TestHasPrefix(t *testing.T) {
 				out, exhausted, test.out, test.exhausted)
 			t.Error("s:     ", len(test.s), utf8.RuneCountInString(test.s))
 			t.Error("prefix:", len(test.prefix), utf8.RuneCountInString(test.prefix))
+		}
+	}
+}
+
+func TestTrimPrefix(t *testing.T) {
+	for i, test := range prefixTests {
+		want := test.s
+		if test.out {
+			s := []rune(test.s)
+			prefix := []rune(test.prefix)
+			if len(prefix) <= len(s) {
+				want = string(s[len(prefix):])
+			}
+		}
+		got := TrimPrefix(test.s, test.prefix)
+		if got != want {
+			t.Errorf("%d: TrimPrefix(%q, %q) = %q; want: %q",
+				i, test.s, test.prefix, got, want)
 		}
 	}
 }

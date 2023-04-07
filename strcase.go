@@ -211,6 +211,56 @@ hasUnicode:
 	return true, len(s) == 0 // s exhausted
 }
 
+// TrimPrefix returns s without the provided leading prefix string.
+// If s doesn't start with prefix, s is returned unchanged.
+func TrimPrefix(s, prefix string) string {
+	// The max difference in encoded lengths between cases is 2 bytes for
+	// [kK] (1 byte) and Kelvin 'K' (3 bytes).
+	n := len(s)
+	if n*3 < len(prefix) || (n*2 < len(prefix) && !containsKelvin(prefix)) {
+		return s
+	}
+
+	// ASCII fast path
+	i := 0
+	for ; i < len(s) && i < len(prefix); i++ {
+		sr := s[i]
+		tr := prefix[i]
+		if (sr|tr)&utf8.RuneSelf != 0 {
+			goto hasUnicode
+		}
+		if tr == sr || _lower[sr&0x7F] == _lower[tr&0x7F] {
+			continue
+		}
+		return s
+	}
+	return s[i:]
+
+hasUnicode:
+	ss := s
+	s = s[i:]
+	prefix = prefix[i:]
+	for _, tr := range prefix {
+		// If s is exhausted the strings are not equal.
+		if len(s) == 0 {
+			return ss
+		}
+
+		var sr rune
+		if s[0] < utf8.RuneSelf {
+			sr, s = rune(_lower[s[0]&0x7F]), s[1:]
+		} else {
+			r, size := utf8.DecodeRuneInString(s)
+			sr, s = caseFold(r), s[size:]
+		}
+		if tr == sr || caseFold(tr) == sr {
+			continue
+		}
+		return ss
+	}
+	return s
+}
+
 // HasSuffix tests whether the string s ends with suffix.
 func HasSuffix(s, suffix string) bool {
 	ok, _, _ := hasSuffixUnicode(s, suffix)
