@@ -992,7 +992,7 @@ var prefixTests = []PrefixTest{
 	{"abc", "abd", false, true},
 	{"abcdefghijk", "abcdefghijX", false, true},
 	{"abcdefghijk", "abcdefghij\u212A", true, true},
-	{"abcdefghijk", "abcdefghij\u212Axyz", true, true},
+	{"abcdefghijk", "abcdefghij\u212Axyz", false, true},
 	{"abcdefghijk☺", "abcdefghij\u212A", true, false},
 	{"abcdefghijkz", "abcdefghij\u212Ay", false, true},
 	{"abcdefghijKz", "abcdefghij\u212Ay", false, true},
