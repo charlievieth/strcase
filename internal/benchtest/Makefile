@@ -68,4 +68,5 @@ test:
 
 .PHONY: clean
 clean:
+	@[[ ! -d $(GOBIN) ] || rm -r $(GOBIN)
 	@$(GO) clean
