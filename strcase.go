@@ -1890,6 +1890,20 @@ func Cut(s, sep string) (before, after string, found bool) {
 	return s, "", false
 }
 
+// CutPrefix returns s without the provided leading prefix string
+// and reports whether it found the prefix.
+// If s doesn't start with prefix, CutPrefix returns s, false.
+// If prefix is the empty string, CutPrefix returns s, true.
+func CutPrefix(s, prefix string) (after string, found bool) {
+	if prefix == "" {
+		return s, true
+	}
+	if ss := TrimPrefix(s, prefix); len(ss) != len(s) {
+		return ss, true
+	}
+	return s, false
+}
+
 // IndexNonASCII returns the index of first non-ASCII rune in s, or -1
 // if s consists only of ASCII characters.
 //

@@ -1361,6 +1361,7 @@ var cutTests = []struct {
 	{"αβδ", "ΑΒΔ", "", "", true},
 	{"αβδΑΒΔ", "ΑΒΔ", "", "ΑΒΔ", true},
 	{"123αβδ456", "ΑΒΔ", "123", "456", true},
+	{"\u212aZZZ\u212aABC", "ZKA", "\u212aZZ", "BC", true},
 }
 
 func TestCut(t *testing.T) {
@@ -1369,6 +1370,37 @@ func TestCut(t *testing.T) {
 		if before != tt.before || after != tt.after || found != tt.found {
 			t.Errorf("Cut(%q, %q) = %q, %q, %v, want %q, %q, %v",
 				tt.s, tt.sep, before, after, found, tt.before, tt.after, tt.found)
+		}
+	}
+}
+
+var cutPrefixTests = []struct {
+	s, sep string
+	after  string
+	found  bool
+}{
+	{"abc", "a", "bc", true},
+	{"abc", "abc", "", true},
+	{"abc", "", "abc", true},
+	{"abc", "d", "abc", false},
+	{"", "d", "", false},
+	{"", "", "", true},
+
+	// Unicode
+	{"αβδ", "ΑΒΔ", "", true},
+	{"αβδΑΒΔ", "ΑΒΔ", "ΑΒΔ", true},
+	{"123αβδ456", "ΑΒΔ", "123αβδ456", false},
+	{"kk123", "\u212a\u212a123", "", true},
+	{"kk123xyz", "\u212a\u212a123", "xyz", true},
+	{"\u212a\u212a123xyz", "kK123", "xyz", true},
+}
+
+func TestCutPrefix(t *testing.T) {
+	for _, tt := range cutPrefixTests {
+		after, found := CutPrefix(tt.s, tt.sep)
+		if after != tt.after || found != tt.found {
+			t.Errorf("CutPrefix(%q, %q) = %q, %v, want %q, %v",
+				tt.s, tt.sep, after, found, tt.after, tt.found)
 		}
 	}
 }
