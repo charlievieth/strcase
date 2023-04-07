@@ -1116,6 +1116,25 @@ func TestHasSuffix(t *testing.T) {
 	}
 }
 
+func TestTrimSuffix(t *testing.T) {
+	for i, test := range suffixTests {
+		hasSuffix := test.out && test.suffix != ""
+		want := test.s
+		if hasSuffix {
+			s := []rune(test.s)
+			suffix := []rune(test.suffix)
+			if len(s) >= len(suffix) {
+				want = string(s[:len(s)-len(suffix)])
+			}
+		}
+		got := TrimSuffix(test.s, test.suffix)
+		if got != want {
+			t.Errorf("%d: TrimSuffix(%q, %q) = %q; want: %q",
+				i, test.s, test.suffix, got, want)
+		}
+	}
+}
+
 func TestToUpperLower(t *testing.T) {
 	fails := 0
 	rangetable.Visit(unicodeCategories, func(r rune) {

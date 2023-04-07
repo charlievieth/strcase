@@ -324,6 +324,15 @@ hasUnicode:
 	return len(t) == 0, len(s) == 0, len(s)
 }
 
+// TrimSuffix returns s without the provided trailing suffix string.
+// If s doesn't end with suffix, s is returned unchanged.
+func TrimSuffix(s, suffix string) string {
+	if match, _, i := hasSuffixUnicode(s, suffix); match {
+		return s[:i]
+	}
+	return s
+}
+
 // toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
 func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	if r <= unicode.MaxASCII {
