@@ -1904,6 +1904,20 @@ func CutPrefix(s, prefix string) (after string, found bool) {
 	return s, false
 }
 
+// CutSuffix returns s without theI provided ending suffix string
+// and reports whether it found the suffix.
+// If s doesn't end with suffix, CutSuffix returns s, false.
+// If suffix is the empty string, CutSuffix returns s, true.
+func CutSuffix(s, suffix string) (before string, found bool) {
+	if suffix == "" {
+		return s, true
+	}
+	if match, _, i := hasSuffixUnicode(s, suffix); match {
+		return s[:i], true
+	}
+	return s, false
+}
+
 // IndexNonASCII returns the index of first non-ASCII rune in s, or -1
 // if s consists only of ASCII characters.
 //

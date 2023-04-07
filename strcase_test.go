@@ -1405,6 +1405,36 @@ func TestCutPrefix(t *testing.T) {
 	}
 }
 
+var cutSuffixTests = []struct {
+	s, sep string
+	after  string
+	found  bool
+}{
+	{"abc", "bc", "a", true},
+	{"abc", "abc", "", true},
+	{"abc", "", "abc", true},
+	{"abc", "d", "abc", false},
+	{"", "d", "", false},
+	{"", "", "", true},
+
+	// Unicode
+	{"αβδ", "ΑΒΔ", "", true},
+	{"αβδΑΒΔ", "ΑΒΔ", "αβδ", true},
+	{"123αβδ456", "ΑΒΔ", "123αβδ456", false},
+	{"kk123", "\u212a\u212a123", "", true},
+	{"xyzkK123", "\u212a\u212a123", "xyz", true},
+}
+
+func TestCutSuffix(t *testing.T) {
+	for _, tt := range cutSuffixTests {
+		after, found := CutSuffix(tt.s, tt.sep)
+		if after != tt.after || found != tt.found {
+			t.Errorf("CutSuffix(%q, %q) = %q, %v, want %q, %v",
+				tt.s, tt.sep, after, found, tt.after, tt.found)
+		}
+	}
+}
+
 const benchmarkString = "some_text=some☺value"
 
 func BenchmarkIndexRabinKarpUnicode(b *testing.B) {
