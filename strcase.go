@@ -1869,6 +1869,27 @@ func LastIndexAny(s, chars string) int {
 	return -1
 }
 
+// Cut slices s around the first instance of sep,
+// returning the text before and after sep.
+// The found result reports whether sep appears in s.
+// If sep does not appear in s, cut returns s, "", false.
+func Cut(s, sep string) (before, after string, found bool) {
+	if i := Index(s, sep); i >= 0 {
+		after = s[i:]
+		// trim sep from s
+		for range sep {
+			if after[0] < utf8.RuneSelf {
+				after = after[1:]
+			} else {
+				_, n := utf8.DecodeRuneInString(after)
+				after = after[n:]
+			}
+		}
+		return s[:i], after, true
+	}
+	return s, "", false
+}
+
 // IndexNonASCII returns the index of first non-ASCII rune in s, or -1
 // if s consists only of ASCII characters.
 //

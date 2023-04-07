@@ -1343,6 +1343,36 @@ func TestCaseFold(t *testing.T) {
 	})
 }
 
+var cutTests = []struct {
+	s, sep        string
+	before, after string
+	found         bool
+}{
+	{"abc", "b", "a", "c", true},
+	{"abc", "a", "", "bc", true},
+	{"abc", "c", "ab", "", true},
+	{"abc", "abc", "", "", true},
+	{"abc", "", "", "abc", true},
+	{"abc", "d", "abc", "", false},
+	{"", "d", "", "", false},
+	{"", "", "", "", true},
+
+	// Unicode
+	{"αβδ", "ΑΒΔ", "", "", true},
+	{"αβδΑΒΔ", "ΑΒΔ", "", "ΑΒΔ", true},
+	{"123αβδ456", "ΑΒΔ", "123", "456", true},
+}
+
+func TestCut(t *testing.T) {
+	for _, tt := range cutTests {
+		before, after, found := Cut(tt.s, tt.sep)
+		if before != tt.before || after != tt.after || found != tt.found {
+			t.Errorf("Cut(%q, %q) = %q, %q, %v, want %q, %q, %v",
+				tt.s, tt.sep, before, after, found, tt.before, tt.after, tt.found)
+		}
+	}
+}
+
 const benchmarkString = "some_text=some☺value"
 
 func BenchmarkIndexRabinKarpUnicode(b *testing.B) {
