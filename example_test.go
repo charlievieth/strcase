@@ -248,6 +248,24 @@ func ExampleLastIndexByte() {
 	// 7
 }
 
+func ExampleCut() {
+	show := func(s, sep string) {
+		before, after, found := strcase.Cut(s, sep)
+		fmt.Printf("Cut(%q, %q) = %q, %q, %v\n", s, sep, before, after, found)
+	}
+	show("Gopher", "Go")
+	show("Gopher", "ph")
+	show("Gopher", "er")
+	show("Gopher", "Badger")
+	show("123 αβδ 456", "ΑΒΔ")
+	// Output:
+	// Cut("Gopher", "Go") = "", "pher", true
+	// Cut("Gopher", "ph") = "Go", "er", true
+	// Cut("Gopher", "er") = "Goph", "", true
+	// Cut("Gopher", "Badger") = "Gopher", "", false
+	// Cut("123 αβδ 456", "ΑΒΔ") = "123 ", " 456", true
+}
+
 func ExampleIndexNonASCII() {
 	fmt.Println(strcase.IndexNonASCII("日a本b語ç日"))
 	fmt.Println(strcase.IndexNonASCII("abc語"))
@@ -267,7 +285,3 @@ func ExampleContainsNonASCII() {
 	// true
 	// false
 }
-
-// // Картѣ ꙟтѫѧ а сфѫнтꙋлꙋй апостоль
-// 	// КАРТѢ ꙞТѪѦ А СФѪНТꙊЛꙊЙ АПОСТОЛЬ
-// 	fmt.Println(strcase.LastIndexByte("Hello, Картѣ", 'Ѣ'))
