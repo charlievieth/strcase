@@ -1657,11 +1657,7 @@ func Count(s, substr string) int {
 	}
 	if len(substr) == 1 {
 		c := substr[0]
-		if !isAlpha(c) {
-			return strings.Count(s, substr)
-		}
-		n := strings.Count(s, substr) +
-			strings.Count(s, string(rune(c^' '))) // swap case
+		n := bytealg.CountString(s, c)
 		switch c {
 		case 'K', 'k':
 			n += strings.Count(s, string('K')) // Kelvin
