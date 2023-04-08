@@ -1,8 +1,8 @@
 // Copyright 2023 Charlie Vieth. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-//go:build !s390x && !wasm && !ppc64x && !amd64 && !arm64
-// +build !s390x,!wasm,!ppc64x,!amd64,!arm64
+//go:build !s390x && !wasm && !ppc64 && !amd64 && !arm64
+// +build !s390x,!wasm,!ppc64,!amd64,!arm64
 
 // Simple implementations for arch's where the standard library does not
 // appear to use SIMD for IndexByte.

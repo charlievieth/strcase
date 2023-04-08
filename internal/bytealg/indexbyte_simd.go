@@ -1,8 +1,8 @@
 // Copyright 2023 Charlie Vieth. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-//go:build s390x && wasm && ppc64x
-// +build s390x,wasm,ppc64x
+//go:build s390x || wasm || ppc64
+// +build s390x wasm ppc64
 
 // The below functions assume their corresponding functions in the standard
 // library can search multiple bytes simultaneously (SIMD or whatever).

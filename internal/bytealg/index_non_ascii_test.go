@@ -138,7 +138,6 @@ func testIndexNonASCII(t *testing.T, name string, fn func(s string) int) {
 			t.Errorf("Failed: %d/%d", fails, len(long))
 		}
 	})
-
 }
 
 func TestIndexNonASCII(t *testing.T) {
