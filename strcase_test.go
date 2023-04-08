@@ -1786,13 +1786,14 @@ func BenchmarkIndexPeriodicUnicode(b *testing.B) {
 }
 
 func BenchmarkIndexNonASCII(b *testing.B) {
-	for _, size := range [...]int{4, 8, 16, 32, 64, 128, 256} {
-		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
+	for _, size := range indexSizes {
+		b.Run(valName(size), func(b *testing.B) {
 			s := strings.Repeat("a", size-1) + string(rune(utf8.RuneSelf))
 			if i := IndexNonASCII(s); i < 0 {
 				b.Fatalf("IndexNonASCII(%q) = -1", s)
 				return
 			}
+			b.SetBytes(int64(len(s)))
 			for i := 0; i < b.N; i++ {
 				IndexNonASCII(s)
 			}
