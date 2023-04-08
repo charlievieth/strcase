@@ -35,14 +35,16 @@ func TestCountHard(t *testing.T) {
 		want := strings.Count(lower[:i], "a")
 		got := CountString(s[:i], 'a')
 		if got != want {
-			t.Errorf("%d: want: %d got: %d", i, want, got)
+			if n < 30 {
+				t.Errorf("%d: want: %d got: %d", i, want, got)
+			}
 			n++
 		}
-		if n >= 30 {
-			t.Fatal("too many errors:", n)
-		}
-		if i%64*1024 == 0 {
-			t.Log(i)
-		}
+		// if n >= 30 {
+		// 	t.Fatal("too many errors:", n)
+		// }
+	}
+	if n > 0 {
+		t.Errorf("Failed %d/%d tests", n, len(s))
 	}
 }
