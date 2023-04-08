@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+// Make golangci-lint think these functions are accessed since it
+// cannot see accesses in assembly.
+var _ = countGeneric
+var _ = countGenericString
+
 // A backup implementation to use by assembly.
 func countGeneric(b []byte, c byte) int {
 	if !('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z') {
