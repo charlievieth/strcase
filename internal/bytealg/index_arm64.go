@@ -34,3 +34,9 @@ func IndexNonASCII(s string) int
 func IndexByteNonASCII(b []byte) int
 
 // TODO: implement Count
+
+//go:noescape
+func Count(b []byte, c byte) int
+
+//go:noescape
+func CountString(s string, c byte) int
