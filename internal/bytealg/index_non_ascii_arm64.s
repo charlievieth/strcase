@@ -8,16 +8,16 @@
 #include "textflag.h"
 
 TEXT ·IndexNonASCII(SB), NOSPLIT, $0-24
-	MOVD  s_base+0(FP), R0
-	MOVD  s_len+8(FP), R2
-	MOVD  $ret+16(FP), R8
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R2
+	MOVD $ret+16(FP), R8
 
 	B indexByteBodyNonASCII<>(SB)
 
 TEXT ·IndexByteNonASCII(SB), NOSPLIT, $0-32
-	MOVD  b_base+0(FP), R0
-	MOVD  b_len+8(FP), R2
-	MOVD  $ret+24(FP), R8
+	MOVD b_base+0(FP), R0
+	MOVD b_len+8(FP), R2
+	MOVD $ret+24(FP), R8
 
 	B indexByteBodyNonASCII<>(SB)
 

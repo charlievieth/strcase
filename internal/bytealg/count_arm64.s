@@ -130,7 +130,7 @@ chunk_loop:
 tail:
 	// Work with tail shorter than 32 bytes
 	MOVBU.P 1(R0), R5
-	ORR     $32, R5, R5 // Convert to lowercase
+	ORR     $32, R5, R5  // Convert to lowercase
 	SUB     $1, R2, R2
 	CMP     R5, R1
 	CINC    EQ, R11, R11

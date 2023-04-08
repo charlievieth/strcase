@@ -13,7 +13,7 @@ TEXT ·IndexNonASCII(SB), NOSPLIT, $0-24
 	MOVQ s_len+8(FP), BX
 	LEAQ ret+16(FP), R8
 
-	JMP  indexByteBodyNonASCII<>(SB)
+	JMP indexByteBodyNonASCII<>(SB)
 
 // input:
 //   SI: data
