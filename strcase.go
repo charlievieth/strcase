@@ -3,8 +3,6 @@
 
 package strcase
 
-//go:generate go run gen.go
-
 import (
 	"runtime"
 	"strings"
