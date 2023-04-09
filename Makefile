@@ -182,6 +182,10 @@ generate:
 # TODO: omit on Windows ???
 pre-commit: .git/hooks/pre-commit
 
+# Run pre-release tests
+.PHONY: release
+release: exhaustive testinvalid testgenerate lint
+
 .PHONY: clean
 clean:
 	@rm -f cpu*.out mem*.out
