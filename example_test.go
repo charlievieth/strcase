@@ -3,6 +3,7 @@ package strcase_test
 import (
 	"fmt"
 	"sort"
+	"unicode/utf8"
 
 	"github.com/charlievieth/strcase"
 )
@@ -16,10 +17,14 @@ func ExampleCompare() {
 	// Unicode
 	fmt.Println(strcase.Compare("s", "ſ"))
 	fmt.Println(strcase.Compare("αβδ", "ΑΒΔ"))
+
+	// All invalid UTF-8 sequences are considered equal
+	fmt.Println(strcase.Compare("\xff", string(utf8.RuneError)))
 	// Output:
 	// -1
 	// 0
 	// 1
+	// 0
 	// 0
 	// 0
 }
