@@ -3,13 +3,22 @@
 
 package bytealg
 
-// Empirical data shows that using Index can get better
-// performance when len(s) <= 16.
-const MaxBruteForce = 16
+import (
+	"unsafe"
 
+	"golang.org/x/sys/cpu"
+)
+
+const MaxBruteForce = 64
+
+// TODO: use MaxLen in strcase
+//
 // func init() {
-// 	// Optimize cases where the length of the substring is less than 32 bytes
-// 	MaxLen = 32
+// 	if cpu.X86.HasAVX2 {
+// 		MaxLen = 63
+// 	} else {
+// 		MaxLen = 31
+// 	}
 // }
 
 // Cutover reports the number of failures of IndexByte we should tolerate
@@ -17,9 +26,20 @@ const MaxBruteForce = 16
 // n is the number of bytes processed so far.
 // See the bytes.Index implementation for details.
 func Cutover(n int) int {
-	// 1 error per 16 characters, plus a few slop to start.
-	return 4 + n>>4
+	// 1 error per 8 characters, plus a few slop to start.
+	return (n + 16) / 8
 }
+
+// Offsets into internal/cpu records for use in assembly.
+const (
+	offsetX86HasAVX2   = unsafe.Offsetof(cpu.X86.HasAVX2)
+	offsetX86HasPOPCNT = unsafe.Offsetof(cpu.X86.HasPOPCNT)
+)
+
+// Make golangci-lint think these constants are accessed since it
+// cannot see accesses in assembly.
+const _ = offsetX86HasAVX2
+const _ = offsetX86HasPOPCNT
 
 //go:noescape
 func IndexByte(b []byte, c byte) int
@@ -32,8 +52,6 @@ func IndexNonASCII(s string) int
 
 //go:noescape
 func IndexByteNonASCII(b []byte) int
-
-// TODO: implement Count
 
 //go:noescape
 func Count(b []byte, c byte) int

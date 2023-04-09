@@ -6,7 +6,7 @@
 
 // Simple implementations for arch's where the standard library does not
 // appear to use SIMD for IndexByte.
-
+//
 // NOTE(cev): See the comment in indexbyte_simd.go for how the list of GOARCH
 // build tags was created.
 
