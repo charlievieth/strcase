@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"math/rand"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -19,7 +20,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/exp/slices"
 	"golang.org/x/text/unicode/rangetable"
 )
 
@@ -129,7 +129,9 @@ func generateFoldableRunes() []rune {
 			a = append(a, rune(p.From), rune(p.To))
 		}
 	}
-	slices.Sort(a)
+	sort.Slice(a, func(i, j int) bool {
+		return a[i] < a[j]
+	})
 	return a
 }
 
@@ -183,8 +185,8 @@ func TestRandRune(t *testing.T) {
 			for r, n := range seen {
 				runes = append(runes, RuneCount{r, n})
 			}
-			slices.SortFunc(runes, func(a, b RuneCount) bool {
-				return a.N >= b.N
+			sort.Slice(runes, func(i, j int) bool {
+				return runes[i].N >= runes[j].N
 			})
 			for i := 0; i < 10; i++ {
 				r := runes[i]
