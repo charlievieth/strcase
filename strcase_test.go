@@ -19,46 +19,19 @@ import (
 	"golang.org/x/text/unicode/rangetable"
 )
 
-// WARN: dev only
-func TestStats(t *testing.T) {
-	t.Skip("DELETE ME: dev only")
-	sizes := new([5]int)
-	stats := new([4][256]int)
-	var sum int
-	// unicode.Letter
-	rangetable.Visit(unicodeCategories, func(r rune) {
-		if n := utf8.RuneLen(r); n > 0 {
-			sizes[n]++
-		}
-		s := string(r)
-		if len(s) >= 2 {
-			sum++
-			for i := 0; i < len(s); i++ {
-				stats[i][int(s[i])]++
-			}
-			// stats[0][int(s[0])]++
-			// stats[1][int(s[1])]++
-		}
-	})
-	// for i, n := range sizes {
-	// 	fmt.Printf("%d: %d\n", i, n)
-	// }
-	// return
-	for i := 0; i < len(stats); i++ {
-		fmt.Println("#:", i)
-		for j, n := range stats[i] {
-			if n != 0 {
-				// fmt.Printf("  %d:\t%d\n", j, (float64(n)/float64(sum))*100)
-				fmt.Printf("  %d:\t%.2f\n", j, (float64(n)/float64(sum))*100)
-			}
-		}
-		fmt.Println("")
-	}
-}
-
 func TestUnicodeVersion(t *testing.T) {
-	// WARN: unicode version is dependent on the version of Go used
-	t.Skip("TODO: test unicode version")
+	if UnicodeVersion != unicode.Version {
+		t.Fatalf("unicode.Version (%s) != UnicodeVersion (%s):\n"+
+			"The version of Unicode included in the version of Go (%s) running this test\n"+
+			"does not match the Unicode version the strcase tables were generated with.\n"+
+			"\n"+
+			"This is likely due to the Unicode version being updated in a newer Go release.\n"+
+			"To regenerate the Unicode tables run: `go generate` and check in the changes to\n"+
+			"\"tables.go\" and \".tables.json\".\n"+
+			"\n"+
+			"NOTE: re-generating the Unicode tables can take a few minutes.",
+			unicode.Version, UnicodeVersion, runtime.Version())
+	}
 }
 
 type CompareTest struct {
