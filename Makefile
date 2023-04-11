@@ -101,7 +101,7 @@ testgenerate: bin/gen
 testall: exhaustive testskipped testgenerate calibrate
 
 # Install richgo
-bin/richgo: Makefile
+bin/richgo:
 	@echo '$(yellow)INFO:$(term-reset) Installing richgo version: $(RICHGO_VERSION)'
 	@mkdir -p $(GOBIN)
 	@GOBIN=$(GOBIN) $(GO) install github.com/kyoh86/richgo@$(RICHGO_VERSION)
@@ -136,7 +136,7 @@ vet-gen:
 vet: vet-strcase vet-gen
 
 # Install golangci-lint
-bin/golangci-lint: Makefile
+bin/golangci-lint:
 	@echo '$(yellow)INFO:$(term-reset) Installing golangci-lint version: $(GOLANGCI_VERSION)'
 	@mkdir -p $(GOBIN)
 	@GOBIN=$(GOBIN) $(GO) install \
