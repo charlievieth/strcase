@@ -493,11 +493,7 @@ func TestIndexRegex(t *testing.T) {
 		}
 		return -1
 	}
-	// Ignore 'İ' since it does not match under Unicode folding
-	filter := func(t IndexTest) bool {
-		return !strings.Contains(t.s, "İ") && !strings.Contains(t.sep, "İ")
-	}
-	tests := filterIndexTests(filter, indexTests, unicodeIndexTests)
+	tests := filterIndexTests(nil, indexTests, unicodeIndexTests)
 	runIndexTests(t, index, "Regexp", tests, false)
 }
 
@@ -1472,21 +1468,7 @@ func BenchmarkIndexRune(b *testing.B) {
 	}
 }
 
-// var benchmarkLongString = strings.Repeat(" ", 100) + benchmarkString
-var benchmarkLongString = strings.Repeat(" ", 4096) + benchmarkString
-
-func BenchmarkIndexRuneLongString(b *testing.B) {
-	// const str = benchmarkString + "k"
-	str := benchmarkLongString + "k" + benchmarkLongString
-	// if got := IndexRune(benchmarkLongString, '☺'); got != 114 {
-
-	if got := IndexRune(str, rune(0x212A)); got == -1 {
-		b.Fatalf("wrong index: expected 114, got=%d", got)
-	}
-	for i := 0; i < b.N; i++ {
-		IndexRune(benchmarkLongString, '☺')
-	}
-}
+var benchmarkLongString = strings.Repeat(" ", 100) + benchmarkString
 
 func BenchmarkIndexRuneFastPath(b *testing.B) {
 	if got := IndexRune(benchmarkString, 'v'); got != 17 {
@@ -1653,7 +1635,6 @@ func BenchmarkLastIndexLong(b *testing.B) {
 	}
 }
 
-// TODO: rename
 func BenchmarkIndexNeedleLongerThanSubject(b *testing.B) {
 	const s = benchmarkString
 	b.Run("FirstRuneEqual", func(b *testing.B) {
@@ -1690,12 +1671,7 @@ var (
 )
 
 func BenchmarkIndexRussian(b *testing.B) {
-	// https://ru.wikipedia.org/wiki/%D0%9C%D0%B0%D1%8F%D0%BA%D0%BE%D0%B2%D1%81%D0%BA%D0%B8%D0%B9,_%D0%92%D0%BB%D0%B0%D0%B4%D0%B8%D0%BC%D0%B8%D1%80_%D0%92%D0%BB%D0%B0%D0%B4%D0%B8%D0%BC%D0%B8%D1%80%D0%BE%D0%B2%D0%B8%D1%87
-	for i := 0; i < b.N; i++ {
-		if Index(russianText, "МЛАДЕНЧЕСТВЕ") == -1 {
-			b.Fatal("Fail:", -1)
-		}
-	}
+	benchmarkIndex(b, russianText, "младенчестве")
 }
 
 func makeBenchInputHard() string {
@@ -1996,24 +1972,3 @@ func BenchmarkCaseFoldAll(b *testing.B) {
 		}
 	}
 }
-
-// func TestTablesX(t *testing.T) {
-// 	equal := func(folds []rune) bool {
-// 		ch := string(folds[0])[0]
-// 		for _, f := range folds[1:] {
-// 			if string(f)[0] != ch {
-// 				return false
-// 			}
-// 		}
-// 		return true
-// 	}
-// 	n := 0
-// 	for k, folds := range _FoldMap {
-// 		if equal(folds) {
-// 			fmt.Printf("0x%04X: %q\n", k, string(k))
-// 			// fmt.Printf("0x%04X: 0x%04X\n", k, folds)
-// 			n++
-// 		}
-// 	}
-// 	fmt.Printf("%d/%d\n", n, len(_FoldMap))
-// }
