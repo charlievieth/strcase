@@ -23,7 +23,7 @@ xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
 GOLANGCI               ?= golangci-lint
-GOLANGCI_VERSION       ?= v1.52.1
+GOLANGCI_VERSION       ?= v1.52.2
 GOLANGCI_SORT          ?= --sort-results
 GOLANGCI_COLOR         ?= --color=always
 GOLANGCI_SKIP          ?= --skip-dirs='/(gen|phash)($$|/)'
