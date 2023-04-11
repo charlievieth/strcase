@@ -353,17 +353,7 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	}
 	// Handle Unicode characters that do not equal
 	// their upper and lower case forms.
-	switch r {
-	case 'ǅ':
-		return 'Ǆ', 'ǆ', true
-	case 'ǈ':
-		return 'Ǉ', 'ǉ', true
-	case 'ǋ':
-		return 'Ǌ', 'ǌ', true
-	case 'ǲ':
-		return 'Ǳ', 'ǳ', true
-	}
-	return r, r, false
+	return toUpperLowerSpecial(r)
 }
 
 // bruteForceIndexUnicode performs a brute-force search for substr in s.
