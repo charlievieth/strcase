@@ -980,47 +980,6 @@ func TestHasSuffixFuzz(t *testing.T) {
 	t.Run("ASCII", func(t *testing.T) { test(t, true) })
 }
 
-// WARN: delete this test
-func TestIndexNonASCIIFuzz(t *testing.T) {
-	t.Skip("DELETE ME")
-
-	base := strings.Repeat("a", 256+utf8.UTFMax)
-
-	genArgs := func(_ testing.TB, rr *rand.Rand, ascii bool) (string, bool) {
-		n := rr.Intn(255) + 1
-
-		// All ASCII
-		if rr.Float64() <= 0.5 {
-			return base[:n], true
-		}
-
-		r := randRune(rr)
-		for r < utf8.RuneSelf {
-			r = randRune(rr)
-		}
-		var w strings.Builder
-		w.Grow(n + utf8.UTFMax)
-		i := rr.Intn(n)
-		w.WriteString(base[:i])
-		w.WriteRune(r)
-		w.WriteString(base[:w.Cap()-w.Len()])
-		return w.String(), false
-	}
-
-	test := func(t *testing.T, ascii bool) {
-		runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
-			s, want := genArgs(t, rr, ascii)
-			got := IndexNonASCII(s) == -1
-			if got != want {
-				t.Errorf("IndexNonASCII(%q) = %t want: %t", s, got, want)
-			}
-		})
-	}
-
-	t.Run("Unicode", func(t *testing.T) { test(t, false) })
-	t.Run("ASCII", func(t *testing.T) { test(t, true) })
-}
-
 func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, string, int) {
 	compareRunes := func(s, t []rune) int {
 		for i := 0; i < len(s) && i < len(t); i++ {
