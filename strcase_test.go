@@ -1435,6 +1435,23 @@ func TestCutSuffix(t *testing.T) {
 	}
 }
 
+// Ensure that strings.EqualFold does not match 'İ' (U+0130) and ASCII 'i' or 'I'.
+// This is mostly a sanity check.
+func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
+	if strings.EqualFold("İ", "i") {
+		t.Errorf("strings.EqualFold(%q, %q) = true; want: false", "İ", "i")
+	}
+	if strings.EqualFold("İ", "I") {
+		t.Errorf("strings.EqualFold(%q, %q) = true; want: false", "İ", "I")
+	}
+	if Compare("İ", "i") == 0 {
+		t.Errorf("Compare(%q, %q) = true; want: false", "İ", "i")
+	}
+	if Compare("İ", "I") == 0 {
+		t.Errorf("Compare(%q, %q) = true; want: false", "İ", "I")
+	}
+}
+
 const benchmarkString = "some_text=some☺value"
 
 func BenchmarkIndexRabinKarpUnicode(b *testing.B) {
