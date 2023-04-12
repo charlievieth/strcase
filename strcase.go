@@ -687,6 +687,14 @@ func bruteForceLastIndexUnicode(s, substr string) int {
 	}
 }
 
+// NOTE(charlie): this function is only implemented on: amd64, arm64, ppc64,
+// ppc64le, and s390x because MaxLen is zero on all other platforms (they lack
+// a fast assembly bytealg.IndexString).
+//
+// TODO(charlie): benchmark this on arm (or any other platforms) to see if we
+// should use this on other platforms.
+//
+// TODO(charlie): move this to the bytealg package.
 func cutover(n int) int {
 	// FIXME: our cutoff is probably different since our algo is not optimized
 
@@ -870,9 +878,24 @@ func indexUnicode(s, substr string) int {
 		fails++
 		i += n0
 
-		// WARN: this needs to be tuned since the brute force performance
-		// is very different than the stdlibs.
+		// WARN(charlie): this needs to be tuned since our brute force
+		// performance is very different than the stdlibs.
 		if fails >= 4+i>>4 && i < t {
+			// From bytes/bytes.go:
+			//
+			// Give up on IndexByte, it isn't skipping ahead
+			// far enough to be better than Rabin-Karp.
+			// Experiments (using IndexPeriodic) suggest
+			// the cutover is about 16 byte skips.
+			// TODO: if large prefixes of sep are matching
+			// we should cutover at even larger average skips,
+			// because Equal becomes that much more expensive.
+			// This code does not take that effect into account.
+			//
+			// NB(charlie): The above part about "Equal" being
+			// more expensive is particularly relevant us since
+			// our "Equal" is drastically more expensive than
+			// the stdlibs.
 			j := indexRabinKarpUnicode(s[i:], substr)
 			if j < 0 {
 				return -1
@@ -937,7 +960,7 @@ func Index(s, substr string) int {
 		return -1
 	case n <= maxLen: // WARN: 32 is for arm64 (see: bytealg.MaxLen)
 		// WARN: fast path if the sub-string is all non-alpha ASCII chars
-		// TODO: tune the cutoff here
+		// FIXME: tune the cutoff here
 		if nonLetterASCII(substr) {
 			return strings.Index(s, substr)
 		}
@@ -1847,6 +1870,8 @@ func LastIndexAny(s, chars string) int {
 // The found result reports whether sep appears in s.
 // If sep does not appear in s, cut returns s, "", false.
 func Cut(s, sep string) (before, after string, found bool) {
+	// TODO: both Cut and Count would benefit from Index returning the
+	// number of bytes consumed from sep - consider adding this.
 	if i := Index(s, sep); i >= 0 {
 		after = s[i:]
 		// trim sep from s
