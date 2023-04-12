@@ -344,10 +344,8 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	}
 	// Hash rune r and seee if it's in the _UpperLower table.
 	u := uint32(r)
-	h := u | u<<24
-	h *= _UpperLowerSeed
-	h >>= _UpperLowerShift
-	p := &_UpperLower[h]
+	h := (u | u<<24) * _UpperLowerSeed
+	p := &_UpperLower[h>>_UpperLowerShift]
 	if p[0] == u || p[1] == u {
 		return rune(p[0]), rune(p[1]), true
 	}
