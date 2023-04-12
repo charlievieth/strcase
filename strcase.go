@@ -358,8 +358,18 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 func bruteForceIndexUnicode(s, substr string) int {
 	// NB: substr must contain at least 2 characters.
 
-	u0, sz0 := utf8.DecodeRuneInString(substr)
-	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
+	var u0, u1 rune
+	var sz0, sz1 int
+	if substr[0] < utf8.RuneSelf {
+		u0, sz0 = rune(substr[0]), 1
+	} else {
+		u0, sz0 = utf8.DecodeRuneInString(substr)
+	}
+	if substr[sz0] < utf8.RuneSelf {
+		u1, sz1 = rune(substr[sz0]), 1
+	} else {
+		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
+	}
 	folds0 := foldMapExcludingUpperLower(u0)
 	folds1 := foldMapExcludingUpperLower(u1)
 	hasFolds0 := folds0[0] != 0
@@ -535,8 +545,19 @@ func bruteForceIndexUnicode(s, substr string) int {
 func bruteForceLastIndexUnicode(s, substr string) int {
 	// NB: substr must contain at least 2 characters.
 
-	u0, sz0 := utf8.DecodeLastRuneInString(substr)
-	u1, sz1 := utf8.DecodeLastRuneInString(substr[:len(substr)-sz0])
+	var u0, u1 rune
+	var sz0, sz1 int
+	n := len(substr) - 1
+	if substr[n] < utf8.RuneSelf {
+		u0, sz0 = rune(substr[n]), 1
+	} else {
+		u0, sz0 = utf8.DecodeLastRuneInString(substr)
+	}
+	if substr[n-sz0] < utf8.RuneSelf {
+		u1, sz1 = rune(substr[n-sz0]), 1
+	} else {
+		u1, sz1 = utf8.DecodeLastRuneInString(substr[:len(substr)-sz0])
+	}
 	folds0 := foldMapExcludingUpperLower(u0)
 	folds1 := foldMapExcludingUpperLower(u1)
 	hasFolds0 := folds0[0] != 0
@@ -712,8 +733,18 @@ func cutover(n int) int {
 }
 
 func shortIndexUnicode(s, substr string) int {
-	u0, sz0 := utf8.DecodeRuneInString(substr)
-	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
+	var u0, u1 rune
+	var sz0, sz1 int
+	if substr[0] < utf8.RuneSelf {
+		u0, sz0 = rune(substr[0]), 1
+	} else {
+		u0, sz0 = utf8.DecodeRuneInString(substr)
+	}
+	if substr[sz0] < utf8.RuneSelf {
+		u1, sz1 = rune(substr[sz0]), 1
+	} else {
+		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
+	}
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
 	folds0 := foldMapExcludingUpperLower(u0)
@@ -802,9 +833,20 @@ func shortIndexUnicode(s, substr string) int {
 	return -1
 }
 
+// TODO: inline in Index
 func indexUnicode(s, substr string) int {
-	u0, sz0 := utf8.DecodeRuneInString(substr)
-	u1, sz1 := utf8.DecodeRuneInString(substr[sz0:])
+	var u0, u1 rune
+	var sz0, sz1 int
+	if substr[0] < utf8.RuneSelf {
+		u0, sz0 = rune(substr[0]), 1
+	} else {
+		u0, sz0 = utf8.DecodeRuneInString(substr)
+	}
+	if substr[sz0] < utf8.RuneSelf {
+		u1, sz1 = rune(substr[sz0]), 1
+	} else {
+		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
+	}
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
 	folds0 := foldMapExcludingUpperLower(u0)
@@ -931,12 +973,20 @@ func Index(s, substr string) int {
 	// TODO: check if short sub-strings contain only non-Alpha ASCII
 	// chars
 	n := len(substr)
-	r, size := utf8.DecodeRuneInString(substr)
+	var r rune
+	var size int
+	if n > 0 {
+		if substr[0] < utf8.RuneSelf {
+			r, size = rune(substr[0]), 1
+		} else {
+			r, size = utf8.DecodeRuneInString(substr)
+		}
+	}
 	switch {
 	case n == 0:
 		return 0
 	case n == 1:
-		return IndexByte(s, substr[0])
+		return IndexByte(s, byte(r))
 	case n == size:
 		return IndexRune(s, r)
 	case n >= len(s):
@@ -976,7 +1026,15 @@ func Index(s, substr string) int {
 // substr is not present in s.
 func LastIndex(s, substr string) int {
 	n := len(substr)
-	u, size := utf8.DecodeRuneInString(substr)
+	var u rune
+	var size int
+	if n > 0 {
+		if substr[n-1] < utf8.RuneSelf {
+			u, size = rune(substr[n-1]), 1
+		} else {
+			u, size = utf8.DecodeRuneInString(substr)
+		}
+	}
 	switch {
 	case n == 0:
 		return len(s)
