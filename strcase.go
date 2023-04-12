@@ -347,7 +347,7 @@ func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
 	h := u | u<<24
 	h *= _UpperLowerSeed
 	h >>= _UpperLowerShift
-	p := _UpperLower[h]
+	p := &_UpperLower[h]
 	if p[0] == u || p[1] == u {
 		return rune(p[0]), rune(p[1]), true
 	}

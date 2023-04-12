@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -1912,6 +1913,8 @@ func BenchmarkLastIndexAnyUTF8(b *testing.B) {
 	}
 }
 
+// Micro-benchmarks for caseFold
+
 var caseFoldBenchmarkRunes = [16]rune{
 	0xA7C9,
 	0xA696,
@@ -1951,7 +1954,13 @@ func loadCaseFoldBenchmarkAll() {
 			i++
 		}
 	}
-	rr := rand.New(rand.NewSource(12345678))
+	// Make sure the slice is consistently sorted before
+	// randomizing order. This is relevant because the
+	// order of slice elements may change.
+	sort.Slice(a, func(i, j int) bool {
+		return a[i] < a[j]
+	})
+	rr := rand.New(rand.NewSource(12345))
 	rr.Shuffle(len(a), func(i, j int) {
 		a[i], a[j] = a[j], a[i]
 	})
@@ -1969,6 +1978,66 @@ func BenchmarkCaseFoldAll(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, r := range caseFoldBenchmarkAll {
 			_ = caseFold(r)
+		}
+	}
+}
+
+// Micro-benchmarks for toUpperLower
+
+var toUpperLowerBenchmarkRunes = [16]rune{
+	0xA68A,
+	0x0204,
+	0x04EC,
+	0x00D0,
+	0x0053,
+	0xA698,
+	0x1F1A,
+	0x038E,
+	0x1F1B,
+	0x2126,
+	0x16E47,
+	0x01D1,
+	0x13CC,
+	0x01BC,
+	0x048E,
+	0x0386,
+}
+
+var toUpperLowerBenchmarkAll []rune
+
+// WARN: this is not deterministic
+func loadToUpperLowerBenchmarkAll() {
+	if toUpperLowerBenchmarkAll != nil {
+		return
+	}
+	a := make([]rune, len(_UpperLower))
+	for i, p := range _UpperLower {
+		a[i] = rune(p[0])
+	}
+	// Make sure the slice is consistently sorted before
+	// randomizing order. This is relevant because the
+	// order of slice elements may change.
+	sort.Slice(a, func(i, j int) bool {
+		return a[i] < a[j]
+	})
+	rr := rand.New(rand.NewSource(12345))
+	rr.Shuffle(len(a), func(i, j int) {
+		a[i], a[j] = a[j], a[i]
+	})
+	toUpperLowerBenchmarkAll = a[:256]
+}
+
+func BenchmarkToUpperLower(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _, _ = toUpperLower(toUpperLowerBenchmarkRunes[i%len(toUpperLowerBenchmarkRunes)])
+	}
+}
+
+func BenchmarkToUpperLowerAll(b *testing.B) {
+	loadToUpperLowerBenchmarkAll()
+	for i := 0; i < b.N; i++ {
+		for _, r := range toUpperLowerBenchmarkAll {
+			_, _, _ = toUpperLower(r)
 		}
 	}
 }
