@@ -1469,9 +1469,7 @@ func hashStrUnicode(sep string) (uint32, uint32, int) {
 	n := 0
 	for _, r := range sep {
 		if r < utf8.RuneSelf {
-			if 'A' <= r && r <= 'Z' {
-				r += 'a' - 'A'
-			}
+			r = rune(_lower[r&0x7F])
 		} else {
 			r = caseFold(r)
 		}
@@ -1498,10 +1496,7 @@ func hashStrRevUnicode(sep string) (uint32, uint32, int) {
 		var r rune
 		var size int
 		if sep[i-1] < utf8.RuneSelf {
-			r, size = rune(sep[i-1]), 1
-			if 'A' <= r && r <= 'Z' {
-				r += 'a' - 'A'
-			}
+			r, size = rune(_lower[sep[i-1]&0x7F]), 1
 		} else {
 			r, size = utf8.DecodeLastRuneInString(sep[:i])
 			r = caseFold(r)
@@ -1531,10 +1526,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 		var r rune
 		var size int
 		if s[i-1] < utf8.RuneSelf {
-			r, size = rune(s[i-1]), 1
-			if 'A' <= r && r <= 'Z' {
-				r += 'a' - 'A'
-			}
+			r, size = rune(_lower[s[i-1]&0x7F]), 1
 		} else {
 			r, size = utf8.DecodeLastRuneInString(s[:i])
 			r = caseFold(r)
@@ -1557,10 +1549,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 		var r0 rune
 		var n0 int
 		if s[i-1] < utf8.RuneSelf {
-			r0, n0 = rune(s[i-1]), 1
-			if 'A' <= r0 && r0 <= 'Z' {
-				r0 += 'a' - 'A'
-			}
+			r0, n0 = rune(_lower[s[i-1]&0x7F]), 1
 		} else {
 			r0, n0 = utf8.DecodeLastRuneInString(s[:i])
 			r0 = caseFold(r0)
@@ -1568,10 +1557,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 		var r1 rune
 		var n1 int
 		if s[j-1] < utf8.RuneSelf {
-			r1, n1 = rune(s[j-1]), 1
-			if 'A' <= r1 && r1 <= 'Z' {
-				r1 += 'a' - 'A'
-			}
+			r1, n1 = rune(_lower[s[j-1]&0x7F]), 1
 		} else {
 			r1, n1 = utf8.DecodeLastRuneInString(s[:j])
 			r1 = caseFold(r1)
@@ -1598,10 +1584,7 @@ func indexRabinKarpUnicode(s, substr string) int {
 	for i, r := range s {
 		orig := r
 		if r < utf8.RuneSelf {
-			// TODO: use _lower here (and wherever else we do this)
-			if 'A' <= r && r <= 'Z' {
-				r += 'a' - 'A'
-			}
+			r = rune(_lower[r&0x7F])
 		} else {
 			r = caseFold(r)
 		}
