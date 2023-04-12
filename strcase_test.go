@@ -2041,3 +2041,16 @@ func BenchmarkToUpperLowerAll(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkNonLetterASCII(b *testing.B) {
+	base := "!\"#$%&'()*+,-./0123456789:;<=>?@[\\]^_`{|}~"
+	base += base
+	for _, size := range []int{4, 8, 16, 24, 32, 64} {
+		b.Run(fmt.Sprint(size), func(b *testing.B) {
+			s := base[:size]
+			for i := 0; i < b.N; i++ {
+				nonLetterASCII(s)
+			}
+		})
+	}
+}

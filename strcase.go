@@ -885,11 +885,19 @@ func indexUnicode(s, substr string) int {
 	return -1
 }
 
-// nonLetterASCII checks if s consists only of non-letter ASCII chars.
+// nonLetterASCII checks if the first 32 bytes of s consist only of
+// non-letter ASCII characters. This is used to quickly check if we
+// can use strings.Index.
 func nonLetterASCII(s string) bool {
+	// Limit the search space to 32 characters since that is enough
+	// to encode most numbers and performance per-char get worse as
+	// we approach 64 (which may be used as MaxLen on amd64 systems).
+	if len(s) > 32 {
+		s = s[:32]
+	}
 	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= utf8.RuneSelf || isAlpha(c) {
+		c := s[i] | ' ' // convert to lowercase, if uppercase
+		if c >= utf8.RuneSelf || 'a' <= c && c <= 'z' {
 			return false
 		}
 	}
