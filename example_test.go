@@ -253,6 +253,16 @@ func ExampleLastIndexByte() {
 	// 7
 }
 
+func ExampleEqualFold() {
+	fmt.Println(strcase.EqualFold("Go", "go"))
+	fmt.Println(strcase.EqualFold("AB", "ab")) // true because comparison uses simple case-folding
+	fmt.Println(strcase.EqualFold("ß", "ss"))  // false because comparison does not use full case-folding
+	// Output:
+	// true
+	// true
+	// false
+}
+
 func ExampleCut() {
 	show := func(s, sep string) {
 		before, after, found := strcase.Cut(s, sep)

@@ -122,6 +122,16 @@ hasUnicode:
 	return -1
 }
 
+// EqualFold reports whether s and t, interpreted as UTF-8 strings,
+// are equal under simple Unicode case-folding, which is a more general
+// form of case-insensitivity.
+//
+// EqualFold is included for symmetry with the strings package and because
+// our implementation is usually 2x faster than [strings.EqualFold].
+func EqualFold(s, t string) bool {
+	return Compare(s, t) == 0
+}
+
 func isAlpha(c byte) bool {
 	return 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z'
 }

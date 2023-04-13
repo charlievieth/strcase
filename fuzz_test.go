@@ -308,8 +308,8 @@ func TestEqualFoldFuzz(t *testing.T) {
 			t.Errorf("Index(%q, %q) = %t; want: %t", s0, s1, got, want)
 		}
 
-		if got := Compare(s0, s1) == 0; got != want {
-			t.Errorf("Compare(%q, %q) = %t; want: %t", s0, s1, got, want)
+		if got := EqualFold(s0, s1); got != want {
+			t.Errorf("EqualFold(%q, %q) = %t; want: %t", s0, s1, got, want)
 		}
 	})
 }

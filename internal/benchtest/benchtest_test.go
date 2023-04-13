@@ -95,7 +95,7 @@ func benchLastIndex(b *testing.B, s, substr string) {
 }
 
 func benchEqualFold(b *testing.B, s1, s2 string) {
-	if strings.EqualFold(s1, s2) != (strcase.Compare(s1, s2) == 0) {
+	if strings.EqualFold(s1, s2) != strcase.EqualFold(s1, s2) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
 	if *benchStdLib {
@@ -106,7 +106,7 @@ func benchEqualFold(b *testing.B, s1, s2 string) {
 		b.Skip("skipping: benchmark not relevant with -stdlib-case flag")
 	} else {
 		for i := 0; i < b.N; i++ {
-			strcase.Compare(s1, s2)
+			strcase.EqualFold(s1, s2)
 		}
 	}
 }

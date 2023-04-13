@@ -96,6 +96,16 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+func TestEqualFold(t *testing.T) {
+	for _, test := range compareTests {
+		want := test.out == 0
+		got := EqualFold(test.s, test.t)
+		if got != want {
+			t.Errorf("EqualFold(%q, %q) = %t; want: %t", test.s, test.t, got, want)
+		}
+	}
+}
+
 func hasUnicode(s string) bool {
 	for _, r := range s {
 		if r >= utf8.RuneSelf {
