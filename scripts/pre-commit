@@ -1,9 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-set -euo pipefail
+set -eu
 
 # Check if 'go generate' needs to be run.
 # TODO: check if .tables.json is not staged.
+
+ERROR=Error
+if [ -t 1 ]; then
+    ERROR='\033[0;31mError\033[0m' # red
+fi
 
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
     against=HEAD
@@ -16,21 +21,22 @@ fi
 exec 1>&2
 
 if git diff --cached --name-only --diff-filter=M -z "${against}" |
-    grep --null --quiet '^gen\.go$'; then
+    \grep --null --quiet '^gen\.go$'; then
 
     # Project root
     root="$(go list -f '{{.Dir}}' github.com/charlievieth/strcase)"
     exit_code=0
 
-    if ! go run "${root}/gen.go" -dry-run &>/dev/null; then
-        out="$(go run "${root}/gen.go" -dry-run || true)"
-        echo "Error: Attempt to update gen.go without re-running 'go generate'."
-        echo ""
-        echo "This will cause failures in CI."
-        echo ""
-        echo "Output of 'go run ${root}/gen.go -dry-run':"
-        echo ""
-        echo "${out}"
+    if ! go run "${root}/gen.go" -dry-run >/dev/null 2>&1; then
+        echo "${ERROR}: Cannot commit changes to \"gen.go\" without re-running \`go generate\`."
+        echo ''
+        echo 'This will cause failures in CI.'
+        echo ''
+        echo "Output of \`go run ${root}/gen.go -dry-run\`:"
+        echo ''
+        echo '################################################################################'
+        go run "${root}/gen.go" -dry-run || true
+        echo '################################################################################'
 
         exit_code=1
     fi
@@ -38,16 +44,20 @@ if git diff --cached --name-only --diff-filter=M -z "${against}" |
     # Changes to gen.go changes .tables.json so they should always be
     # committed together.
     if ! git diff --cached --name-only --diff-filter=M -z HEAD |
-        grep --null --quiet '^\.tables\.json$'; then
+        \grep --null --quiet '^\.tables\.json$'; then
 
-        echo "Error: please stage your changes to '.tables.json'"
-        echo ""
-        echo "The '.tables.json' file is used by 'gen.go' to determine"
-        echo "when the Unicode tables need to be updated and they should"
-        echo "always be committed together."
-        echo ""
+        if [ $exit_code -ne 0 ]; then
+            echo '' # Add a new line to separate this error from the prior one
+        fi
+        echo "${ERROR}: please stage your changes to \".tables.json\""
+        echo ''
+        echo 'The ".tables.json" file is used by "gen.go" to determine'
+        echo 'when the Unicode tables need to be updated and they should'
+        echo 'always be committed together.'
+        echo ''
 
         exit_code=1
     fi
+
     exit $exit_code
 fi
