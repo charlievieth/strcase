@@ -311,7 +311,7 @@ func BenchmarkCountByte(b *testing.B) {
 		benchCount(b, benchStr, "a") // NB: "a" instead of "="
 	}
 	for _, size := range indexSizes {
-		b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
+		b.Run(valName(size), func(b *testing.B) {
 			benchFunc(b, benchStr[:size])
 		})
 	}
