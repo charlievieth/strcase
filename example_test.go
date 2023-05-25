@@ -170,10 +170,14 @@ func ExampleIndex() {
 	fmt.Println(strcase.Index("chicken", "KEN"))
 	fmt.Println(strcase.Index("chicken", "DMR"))
 	fmt.Println(strcase.Index("日a本b語ç日ð本ê語", "Ç日Ð本Ê"))
+
+	// All invalid UTF-8 sequences are considered equal
+	fmt.Println(strcase.Index("a\xff", string(utf8.RuneError)))
 	// Output:
 	// 4
 	// -1
 	// 11
+	// 1
 }
 
 func ExampleIndexAny() {
