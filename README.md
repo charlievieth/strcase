@@ -36,28 +36,12 @@ Install by running:
 
     go get github.com/charlievieth/strcase
 
-
-<!-- TODO: do we need this section ??? -->
-<!--
-The code is optimized for GOARCH `amd64` and `arm64` and aims to be no worse
-than twice as fast as the standard library (in fact, some strcase functions
-like [EqualFold](https://pkg.go.dev/github.com/charlievieth/strcase#EqualFold)
-outperform their equivalent in the standard library).
--->
-
-<!--
-  TODO: note that any match would also match with a case-insensitive
-  regexp `(?i)` prefix.
--->
-
 ## Features
 
 - Fast: strcase is optimized for `amd64` and `arm64` and strives to be no worse
-  than 2x slower than the strings package and is often only marginally slower.
+  than 2x slower than the strings package and is often only 30-50% slower.
   - The `IndexByte`, `IndexNonASCII` and `Count` functions are implemented in
     assembly and use SSE/AVX2 on `amd64` and NEON on `arm64`.
-  - Unicode lookup tables use multiplicative hashing instead of a binary
-    search, which is used by the Go standard library's
     [unicode](https://pkg.go.dev/unicode) package. This can be up to 10x faster.
 - Accurate: Unicode simple folding is used to determine equality.
   - Any matched text would also match with
@@ -96,20 +80,6 @@ strcase.Index("a\xff", string(utf8.RuneError))  // returns 1
 Thus it is the callers responsibility to ensure strcase functions are called
 with valid UTF-8 strings and not arbitrary binary data.
 
-## Notes:
-- All invalid Unicode points and invalid multibyte UTF-8 sequences are
- considered equal.
- This is because the [utf8](https://pkg.go.dev/unicode/utf8) package converts
- invalid runes and multibyte UTF-8 sequences to
- [`utf8.RuneError`](https://pkg.go.dev/unicode/utf8#RuneError).
-- 'İ' (LATIN CAPITAL LETTER I WITH DOT ABOVE) does not fold to ASCII 'i' (U+0069).
- * This matches the behavior os strings.EqualFold
- * NOTE: see https://www.unicode.org/Public/UCD/latest/ucd/CaseFolding.txt for
-   an explanation, basically it is normally ignored for non-Turkic languages
-- Kelvin 'K' (U+212A) matches ASCII 'K' and 'k'
-- Latin small letter long S 'ſ' matches ASCII 'S' and 's'
-<!-- TODO: note that the above can hinder performance -->
-
 ## Performance
 
 strcase aims to be seriously fast and can beat or match the performance of the
@@ -125,23 +95,25 @@ tends to within 30-50% of the strings package for non-pathological inputs.
   Instead of searching for runes by their first byte (like the strings package)
   strcase searches for the second byte, which is more unique, then looks
   backwards/forwards to complete the match.
-* amd64/arm64: Assembly implementations of IndexByte, Count, and IndexNonASCII
-  are nearly as fast as their case-sensitive counterparts in the standard lib
-  (excluding IndexNonASCII which is specific to strcase).
+* Package strcase is optimized for amd64 and arm64 and includes assembly
+  implementations of `IndexByte`, `CountByte` and `IndexNonASCII` that
+  leverage the same SIMD technologies used in the standard library (SSE, AVX2,
+  NEON).
+* On armv7l (Raspberry Pi), which we do not optimize for, the average
+  performance penalty is only ~30%.
 
-Package strcase is optimized for amd64 and arm64 and includes assembly
-implementations of `IndexByte`, `CountByte` and `IndexNonASCII` that
-leverage the same SIMD technologies used in the standard library (SSE, AVX2,
-NEON).
-
-<!-- Example of non-optimized performance -->
-On armv7l (Raspberry Pi), which we do not optimize for, the average performance
-penalty is only ~30%.
-
-**Note:** Having to handle Kelvin K and S
-
-The overall search algorithm is very similar to the one used by the standard
-library.
+## Notes:
+- All invalid Unicode points and invalid multibyte UTF-8 sequences are
+ considered equal.
+ This is because the [utf8](https://pkg.go.dev/unicode/utf8) package converts
+ invalid runes and multibyte UTF-8 sequences to
+ [`utf8.RuneError`](https://pkg.go.dev/unicode/utf8#RuneError).
+- 'İ' (LATIN CAPITAL LETTER I WITH DOT ABOVE) does not fold to ASCII 'i' (U+0069)
+   * This matches the behavior os strings.EqualFold
+   * NOTE: see [unicode.org/UCD/CaseFolding.txt](https://www.unicode.org/Public/UCD/latest/ucd/CaseFolding.txt)
+     for an explanation, basically it is normally ignored for non-Turkic languages
+- Kelvin 'K' (U+212A) matches ASCII 'K' and 'k'
+- Latin small letter long S 'ſ' matches ASCII 'S' and 's'
 
 ## Contributing / Hacking
 
