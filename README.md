@@ -9,17 +9,6 @@ Package strcase is a case-insensitive and Unicode aware implementation of the
 Go standard library's [`strings`](https://pkg.go.dev/strings) package that is
 accurate, blazing fast, and never allocates memory.
 
-<!-- Option #1 -->
-Simple Unicode case-folding is used for all comparisons.
-
-<!-- Option #2 -->
-Simple Unicode case-folding is used for all comparisons. This is a more general
-form of case-insensitivity that is more accurate and faster than using
-[strings.ToLower](https://pkg.go.dev/strings#ToLower) or
-[strings.ToUpper](https://pkg.go.dev/strings#ToUpper) for case-insensitivity.
-Simple case-folding is also used by
-[strings.EqualFold](https://pkg.go.dev/strings#EqualFold) to determine equality.
-
 ## Overview
 
 * Drop-in replacement for the strings package that provides case-insensitive
@@ -27,7 +16,6 @@ Simple case-folding is also used by
 * Simple Unicode case-folding is used for all comparisons - making it more
   accurate than using [strings.ToLower](https://pkg.go.dev/strings#ToLower) or
   [strings.ToUpper](https://pkg.go.dev/strings#ToUpper) for case-insensitivity.
-  <!-- TODO: explain why -->
 * Fast and optimized for amd64 and arm64. For non-pathological inputs strcase
   is only 25-50% slower than the strings package.
 
@@ -79,8 +67,14 @@ outperform their equivalent in the standard library).
 
 ## Additional Features
 
-- IndexNonASCII
-- ContainsNonASCII
+strcase provides two functons for checking if a string contains non-ASCII
+characters that are highly optimized for amd64/arm64:
+
+- [IndexNonASCII](https://pkg.go.dev/github.com/charlievieth/strcase#IndexNonASCII):
+  IndexNonASCII returns the index of first non-ASCII rune in s, or -1 if s consists
+  only of ASCII characters.
+- [ContainsNonASCII](https://pkg.go.dev/github.com/charlievieth/strcase#ContainsNonASCII):
+  ContainsNonASCII returns true if s contains any non-ASCII characters.
 
 ## Caveats
 
@@ -118,10 +112,31 @@ with valid UTF-8 strings and not arbitrary binary data.
 
 ## Performance
 
+strcase aims to be seriously fast and can beat or match the performance of the
+strings package in some benchmarks (EqualFold and IndexRune). Overall, strcase
+tends to within 30-50% of the strings package for non-pathological inputs.
+
+#### Optimizations
+
+* Instead of using the standard library's Unicode package, which uses a binary
+  search for its lookup tables, strcase uses multiplicative hashing for its
+  lookup tables. This often 10x faster at the cost of larger tables.
+* Searching for runes (IndexRune) is a big determinant of strcase's performance.
+  Instead of searching for runes by their first byte (like the strings package)
+  strcase searches for the second byte, which is more unique, then looks
+  backwards/forwards to complete the match.
+* amd64/arm64: Assembly implementations of IndexByte, Count, and IndexNonASCII
+  are nearly as fast as their case-sensitive counterparts in the standard lib
+  (excluding IndexNonASCII which is specific to strcase).
+
 Package strcase is optimized for amd64 and arm64 and includes assembly
 implementations of `IndexByte`, `CountByte` and `IndexNonASCII` that
 leverage the same SIMD technologies used in the standard library (SSE, AVX2,
 NEON).
+
+<!-- Example of non-optimized performance -->
+On armv7l (Raspberry Pi), which we do not optimize for, the average performance
+penalty is only ~30%.
 
 **Note:** Having to handle Kelvin K and S
 
@@ -136,6 +151,9 @@ document for details.
 ## Benchmarks
 
 <!-- WARN: make sure this renders correctly on GitHub -->
+
+The following benchmarks were created using
+[internal/benchtest](https://github.com/charlievieth/strcase/tree/master/internal/benchtest).
 
 <details>
 <summary>arm64</summary>
