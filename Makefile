@@ -1,6 +1,8 @@
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_DIR  := $(dir $(MAKEFILE_PATH))
 
+# TODO: include internal/benchtest Makefile
+
 # Test options
 GO             ?= go
 GOBIN          ?= $(MAKEFILE_DIR)/bin
@@ -47,14 +49,18 @@ yellow = $(shell { tput setaf 3 || tput AF 3; } 2>/dev/null)
 cyan = $(shell { tput setaf 6 || tput AF 6; } 2>/dev/null)
 term-reset = $(shell { tput sgr0 || tput me; } 2>/dev/null)
 
+# Run tests and linters. If this passes then CI tests
+# should also pass.
 .PHONY: all
-all: test install
+all: install test vet golangci-lint testgenerate
 
 # Install pre-commit hooks and download modules
 .PHONY: install
 install: pre-commit
 	@go mod download
 	@go install
+
+# TODO: I don't think we need/want override here
 
 # Run verbose tests
 testverbose: override GO_TEST_FLAGS += -v
@@ -98,7 +104,7 @@ testgenerate: bin/gen
 
 # Run all tests (slow)
 .PHONY: testall
-testall: exhaustive testskipped testgenerate calibrate
+testall: exhaustive testskipped testgenerate
 
 # Install richgo
 bin/richgo:
