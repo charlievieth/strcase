@@ -12,7 +12,7 @@ import (
 	"github.com/charlievieth/strcase/internal/bytealg"
 )
 
-// TODO: tune these
+// TODO: tune these and move to bytealg package
 const maxBruteForce = 16 // substring length
 const maxLen = 32        // subject length
 
@@ -969,7 +969,7 @@ func nonLetterASCII(s string) bool {
 		s = s[:32]
 	}
 	for i := 0; i < len(s); i++ {
-		c := s[i] | ' ' // convert to lowercase, if uppercase
+		c := s[i] | ' ' // simplify check for alpha
 		if c >= utf8.RuneSelf || 'a' <= c && c <= 'z' {
 			return false
 		}
@@ -1014,6 +1014,8 @@ func Index(s, substr string) int {
 		if i < 0 {
 			return -1
 		}
+		// TODO(charlie): use the "full" Index logic here
+		// if s and substr are large.
 		if o := bruteForceIndexUnicode(s[i:], substr); o != -1 {
 			return o + i
 		}
@@ -1024,6 +1026,7 @@ func Index(s, substr string) int {
 		if nonLetterASCII(substr) {
 			return strings.Index(s, substr)
 		}
+		// TODO: tune maxBruteForce
 		if len(s) <= maxBruteForce {
 			return bruteForceIndexUnicode(s, substr)
 		}
@@ -1154,13 +1157,11 @@ func LastIndexByte(s string, c byte) int {
 	}
 
 	// Handle ASCII characters with Unicode mappings
-	c0 := c
-	c1 := c ^ ' ' // swap case
+	c |= ' ' // convert to lower case
 	for i := len(s); i > 0; {
 		if s[i-1] < utf8.RuneSelf {
-			sr := s[i-1]
 			i--
-			if sr == c0 || sr == c1 {
+			if s[i]|' ' == c {
 				return i
 			}
 		} else {
@@ -1984,8 +1985,15 @@ func CutSuffix(s, suffix string) (before string, found bool) {
 	return s, false
 }
 
-// IndexNonASCII returns the index of first non-ASCII rune in s, or -1
-// if s consists only of ASCII characters.
+// IndexNonASCII returns the index of first non-ASCII rune in s, or -1 if s
+// consists only of ASCII characters.
+//
+// On arm64 and amd64, IndexNonASCII is an order of magnitude faster than
+// using a for loop and checking each byte of s and should be close to that
+// of strings.IndexByte (54GBi/s on arm64).
+//
+// (on arm64 the speedup is up to 17x and
+// on amd64 it is up to 12x - though this seems to a be more a limit of .
 //
 // IndexNonASCII is up to 17 times faster on arm64 and 12 times faster on
 // amd64 compared to using a for loop and checking each byte of s.
