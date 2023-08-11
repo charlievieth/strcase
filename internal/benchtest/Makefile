@@ -55,11 +55,21 @@ bench strcase stdlib stdlib-case:
 # TODO: rename
 # WARN: very very slow
 .PHONY: release
-release: bin/benchcmp
-	@$(MAKE) --quiet strcase COUNT=5 | tee strcase.5.$(TIMESTAMP).txt && \
-	$(MAKE)  --quiet stdlib  COUNT=5 | tee stdlib.5.$(TIMESTAMP).txt &&  \
-	benchstat stdlib.5.$(TIMESTAMP).txt strcase.5.$(TIMESTAMP).txt |     \
-		tee result.5.$(TIMESTAMP).txt
+release: COUNT = 6
+release: bin/benchcmp commit_hash git_diff
+	@:                                                           \
+	$(MAKE) --quiet strcase | tee strcase.$(TIMESTAMP).txt &&    \
+	$(MAKE) --quiet stdlib  | tee stdlib.$(TIMESTAMP).txt &&     \
+	benchstat stdlib.$(TIMESTAMP).txt strcase.$(TIMESTAMP).txt | \
+		tee result.$(TIMESTAMP).txt
+
+.PHONY: commit_hash
+commit_hash:
+	@git rev-parse HEAD > commit.$(TIMESTAMP).txt
+
+.PHONY: git_diff
+git_diff:
+	@git diff --patch > patch.$(TIMESTAMP).patch
 
 # test is a a no-op and is only here to make `checkmake` happy
 .PHONY: test

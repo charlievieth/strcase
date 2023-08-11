@@ -14,8 +14,8 @@ import (
 
 var calibrate = flag.Bool("calibrate", false, "compute crossover for linear vs. binary search")
 
-// var calibrateLastIndexByte = flag.Bool("calibrate-last-index-byte", false, "compute crossover for linear vs. binary search")
-
+// TODO: use this
+//
 // TestCalibrate determines the cutoff where a brute-force-search is faster
 // than the current Index algorithm.
 func TestCalibrateBruteForce(t *testing.T) {
@@ -23,6 +23,7 @@ func TestCalibrateBruteForce(t *testing.T) {
 		return
 	}
 
+	// TODO: run this on amd64
 	if runtime.GOARCH == "amd64" {
 		fmt.Printf("warning: running calibration on %s\n", runtime.GOARCH)
 	}

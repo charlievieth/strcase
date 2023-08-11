@@ -43,6 +43,15 @@ import (
 	"github.com/charlievieth/strcase/internal/ucd"
 )
 
+// WARN: we need to include 'İ' (0x0130) and 'ı' (0x0131) in _FoldMap because
+// we don't want to fallback to using toUpperLower() since we don't accept the
+// upper/lower-case variants of these runes (breaks simple folding semantics).
+//
+// We should remove these runes and any other runes in _FoldMap from _UpperLower
+// and maybe remove 'İ' and 'ı' from _FoldMap as well.
+//
+// TODO: remove İ (0x0130) from _UpperLower and fix tests
+
 // TODO: consider renaming the generated tables
 const (
 	caseFoldShift        = 19
@@ -642,8 +651,8 @@ func hashCaseFolds() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func hashGenGoFile() string {
-	f, err := os.Open("gen.go")
+func hashFile(name string) string {
+	f, err := os.Open(name)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -735,7 +744,7 @@ func main() {
 	loadTableInfo()
 	loadCaseFolds()
 	loadCategories()
-	fileHash := hashGenGoFile()
+	fileHash := hashFile(os.Args[0]) // Hash gen.go
 	foldHash := hashCaseFolds()
 
 	if fileExists("tables.go") &&

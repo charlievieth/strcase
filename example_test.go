@@ -8,6 +8,16 @@ import (
 	"github.com/charlievieth/strcase"
 )
 
+// // Index returns the index of the first instance of substr in s,
+// // or -1 if substr is not present in s.
+// // If ignoreCase is true the match is case-insensitive.
+// func Index(s, substr string, ignoreCase bool) int {
+// 	if ignoreCase {
+// 		return strcase.Index(s, substr)
+// 	}
+// 	return strings.Index(s, substr)
+// }
+
 func ExampleCompare() {
 	// ASCII
 	fmt.Println(strcase.Compare("A", "b"))

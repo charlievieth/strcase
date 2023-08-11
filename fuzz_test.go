@@ -23,6 +23,7 @@ import (
 	"golang.org/x/text/unicode/rangetable"
 )
 
+// TODO: use generated tables
 // TODO: remove this
 var multiwidthRunes = [...]rune{
 	0x006B, // 'k'
@@ -1100,6 +1101,8 @@ func generateIndexRabinKarpArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _s
 	panic("Failed to generate valid Index args")
 }
 
+// TODO: delete this test
+//
 // Fuzz test indexRabinKarpFuzz since it is annoying to generate tests that
 // always take this code path in Index.
 func TestIndexRabinKarpFuzz(t *testing.T) {
