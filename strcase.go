@@ -6,7 +6,6 @@ package strcase
 import (
 	"runtime"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/charlievieth/strcase/internal/bytealg"
@@ -343,7 +342,7 @@ func TrimSuffix(s, suffix string) string {
 
 // toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
 func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
-	if r <= unicode.MaxASCII {
+	if r <= '\u007F' {
 		if 'A' <= r && r <= 'Z' {
 			return r, r + ('a' - 'A'), true
 		}
