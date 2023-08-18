@@ -225,8 +225,8 @@ func open(file, urlRoot, path string) io.ReadCloser {
 
 func get(root, path string) io.ReadCloser {
 	url := root + "/" + path
-	fmt.Printf("Fetching %s...", url)
-	defer fmt.Println(" done.")
+	log.Printf("Fetching %s...", url)
+	defer log.Println(" done.")
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("HTTP GET: %v", err)
