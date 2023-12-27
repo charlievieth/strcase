@@ -1,16 +1,20 @@
+---
 name: Test
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.19', '1.20', '1.21.x' ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/cache@v3
         name: Cache unicode
@@ -27,9 +31,9 @@ jobs:
           key: ${{ runner.os }}-bin-${{ hashFiles('**/Makefile') }}
 
       - uses: actions/setup-go@v4
+        name: Setup Go ${{ matrix.go-version }}
         with:
-          go-version: '1.20'
-          # TODO: set 'check-latest: true' to use the latest Go version
+          go-version: ${{ matrix.go-version }}
 
       - name: Test
         run: make ci
