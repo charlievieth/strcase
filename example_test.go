@@ -76,13 +76,32 @@ func ExampleCompare_search() {
 
 // Using [strcase.Compare] and [sort.Find] to search a string slice.
 func ExampleCompare_find() {
+	// Find is the same as sort.Find.
+	Find := func(n int, cmp func(int) int) (i int, found bool) {
+		// The invariants here are similar to the ones in Search.
+		// Define cmp(-1) > 0 and cmp(n) <= 0
+		// Invariant: cmp(i-1) > 0, cmp(j) <= 0
+		i, j := 0, n
+		for i < j {
+			h := int(uint(i+j) >> 1) // avoid overflow when computing h
+			// i ≤ h < j
+			if cmp(h) > 0 {
+				i = h + 1 // preserves cmp(i-1) > 0
+			} else {
+				j = h // preserves cmp(j) <= 0
+			}
+		}
+		// i == j, cmp(i-1) > 0 and cmp(j) <= 0
+		return i, i < n && cmp(i) == 0
+	}
+
 	a := []string{
 		"a",
 		"b",
 		"α",
 	}
 	for _, s := range []string{"A", "B", "Z"} {
-		i, found := sort.Find(len(a), func(i int) int {
+		i, found := Find(len(a), func(i int) int {
 			return strcase.Compare(s, a[i])
 		})
 		if found {

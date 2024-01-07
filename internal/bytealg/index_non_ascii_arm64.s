@@ -5,6 +5,9 @@
 // internal/bytealg/indexbyte_armd64.s the Go LICENSE can be found in
 // the go.LICENSE file.
 
+//go:build go1.16
+// +build go1.16
+
 #include "textflag.h"
 
 TEXT ·IndexNonASCII(SB), NOSPLIT, $0-24

@@ -1,6 +1,9 @@
 // Copyright 2023 Charlie Vieth. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
+//go:build go1.16
+// +build go1.16
+
 package bytealg
 
 // Empirical data shows that using Index can get better

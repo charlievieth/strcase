@@ -1,5 +1,8 @@
-//go:build !amd64 && !arm64
-// +build !amd64,!arm64
+//go:build (!amd64 && !arm64) || (arm64 && !go1.16)
+// +build !amd64,!arm64 arm64,!go1.16
+
+// //go:build s390x || ppc64 || (arm64 && !go1.16)
+// // +build s390x ppc64 arm64,!go1.16
 
 package bytealg
 

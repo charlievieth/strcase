@@ -216,8 +216,9 @@ func TestInvalidRune(t *testing.T) {
 	}
 }
 
+// TODO: use a randomly shuffled slice of all runes?
 func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
-	if cap(rs) < n {
+	if rs == nil || cap(rs) < n {
 		rs = make([]rune, n)
 	} else {
 		rs = rs[:n]
@@ -254,6 +255,8 @@ func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
 	}
 	return rs
 }
+
+// TODO: clean this up
 
 func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 	return appendRandRunes(nil, rr, n, ascii)
@@ -424,13 +427,13 @@ func (c *testWrapper) check() {
 	}
 }
 
-func (c *testWrapper) Error(args ...any) {
+func (c *testWrapper) Error(args ...interface{}) {
 	c.T.Helper()
 	c.T.Error(args...)
 	c.check()
 }
 
-func (c *testWrapper) Errorf(format string, args ...any) {
+func (c *testWrapper) Errorf(format string, args ...interface{}) {
 	c.T.Helper()
 	c.T.Errorf(format, args...)
 	c.check()
@@ -448,13 +451,13 @@ func (c *testWrapper) FailNow() {
 	c.check()
 }
 
-func (c *testWrapper) Fatal(args ...any) {
+func (c *testWrapper) Fatal(args ...interface{}) {
 	c.T.Helper()
 	c.T.Fatal(args...)
 	c.check()
 }
 
-func (c *testWrapper) Fatalf(format string, args ...any) {
+func (c *testWrapper) Fatalf(format string, args ...interface{}) {
 	c.T.Helper()
 	c.T.Fatalf(format, args...)
 	c.check()
