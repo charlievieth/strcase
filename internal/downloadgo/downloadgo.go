@@ -7,17 +7,15 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"sync"
 )
 
@@ -37,7 +35,7 @@ func DownloadFilename(url string) (string, error) {
 }
 
 func readResponse(res *http.Response) ([]byte, error) {
-	n := 4096
+	n := 32 * 1024
 	if res.ContentLength > 0 && int64(int(res.ContentLength)) == res.ContentLength {
 		n = int(res.ContentLength)
 	}
@@ -55,6 +53,25 @@ func closeResponse(res *http.Response) {
 		res.Body.Close()
 	}
 }
+
+// TODO: cache created directories (this speeds things up when dealing with
+// slow filesystems)
+//
+// var knownDirs map[string]struct{}
+//
+// func MkdirAll(path string, perm os.FileMode) error {
+// 	if _, ok := knownDirs[path]; ok {
+// 		return nil
+// 	}
+// 	if err := os.MkdirAll(path, perm); err != nil {
+// 		return err
+// 	}
+// 	if knownDirs == nil {
+// 		knownDirs = make(map[string]struct{})
+// 	}
+// 	knownDirs[path] = struct{}{}
+// 	return nil
+// }
 
 func Download(ctx context.Context, url, dirname string) error {
 	if err := os.MkdirAll(dirname, 0755); err != nil {
@@ -104,12 +121,58 @@ func Download(ctx context.Context, url, dirname string) error {
 	return nil
 }
 
-func copyHeader(tr *tar.Reader, hdr *tar.Header, root string) error {
-	path := filepath.Join(root, hdr.Name)
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+// // TODO: use this
+// func copyHeader2(tr *tar.Reader, hdr *tar.Header, root string) error {
+// 	// TODO: use os.O_EXCL ???
+// 	const flag = os.O_CREATE | os.O_TRUNC | os.O_WRONLY
+// 	path := filepath.Join(root, hdr.Name)
+// 	f, err := os.OpenFile(path, flag, hdr.FileInfo().Mode())
+// 	if err != nil {
+// 		if !os.IsNotExist(err) {
+// 			return err
+// 		}
+// 		// Lazily attempt to create the directory
+// 		if err2 := os.MkdirAll(filepath.Dir(path), 0755); err2 != nil {
+// 			return err2
+// 		}
+// 		f, err = os.OpenFile(path, flag, hdr.FileInfo().Mode())
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	if _, err := io.Copy(f, tr); err != nil {
+// 		f.Close()
+// 		return err
+// 	}
+// 	return f.Close()
+// }
+
+var knownDirs = make(map[string]bool)
+
+func mkdirAll(path string, perm os.FileMode) error {
+	if knownDirs[path] {
+		return nil
+	}
+	if err := os.MkdirAll(path, perm); err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, hdr.FileInfo().Mode())
+	for {
+		knownDirs[path] = true
+		d := filepath.Dir(path)
+		if d == path {
+			break
+		}
+		path = d
+	}
+	return nil
+}
+
+func copyHeader(tr *tar.Reader, hdr *tar.Header, root string) error {
+	path := filepath.Join(root, hdr.Name)
+	if err := mkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, hdr.FileInfo().Mode())
 	if err != nil {
 		return err
 	}
@@ -120,8 +183,17 @@ func copyHeader(tr *tar.Reader, hdr *tar.Header, root string) error {
 	return f.Close()
 }
 
-func ExtractTarball(tarfile, root string) error {
-	if err := os.MkdirAll(root, 0755); err != nil {
+func ExtractTarball(ctx context.Context, tarfile, root string) error {
+	tarfile = filepath.Clean(tarfile)
+	root = filepath.Clean(root)
+
+	switch ext := filepath.Ext(tarfile); ext {
+	case ".tgz", ".gz":
+	default:
+		return fmt.Errorf("tar: unsupported file extension: %q", ext)
+	}
+
+	if err := mkdirAll(root, 0755); err != nil {
 		return err
 	}
 
@@ -146,22 +218,35 @@ func ExtractTarball(tarfile, root string) error {
 			}
 			break
 		}
-		path := filepath.Join(root, hdr.Name)
-		switch mode := hdr.FileInfo().Mode(); {
-		case mode&os.ModeSymlink != 0:
-			return errors.New("symlinks are not supported: " + path)
-		case mode.IsDir():
-			if err := os.MkdirAll(path, hdr.FileInfo().Mode()); err != nil {
-				return err
-			}
-		case mode.IsRegular():
+		switch hdr.Typeflag {
+		case tar.TypeReg, tar.TypeRegA:
 			if err := copyHeader(tr, hdr, root); err != nil {
 				return err
 			}
+		case tar.TypeDir:
+			path := filepath.Join(root, hdr.Name)
+			if err := mkdirAll(path, hdr.FileInfo().Mode()); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("tar: unsupported type %x and mode %s: %q",
+				hdr.Typeflag, hdr.FileInfo().Mode(), hdr.Name)
+		}
+		// Check if the context is cancelled
+		select {
+		case <-ctx.Done():
+			log.Println("tar: context canceled removing up root directory:", root)
+			if err := os.RemoveAll(root); err != nil {
+				log.Println("tar: error removing root directory:", err)
+			}
+			return ctx.Err()
+		default:
 		}
 	}
 	return nil
 }
+
+// TODO: move this to its own package
 
 type GoFileResponse struct {
 	Filename string `json:"filename"`
@@ -206,6 +291,7 @@ func FetchGoVersions(ctx context.Context) ([]GoVersionResponse, error) {
 	return versions, nil
 }
 
+// TODO: check if we can use the installed go version
 func LatestGoVersion(ctx context.Context) (string, error) {
 	res, err := http.Get("https://go.dev/dl/?mode=json")
 	if err != nil {
@@ -239,27 +325,49 @@ func LatestGoVersion(ctx context.Context) (string, error) {
 // Go 1.20 version - used for Unicode version 13.0.0 tables
 const Go120 = "go1.20.7"
 
-func tablesFilename() (string, error) {
-	v := runtime.Version()
-	for _, s := range []string{"go1.18", "go1.19", "go1.20"} {
-		if strings.HasPrefix(v, s) {
-			return "tables_go120.go", nil
-		}
-	}
-	for _, s := range []string{"go1.21"} {
-		if strings.HasPrefix(v, s) {
-			return "tables_go121.go", nil
-		}
-	}
-	return "", fmt.Errorf("unsupported go version: %q", v)
+// WARN: rename
+var tags = []struct{ version, buildTags string }{
+	{"9.0.0", "!go1.10"},
+	{"10.0.0", "go1.10,!go1.13"},
+	{"11.0.0", "go1.13,!go1.14"},
+	{"12.0.0", "go1.14,!go1.16"},
+	{"13.0.0", "go1.16,!go1.21"},
+	{"15.0.0", "go1.21"},
+}
+
+// TODO: take Unicode version as the argument and download the Go version for that
+func DownloadGo(unicodeVersion string) {
+	panic("IMPLEMENT")
 }
 
 func main() {
 	{
-		fmt.Println(tablesFilename())
+		dir := "/Users/cvieth/go/src/github.com/charlievieth/strcase/internal/downloadgo/downloadgo.go"
+		for {
+			fmt.Println(dir)
+			d := filepath.Dir(dir)
+			if d == dir {
+				break
+			}
+			dir = d
+		}
 		return
 	}
-	ctx := context.Background()
+
+	// {
+	// 	_, err := os.Create("/Users/cvieth/go/src/github.com/charlievieth/strcase/internal/downloadgo/x/y/x.go")
+	// 	fmt.Println(err)
+	// 	fmt.Println(os.IsNotExist(err))
+	// 	return
+	// }
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	go func() {
+		<-ctx.Done()
+		log.Println("signaled: cleaning up and exiting")
+		stop()
+	}()
+
 	versions, err := FetchGoVersions(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -287,7 +395,7 @@ func main() {
 	if err := Download(ctx, "https://go.dev/dl/go1.21.0.darwin-arm64.tar.gz", "tmp"); err != nil {
 		log.Fatal(err)
 	}
-	if err := ExtractTarball("tmp/go1.21.0.darwin-arm64.tar.gz", "tmp/go1.21.0"); err != nil {
+	if err := ExtractTarball(ctx, "tmp/go1.21.0.darwin-arm64.tar.gz", "tmp/go1.21.0"); err != nil {
 		log.Fatal(err)
 	}
 	// // https://go.dev/dl/go1.21.0.darwin-arm64.pkg
