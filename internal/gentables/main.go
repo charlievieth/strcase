@@ -11,9 +11,12 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"go/format"
+	"io"
+	"io/fs"
 	"log"
 	"math"
 	"math/rand"
@@ -21,6 +24,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
@@ -28,7 +32,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 	"unicode"
 
@@ -71,39 +74,6 @@ const (
 	upperLowerTableShift = 19
 )
 
-// var projectRoot string
-//
-// func get() {
-// 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").CombinedOutput()
-// 	if err == nil {
-// 		root := string(bytes.TrimSpace(out))
-// 		if _, err := os.Stat(filepath.Join(root, "go.mod")); err == nil {
-// 			projectRoot = root
-// 			return
-// 		}
-// 	}
-// 	// Try harder
-// 	out, err := exec.Command("go", "list", "-f", "'{{.Root}}'").CombinedOutput()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	//
-// 	//	git rev-parse --show-toplevel
-// 	//
-// 	// /Users/cvieth/go/src/github.com/charlievieth/strcase
-// }
-
-// // TODO: create this from the downloaded data
-// //
-// // Unicode categories used to construct the fold maps
-// var unicodeCategories = []map[string]*unicode.RangeTable{
-// 	unicode.Categories,
-// 	unicode.Scripts,
-// 	unicode.Properties,
-// 	unicode.FoldCategory,
-// 	unicode.FoldScript,
-// }
-
 type foldPair struct {
 	From uint32
 	To   uint32
@@ -117,6 +87,29 @@ var (
 	asciiFold  [unicode.MaxASCII + 1]uint16
 )
 
+// // isNaN reports whether x is a NaN without requiring the math package.
+// // This will always return false if T is not floating-point.
+// func isNaN[T constraints.Ordered](x T) bool {
+// 	return x != x
+// }
+
+// // cmpCompare is a copy of cmp.Compare from the Go 1.21 release.
+// func cmpCompare[T constraints.Ordered](x, y T) int {
+// 	xNaN := isNaN(x)
+// 	yNaN := isNaN(y)
+// 	if xNaN && yNaN {
+// 		return 0
+// 	}
+// 	if xNaN || x < y {
+// 		return -1
+// 	}
+// 	if yNaN || x > y {
+// 		return +1
+// 	}
+// 	return 0
+// }
+
+// TODO: move
 func loadCaseFolds() {
 	ucd.Parse(gen.OpenUCDFile("CaseFolding.txt"), func(p *ucd.Parser) {
 		kind := p.String(1)
@@ -126,24 +119,19 @@ func loadCaseFolds() {
 		}
 		p1 := p.Rune(0)
 		p2 := p.Rune(2)
-		// WARN: use caseOrbit instead?
 		caseFolds = append(caseFolds, foldPair{uint32(p1), uint32(p2)})
 		chars[p1].foldCase = rune(p2)
 	})
-	slices.SortFunc(caseFolds, func(a, b foldPair) bool {
-		return a.From < b.From
+	slices.SortFunc(caseFolds, func(a, b foldPair) int {
+		return cmpCompare(a.From, b.From)
 	})
 }
 
-// func loadCategories() {
-// 	tabs := make([]*unicode.RangeTable, 0, len(unicodeCategories))
-// 	for _, m := range unicodeCategories {
-// 		for _, t := range m {
-// 			tabs = append(tabs, t)
-// 		}
-// 	}
-// 	categories = rangetable.Merge(tabs...)
-// }
+var buildTags = map[string]struct{ version, buildTags, filename string }{
+	"12.0.0": {"12.0.0", "go1.14,!go1.16", "tables_go114.go"},
+	"13.0.0": {"13.0.0", "go1.16,!go1.21", "tables_go116.go"},
+	"15.0.0": {"15.0.0", "go1.21", "tables_go121.go"},
+}
 
 // tablesFile is the names of the file to generate and is based off
 // of the Go version this program is ran with.
@@ -151,15 +139,12 @@ func loadCaseFolds() {
 // WARN: this must be called after command line flags are parsed
 func getTablesFile() string {
 	// gen.UnicodeVersion is set by the "-unicode" flag
-	switch gen.UnicodeVersion() {
-	case "13.0.0":
-		return "tables_go116.go"
-	case "15.0.0":
-		// The Unicode version was updated to 15.0.0 in go1.21.0
-		return "tables_go121.go"
+	if name := buildTags[gen.UnicodeVersion()].filename; name != "" {
+		return name
 	}
-	panic(fmt.Sprintf("unsupported Unicode version %q and Go version %q - "+
-		"this script likely needs to be updated", gen.UnicodeVersion(), runtime.Version()))
+	log.Panicf("unsupported Unicode version %q this script might need "+
+		"to be updated", gen.UnicodeVersion())
+	panic("unreachable")
 }
 
 type span struct {
@@ -258,7 +243,7 @@ func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
 
 	// This can take awhile so use a progress bar.
 	var bar *progressbar.ProgressBar
-	if term.IsTerminal(syscall.Stdout) {
+	if term.IsTerminal(int(os.Stdout.Fd())) {
 		bar = progressbar.Default(math.MaxUint32)
 	} else {
 		bar = progressbar.DefaultSilent(math.MaxUint32)
@@ -708,8 +693,8 @@ func genCaseFolds(w *bytes.Buffer) {
 	// TODO: probably don't need this
 	pairs := make([]foldPair, len(folds))
 	copy(pairs, folds)
-	slices.SortFunc(pairs, func(a, b foldPair) bool {
-		return a.From < b.From
+	slices.SortFunc(pairs, func(a, b foldPair) int {
+		return cmpCompare(a.From, b.From)
 	})
 
 	hashes := make([]foldPair, 0, len(pairs))
@@ -719,8 +704,8 @@ func genCaseFolds(w *bytes.Buffer) {
 			To:   uint32(i),
 		})
 	}
-	slices.SortFunc(hashes, func(a, b foldPair) bool {
-		return a.From < b.From
+	slices.SortFunc(hashes, func(a, b foldPair) int {
+		return cmpCompare(a.From, b.From)
 	})
 
 	fmt.Fprint(w, "\n")
@@ -797,8 +782,8 @@ func genFoldTable(w *bytes.Buffer) {
 		}
 		folds = append(folds, rs)
 	}
-	slices.SortFunc(folds, func(f1, f2 []rune) bool {
-		return f1[0] < f2[0]
+	slices.SortFunc(folds, func(f1, f2 []rune) int {
+		return cmpCompare(f1[0], f2[0])
 	})
 
 	fmt.Fprint(w, "\n")
@@ -845,8 +830,8 @@ func genFoldTable(w *bytes.Buffer) {
 		slices.Sort(a)
 		noUpperLower = append(noUpperLower, runeSet{uint32(k), [2]rune{a[0], a[1]}})
 	}
-	slices.SortFunc(noUpperLower, func(c1, c2 runeSet) bool {
-		return c1.r < c2.r
+	slices.SortFunc(noUpperLower, func(c1, c2 runeSet) int {
+		return cmpCompare(c1.r, c2.r)
 	})
 
 	const foldMapExcludingUpperLowerComment = `
@@ -940,8 +925,8 @@ func genUpperLowerTable(w *bytes.Buffer) {
 	}
 	fmt.Fprint(w, "}\n\n")
 
-	slices.SortFunc(special, func(c1, c2 Case) bool {
-		return c1.Rune < c2.Rune
+	slices.SortFunc(special, func(c1, c2 Case) int {
+		return cmpCompare(c1.Rune, c2.Rune)
 	})
 
 	// WARN WARN WARN
@@ -1089,14 +1074,6 @@ type TableInfo struct {
 var tableInfo = TableInfo{
 	TableHashes: make(map[string]uint32),
 }
-
-// var tableInfo struct {
-// 	UnicodeVersion string            `json:"unicode_version"`
-// 	CLDRVersion    string            `json:"cldr_version"`
-// 	CaseFoldHash   string            `json:"case_fold_hash"`
-// 	GenGoHash      string            `json:"gen_go_hash"`
-// 	TableHashes    map[string]uint32 `json:"table_hashes"`
-// }
 
 func readTableInfo() (map[string]TableInfo, error) {
 	m := make(map[string]TableInfo)
@@ -1499,11 +1476,6 @@ func initTables() {
 	caseRanges = generateCaseRanges()
 }
 
-var buildTags = map[string]struct{ version, buildTags, filename string }{
-	"13.0.0": {"13.0.0", "go1.16,!go1.21", "tables_go116.go"},
-	"15.0.0": {"15.0.0", "go1.21", "tables_go121.go"},
-}
-
 func requireFlags(names ...string) {
 	var missing []string
 	for _, name := range names {
@@ -1538,8 +1510,8 @@ type GoListPackage struct {
 }
 
 // TODO: move this to a package
-func runGoListCommand(pkgPath string) *GoListPackage {
-	cmd := exec.Command("go", "list", "-json", pkgPath)
+func runGoListCommand(pkgPath, modFile string) *GoListPackage {
+	cmd := exec.Command("go", "list", "-json", "-modfile", modFile, pkgPath)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatalf("error running command %q: %v\n%s",
@@ -1553,29 +1525,109 @@ func runGoListCommand(pkgPath string) *GoListPackage {
 }
 
 func projectRoot() string {
-	return runGoListCommand("github.com/charlievieth/strcase").Dir
+	return runGoListCommand("github.com/charlievieth/strcase", "").Dir
+}
+
+// find ourselves
+func findModFile() string {
+	re := regexp.MustCompile(`(?m)^module github\.com/charlievieth/strcase/internal/gentables$`)
+
+	isGenModFile := func(name string) bool {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			return false
+		}
+		return re.Match(data)
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	wd = filepath.Clean(wd)
+	dir := wd
+	for {
+		if filepath.Base(wd) == "strcase" {
+			dir = wd
+			break
+		}
+		d := filepath.Dir(wd)
+		if d == wd {
+			break
+		}
+		wd = d
+	}
+
+	var modfile string
+	errStop := errors.New("stop")
+	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if os.IsPermission(err) {
+				err = nil
+			}
+			return err
+		}
+		if d.Name() == "go.mod" && isGenModFile(path) {
+			modfile = path
+			return errStop
+		}
+		return nil
+	})
+	if err != nil && err != errStop {
+		log.Fatal(err)
+	}
+	if modfile == "" {
+		log.Fatalf("failed to find gentables go.mod file in: %q", dir)
+	}
+
+	if _, err := os.Stat(modfile); err != nil {
+		log.Fatal(err)
+	}
+	return modfile
+}
+
+func listFiles(dir string, match func(d fs.DirEntry) bool) []string {
+	des, err := os.ReadDir(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var a []string
+	for _, d := range des {
+		if match(d) {
+			a = append(a, filepath.Join(dir, d.Name()))
+		}
+	}
+	slices.Sort(a)
+	return a
 }
 
 func hashGenFiles() string {
-	p := runGoListCommand("github.com/charlievieth/strcase/internal/gentables")
-	var files []string
-	for _, a := range [][]string{p.GoFiles, p.CgoFiles, p.CompiledGoFiles,
-		p.IgnoredGoFiles, p.IgnoredOtherFiles, p.CFiles, p.CXXFiles, p.MFiles,
-		p.HFiles, p.FFiles, p.SFiles, p.SwigFiles, p.SwigCXXFiles} {
-		files = append(files, a...)
-	}
-	slices.Sort(files)
+	root := projectRoot()
+	gendir := filepath.Join(root, "internal/gentables")
+
+	files := listFiles(gendir, func(d fs.DirEntry) bool {
+		if d.IsDir() {
+			return false
+		}
+		n := d.Name()
+		return n == "go.mod" || n == "go.sum" || strings.HasSuffix(n, ".go")
+	})
+
 	h := sha256.New()
 	for _, name := range files {
-		data, err := os.ReadFile(filepath.Join(p.Dir, name))
+		fmt.Fprintf(h, "%s\x00", name)
+		f, err := os.Open(name)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if bytes.Contains(data, []byte{0}) {
-			log.Fatalf("%s: contains NULL byte", name)
+		_, err = io.Copy(h, f)
+		f.Close()
+		if err != nil {
+			log.Fatal(err)
 		}
-		fmt.Fprintf(h, "%s\x00%s\x00\x00", name, data)
+		h.Write([]byte{'\x00', '\x00'})
 	}
+
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
@@ -1612,6 +1664,11 @@ func main() {
 
 	flag.Parse()
 
+	tablesFile := getTablesFile()
+	// Use the Unicode version as the log prefix since we invoke this program
+	// multiple times with different versions.
+	log.SetPrefix("(" + gen.UnicodeVersion() + ") ")
+
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
@@ -1633,8 +1690,6 @@ func main() {
 			signal.Reset(os.Interrupt)
 		}()
 	}
-
-	tablesFile := getTablesFile()
 
 	// WARN: remove if not used
 	if !*updateGenHash && *outputDir != "." {
@@ -1689,7 +1744,7 @@ func main() {
 		return
 	}
 
-	isTerm := term.IsTerminal(syscall.Stdout)
+	isTerm := term.IsTerminal(1)
 	ansi := func(color int, s string) string {
 		if !isTerm {
 			return s
@@ -1747,7 +1802,6 @@ func main() {
 	if !*updateGenHash {
 		var w bytes.Buffer
 		gen.WriteUnicodeVersion(&w)
-		gen.WriteCLDRVersion(&w) // WARN: I don't think we need this!
 
 		genCaseFolds(&w)
 		genUpperLowerTable(&w)
@@ -1757,7 +1811,7 @@ func main() {
 		if *skipBuild {
 			log.Println("gen: skipping go build")
 		} else {
-			if tableInfo.UnicodeVersion != unicode.Version {
+			if gen.UnicodeVersion() != unicode.Version {
 				log.Printf("gen: \"go build\" is ineffective because the generated file "+
 					"will be excluded due to Unicode version: %q != %q",
 					tableInfo.UnicodeVersion, unicode.Version)

@@ -1,11 +1,26 @@
 {
-    "unicode_version": "13.0.0",
-    "cldr_version": "32",
-    "case_fold_hash": "3ab0454d1a85064a4c401b9a0c7162bd08a306ebd0dc34065b25701e6d38dba9",
-    "gen_go_hash": "41c5f2703fbbaa4aeb3a50a55dd7ccabdffc67a6d242fe6930c108dee2ca540a",
-    "table_hashes": {
-        "_CaseFolds": 2422855,
-        "_FoldMap": 2521300993,
-        "_UpperLower": 1793588629
+    "tables_go116.go": {
+        "filename": "tables_go116.go",
+        "unicode_version": "13.0.0",
+        "cldr_version": "32",
+        "case_fold_hash": "3ab0454d1a85064a4c401b9a0c7162bd08a306ebd0dc34065b25701e6d38dba9",
+        "gen_go_hash": "3f5d325c5be502b5527f5f0a41bc089a91d8e6d0a16ce6a726ab9383b039038e",
+        "table_hashes": {
+            "_CaseFolds": 2422855,
+            "_FoldMap": 2521300992,
+            "_UpperLower": 1793588629
+        }
+    },
+    "tables_go121.go": {
+        "filename": "tables_go121.go",
+        "unicode_version": "15.0.0",
+        "cldr_version": "32",
+        "case_fold_hash": "26ed8b8eee3e8fb11d5bc828b898e9b714fed8d34dea08089dde133d0b10fb04",
+        "gen_go_hash": "3f5d325c5be502b5527f5f0a41bc089a91d8e6d0a16ce6a726ab9383b039038e",
+        "table_hashes": {
+            "_CaseFolds": 4292873350,
+            "_FoldMap": 2521300993,
+            "_UpperLower": 1793588629
+        }
     }
 }

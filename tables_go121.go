@@ -8,9 +8,6 @@ package strcase
 // UnicodeVersion is the Unicode version from which the tables in this package are derived.
 const UnicodeVersion = "15.0.0"
 
-// CLDRVersion is the CLDR version from which the tables in this package are derived.
-const CLDRVersion = "32"
-
 const _CaseFoldsSeed = 0xFFE00C86
 const _CaseFoldsShift = 19
 
@@ -4321,7 +4318,7 @@ func toUpperLowerSpecial(r rune) (rune, rune, bool) {
 	return r, r, false
 }
 
-const _FoldMapSeed = 0x96480000
+const _FoldMapSeed = 0x96480001
 const _FoldMapShift = 24
 
 // _FoldMap stores the Unicode case-folds for characters that have two or more folds.
@@ -4415,7 +4412,7 @@ var _FoldMap = [256][4]uint16{
 	183: {0xA64B, 0x1C88, 0xA64A},         // ['ꙋ' 'ᲈ' 'Ꙋ']
 }
 
-const _FoldMapExcludingUpperLowerSeed = 0x96480000
+const _FoldMapExcludingUpperLowerSeed = 0x96480001
 const _FoldMapExcludingUpperLowerShift = 24
 
 // _FoldMapExcludingUpperLower stores the Unicode case-folds for charactecrs that
