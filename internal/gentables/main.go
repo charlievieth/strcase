@@ -19,7 +19,6 @@ import (
 	"io/fs"
 	"log"
 	"math"
-	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -36,6 +35,7 @@ import (
 	"unicode"
 
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"golang.org/x/term"
@@ -87,27 +87,27 @@ var (
 	asciiFold  [unicode.MaxASCII + 1]uint16
 )
 
-// // isNaN reports whether x is a NaN without requiring the math package.
-// // This will always return false if T is not floating-point.
-// func isNaN[T constraints.Ordered](x T) bool {
-// 	return x != x
-// }
+// isNaN reports whether x is a NaN without requiring the math package.
+// This will always return false if T is not floating-point.
+func isNaN[T constraints.Ordered](x T) bool {
+	return x != x
+}
 
-// // cmpCompare is a copy of cmp.Compare from the Go 1.21 release.
-// func cmpCompare[T constraints.Ordered](x, y T) int {
-// 	xNaN := isNaN(x)
-// 	yNaN := isNaN(y)
-// 	if xNaN && yNaN {
-// 		return 0
-// 	}
-// 	if xNaN || x < y {
-// 		return -1
-// 	}
-// 	if yNaN || x > y {
-// 		return +1
-// 	}
-// 	return 0
-// }
+// cmpCompare is a copy of cmp.Compare from the Go 1.21 release.
+func cmpCompare[T constraints.Ordered](x, y T) int {
+	xNaN := isNaN(x)
+	yNaN := isNaN(y)
+	if xNaN && yNaN {
+		return 0
+	}
+	if xNaN || x < y {
+		return -1
+	}
+	if yNaN || x > y {
+		return +1
+	}
+	return 0
+}
 
 // TODO: move
 func loadCaseFolds() {
@@ -155,30 +155,21 @@ func generateSpans(start, end, delta int64) []span {
 	maxEnd := end
 	var spans []span
 	for i := start; i <= end; i += delta {
-		start := i
-		// if start >= 1 {
-		// 	// start = 1
-		// 	// } else {
-		// 	start++
-		// }
 		end := i + delta
 		if end >= maxEnd {
 			end = maxEnd
 		}
-		spans = append(spans, span{Start: int64(start), End: int64(end)})
+		spans = append(spans, span{Start: int64(i), End: int64(end)})
 	}
 
-	// TODO: consider just reversing the slice since larger values are more
-	// likely to be good hash values.
-	//
-	// Shuffle order
-	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
-	rr.Shuffle(len(spans), func(i, j int) {
-		spans[i], spans[j] = spans[j], spans[i]
-	})
+	// Reverse spans since larger values are more likely to be better seeds.
+	// We previously randomly shuffled the spans, but led to non-deterministic
+	// behavior when more than one seed was ideal.
+	for i := len(spans)/2 - 1; i >= 0; i-- {
+		opp := len(spans) - 1 - i
+		spans[i], spans[opp] = spans[opp], spans[i]
+	}
 
-	// WARN WARN WARN
-	// printJSON(spans)
 	return spans
 }
 
@@ -215,6 +206,10 @@ func cacheKey(inputs []uint32) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// TODO:
+//   - Return the first working hash value.
+//   - Find a better algorithm.
+//
 // GenerateHashValues performs a brute-force search for the best possible
 // multiplicative hash seed for inputs. All uint32 values are checked.
 func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
@@ -929,9 +924,6 @@ func genUpperLowerTable(w *bytes.Buffer) {
 		return cmpCompare(c1.Rune, c2.Rune)
 	})
 
-	// WARN WARN WARN
-	log.Println("TODO: if our case folds are correct we should not need toUpperLowerSpecial()")
-
 	fmt.Fprintln(w, `
 // toUpperLowerSpecial returns the uppercase and lowercase form of r,
 // which is a character that is not equal to either its uppercase or
@@ -945,6 +937,25 @@ func toUpperLowerSpecial(r rune) (rune, rune, bool) {
 	fmt.Fprintln(w, "\t}")
 	fmt.Fprintln(w, "\treturn r, r, false")
 	fmt.Fprintln(w, "}")
+}
+
+func writeInitGuard(w io.Writer) {
+	const s = `
+
+func init() {
+	// This is essentially a compile time assertion that can only fail if a
+	// future Go release updates the version of Unicode it supports.
+	//
+	// TLDR: https://github.com/charlievieth/strcase/issues
+	if UnicodeVersion != unicode.Version {
+		panic("strcase.UnicodeVersion \"" + UnicodeVersion +
+			"\" != unicode.Version \"" + unicode.Version + "\"")
+	}
+}
+
+`
+
+	io.WriteString(w, s)
 }
 
 func runCommand(args ...string) {
@@ -1400,6 +1411,7 @@ func inCategory(name string) []rune {
 			x = append(x, i)
 		}
 	}
+	// fmt.Printf("%s: %d\n", name, len(x))
 	return x
 }
 
@@ -1631,7 +1643,7 @@ func hashGenFiles() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func main() {
+func realMain() int {
 	initLogs() // Other packages configure logs on init so do it again here
 
 	flag.Usage = func() {
@@ -1741,7 +1753,7 @@ func main() {
 			"    gen_go_hash:     %q\n",
 			tableInfo.UnicodeVersion, tableInfo.CLDRVersion,
 			chop(tableInfo.CaseFoldHash, 8), chop(tableInfo.GenGoHash, 8))
-		return
+		return 0
 	}
 
 	isTerm := term.IsTerminal(1)
@@ -1790,7 +1802,7 @@ func main() {
 			tablesFile, ansi(33, "WARN:"))
 		log.Printf("%s gen: exiting now\n", ansi(33, "WARN:"))
 
-		os.Exit(1)
+		return 1
 	}
 
 	// WARN: we actually need a process runner for this
@@ -1801,7 +1813,11 @@ func main() {
 
 	if !*updateGenHash {
 		var w bytes.Buffer
+
+		w.WriteString("\n\nimport \"unicode\"\n\n")
 		gen.WriteUnicodeVersion(&w)
+
+		writeInitGuard(&w)
 
 		genCaseFolds(&w)
 		genUpperLowerTable(&w)
@@ -1822,11 +1838,12 @@ func main() {
 		// For dry runs only report if tables.go would be changed and
 		// exit with an error if so.
 		if *dryRun {
+			// TODO: this might be unreachable
 			if !dataEqual(tablesFile, w.Bytes()) {
 				fmt.Printf("gen: would change %s", tablesFile)
-				os.Exit(1)
+				return 1
 			}
-			return
+			return 0
 		}
 
 		writeFile(tablesFile, w.Bytes())
@@ -1844,6 +1861,13 @@ func main() {
 	// Exit 1 if we only update the hash of the generate files since this
 	// is a development only flag.
 	if *updateGenHash {
-		os.Exit(1)
+		return 1
+	}
+	return 0
+}
+
+func main() {
+	if code := realMain(); code != 0 {
+		os.Exit(code)
 	}
 }
