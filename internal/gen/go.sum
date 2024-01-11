@@ -1,3 +1,5 @@
+github.com/charlievieth/strcase v0.0.1 h1:u7ENSr6ILD0jx4G3kwwkc5JgSKkgDInXQujg8+qHlNg=
+github.com/charlievieth/strcase v0.0.1/go.mod h1:hN2qEL+T5pzYIF0raUwl5W1+eb/f0AfBXdBytCG0cPk=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

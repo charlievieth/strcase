@@ -156,7 +156,7 @@ const permissions = 0755
 
 // TODO: we probably want to change where we download this to
 func localReadmeFile() (string, error) {
-	p, err := build.Import("github.com/charlievieth/strcase", "", build.FindOnly)
+	p, err := build.Import("github.com/charlievieth/strcase/internal/gen/gentables", "", build.FindOnly)
 	if err != nil {
 		return "", fmt.Errorf("Could not locate package: %v", err)
 	}

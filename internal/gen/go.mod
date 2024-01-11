@@ -1,4 +1,4 @@
-module github.com/charlievieth/strcase/internal/gentables
+module github.com/charlievieth/strcase/internal/gen
 
 go 1.18
 
@@ -19,5 +19,3 @@ require (
 	golang.org/x/sys v0.16.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/charlievieth/strcase => ../../

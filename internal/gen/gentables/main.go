@@ -11,7 +11,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"go/format"
@@ -23,7 +22,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
@@ -41,8 +39,8 @@ import (
 	"golang.org/x/term"
 	"golang.org/x/text/unicode/rangetable"
 
-	"github.com/charlievieth/strcase/internal/gen"
-	"github.com/charlievieth/strcase/internal/ucd"
+	"github.com/charlievieth/strcase/internal/gen/gen"
+	"github.com/charlievieth/strcase/internal/gen/ucd"
 )
 
 func init() {
@@ -128,7 +126,6 @@ func loadCaseFolds() {
 }
 
 var buildTags = map[string]struct{ version, buildTags, filename string }{
-	"12.0.0": {"12.0.0", "go1.14,!go1.16", "tables_go114.go"},
 	"13.0.0": {"13.0.0", "go1.16,!go1.21", "tables_go116.go"},
 	"15.0.0": {"15.0.0", "go1.21", "tables_go121.go"},
 }
@@ -939,7 +936,7 @@ func toUpperLowerSpecial(r rune) (rune, rune, bool) {
 	fmt.Fprintln(w, "}")
 }
 
-func writeInitGuard(w io.Writer) {
+func writeInitGuard(w *bytes.Buffer) {
 	const s = `
 
 func init() {
@@ -954,8 +951,7 @@ func init() {
 }
 
 `
-
-	io.WriteString(w, s)
+	w.WriteString(s)
 }
 
 func runCommand(args ...string) {
@@ -1537,65 +1533,7 @@ func runGoListCommand(pkgPath, modFile string) *GoListPackage {
 }
 
 func projectRoot() string {
-	return runGoListCommand("github.com/charlievieth/strcase", "").Dir
-}
-
-// find ourselves
-func findModFile() string {
-	re := regexp.MustCompile(`(?m)^module github\.com/charlievieth/strcase/internal/gentables$`)
-
-	isGenModFile := func(name string) bool {
-		data, err := os.ReadFile(name)
-		if err != nil {
-			return false
-		}
-		return re.Match(data)
-	}
-
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	wd = filepath.Clean(wd)
-	dir := wd
-	for {
-		if filepath.Base(wd) == "strcase" {
-			dir = wd
-			break
-		}
-		d := filepath.Dir(wd)
-		if d == wd {
-			break
-		}
-		wd = d
-	}
-
-	var modfile string
-	errStop := errors.New("stop")
-	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			if os.IsPermission(err) {
-				err = nil
-			}
-			return err
-		}
-		if d.Name() == "go.mod" && isGenModFile(path) {
-			modfile = path
-			return errStop
-		}
-		return nil
-	})
-	if err != nil && err != errStop {
-		log.Fatal(err)
-	}
-	if modfile == "" {
-		log.Fatalf("failed to find gentables go.mod file in: %q", dir)
-	}
-
-	if _, err := os.Stat(modfile); err != nil {
-		log.Fatal(err)
-	}
-	return modfile
+	return runGoListCommand("github.com/charlievieth/strcase/internal/gen/gentables", "").Dir
 }
 
 func listFiles(dir string, match func(d fs.DirEntry) bool) []string {
