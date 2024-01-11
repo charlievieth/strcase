@@ -5,8 +5,6 @@ package main
 
 import (
 	"bytes"
-	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -29,17 +27,13 @@ var projectRoot = sync.OnceValue(func() string {
 	return dir
 })
 
-func buildGen() (string, func()) {
+func buildGen() string {
 	gendir := filepath.Join(projectRoot(), "internal/gentables")
 	if _, err := os.Stat(gendir); err != nil {
 		log.Fatal(err)
 	}
 
-	dir, err := os.MkdirTemp("", "strcase-gen-*")
-	if err != nil {
-		log.Fatal(err)
-	}
-	exe := filepath.Join(dir, "gentables")
+	exe := filepath.Join(projectRoot(), "bin", "gentables")
 	if runtime.GOOS == "windows" {
 		exe += ".exe"
 	}
@@ -51,38 +45,34 @@ func buildGen() (string, func()) {
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("error running command %q: %v", cmd.Args, err)
 	}
-	return exe, func() { os.RemoveAll(dir) }
+	return exe
 }
 
-func realMain() error {
+func realMain(args []string) int {
 	root := projectRoot()
 
-	exe, fn := buildGen()
-	defer fn()
+	exe := buildGen()
 
 	// TODO: supporting Unicode version 12.0.0 is annoying since arm64 support
 	// is lacking on Go 1.15 and below.
+	var exitcode int
 	for _, version := range []string{"13.0.0", "15.0.0"} {
-		cmd := exec.Command(exe, "-unicode", version)
+		cmd := exec.Command(exe, append([]string{"-unicode", version}, args...)...)
 		cmd.Dir = root
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("error running command %q: %v", cmd.Args, err)
+			log.Println("error running command %q: %v", cmd.Args, err)
+			exitcode++
 		}
 	}
-	return nil
+	return exitcode
 }
 
 func main() {
+	log.SetPrefix("gen: ")
 	log.SetFlags(log.Lshortfile)
-	flag.Usage = func() {
-		const msg = "Usage: %s\nGenerate Unicode tables for strcase.\n"
-		fmt.Fprintf(flag.CommandLine.Output(), msg, filepath.Base(os.Args[0]))
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-	if err := realMain(); err != nil {
-		log.Fatal(err)
+	if code := realMain(os.Args[1:]); code != 0 {
+		log.Fatal("exit:", code)
 	}
 }
