@@ -6,9 +6,13 @@ run:
     - internal/phash
 linters:
   enable:
-    - misspell
-    - goimports
+    - gocritic
     - gofmt
+    - goimports
+    - mirror
+    - misspell
+    - unconvert
+    - wastedassign
     - gocheckcompilerdirectives
 output:
   sort-results: true

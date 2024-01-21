@@ -4,44 +4,108 @@
 package main
 
 import (
-	"bytes"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sync"
 )
 
-var projectRoot = sync.OnceValue(func() string {
-	cmd := exec.Command("go", "list", "-f", "{{.Root}}", "github.com/charlievieth/strcase")
-	out, err := cmd.CombinedOutput()
+var modRe = regexp.MustCompile(`(?m)^module[ ]+github\.com\/charlievieth\/strcase$`)
+
+func isStrcaseModule(name string) (bool, error) {
+	data, err := os.ReadFile(name)
 	if err != nil {
-		log.Fatalf("error running command %q: %v\n\n%s\n",
-			cmd.Args, err, bytes.TrimSpace(out))
+		return false, err
 	}
-	dir := string(bytes.TrimSpace(out))
-	if _, err := os.Stat(dir); err != nil {
-		log.Fatal(err)
+	return modRe.Match(data), nil
+}
+
+func findModfile(child string) (string, error) {
+	const pkg = "github.com/charlievieth/strcase"
+	if !filepath.IsAbs(child) {
+		return child, errors.New("directory must be absolute: " + child)
 	}
-	return dir
+	var first error
+	dir := filepath.Clean(child)
+	for {
+		if _, err := os.Stat(dir + "/go.mod"); err == nil {
+			path := filepath.Join(dir, "go.mod")
+			ok, err := isStrcaseModule(path)
+			if err != nil {
+				if first == nil {
+					first = err
+				}
+				continue
+			}
+			if ok {
+				return dir, nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if len(parent) >= len(dir) {
+			break
+		}
+		dir = parent
+	}
+	if first != nil {
+		return child, fmt.Errorf("util: error finding go.mod for package %q "+
+			"in directory: %q: %w", pkg, child, first)
+	}
+	return child, fmt.Errorf("util: failed to find go.mod for package %q "+
+		"in directory: %q", pkg, child)
+}
+
+var projectRoot = sync.OnceValue(func() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Panic(err)
+	}
+	root, err := findModfile(wd)
+	if err != nil {
+		log.Panic(err)
+	}
+	return root
 })
 
 func buildGen() string {
-	gendir := filepath.Join(projectRoot(), "internal/gentables")
+	root := projectRoot()
+
+	// Create "bin" directory
+	if err := os.Mkdir(filepath.Join(root, "bin"), 0755); err != nil && !os.IsExist(err) {
+		log.Fatal(err)
+	}
+
+	gendir := filepath.Join(root, "internal/gen/gentables")
 	if _, err := os.Stat(gendir); err != nil {
 		log.Fatal(err)
 	}
 
-	exe := filepath.Join(projectRoot(), "bin", "gentables")
+	exe := filepath.Join(root, "bin", "gentables")
 	if runtime.GOOS == "windows" {
 		exe += ".exe"
+	}
+
+	// TODO: we should not need to rely on make here
+	//
+	// Try make first since it's better at avoiding unnecessary builds.
+	if mk, err := exec.LookPath("make"); err == nil {
+		cmd := exec.Command(mk, "bin/gentables")
+		cmd.Dir = root
+		if cmd.Run() == nil {
+			return exe
+		}
 	}
 
 	cmd := exec.Command("go", "build", "-o", exe)
 	cmd.Dir = gendir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	log.Printf("CMD: %q", cmd.Args)
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("error running command %q: %v", cmd.Args, err)
 	}
@@ -62,8 +126,12 @@ func realMain(args []string) int {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			log.Println("error running command %q: %v", cmd.Args, err)
-			exitcode++
+			log.Printf("error running command %q: %v", cmd.Args, err)
+			var ee *exec.ExitError
+			if errors.As(err, &ee) {
+				return ee.ExitCode()
+			}
+			return 3
 		}
 	}
 	return exitcode

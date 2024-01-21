@@ -1,53 +1,6 @@
-MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
-MAKEFILE_DIR  := $(dir $(MAKEFILE_PATH))
+# vim: ts=4 sw=4
 
-# TODO: include internal/benchtest Makefile
-
-# Test options
-GO             ?= go
-GOBIN          ?= $(MAKEFILE_DIR)/bin
-GO_COVER_MODE  ?= count
-GO_COVER_FLAGS ?= -cover -covermode=$(GO_COVER_MODE)
-GO_TEST_FLAGS  ?=
-GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS)
-GO_GOGC        ?= 800
-RICHGO         ?= richgo
-RICHGO_VERSION ?= v0.3.11
-
-# Options for linting comments
-COMMENTS       ?= 'TODO|WARN|FIXME|CEV'
-GREP           ?= \grep
-GREP_COLOR     ?= --color=always
-GREP_COMMENTS  ?= --line-number --extended-regexp --recursive \
-                  --exclude-dir=ucd --exclude-dir=gen --exclude-dir=vendor \
-                  --include='*.go' --include=Makefile
-xgrep          := $(GREP) $(GREP_COLOR)
-
-# Arguments for `golangci-lint run`
-GOLANGCI               ?= golangci-lint
-GOLANGCI_VERSION       ?= v1.52.2
-GOLANGCI_SORT          ?= --sort-results
-GOLANGCI_COLOR         ?= --color=always
-GOLANGCI_SKIP          ?= --skip-dirs='/(gen|phash)($$|/)'
-GOLANGCI_EXTRA_LINTERS ?= --enable=misspell,goimports,gofmt,gocheckcompilerdirectives
-GOLANGCI_EXTRA_FLAGS   ?=
-GOLANGCI_FLAGS         ?= $(GOLANGCI_SORT) $(GOLANGCI_COLOR) $(GOLANGCI_SKIP) $(GOLANGCI_EXTRA_LINTERS) $(GOLANGCI_EXTRA_FLAGS)
-
-# Windows exe extension
-GEN_TARGET      = $(GOBIN)/gen
-RICHGO_TARGET   = $(GOBIN)/$(RICHGO)
-GOLANGCI_TARGET = $(GOBIN)/golangci-lint
-ifeq ($(OS),Windows_NT)
-	GEN_TARGET = $(GEN_TARGET).exe
-	RICHGO_TARGET = $(RICHGO_TARGET).exe
-	GOLANGCI_TARGET = $(GOLANGCI_TARGET).exe
-endif
-
-# Color support.
-red = $(shell { tput setaf 1 || tput AF 1; } 2>/dev/null)
-yellow = $(shell { tput setaf 3 || tput AF 3; } 2>/dev/null)
-cyan = $(shell { tput setaf 6 || tput AF 6; } 2>/dev/null)
-term-reset = $(shell { tput sgr0 || tput me; } 2>/dev/null)
+include common.mk
 
 # Run tests and linters. If this passes then CI tests
 # should also pass.
@@ -90,10 +43,12 @@ testskipped:
 		exit 1;                                                             \
 	fi
 
-# Build gen
-bin/gen: gen.go
-	@mkdir -p $(GOBIN)
-	@GOBIN=$(GOBIN) $(GO) install -tags=gen gen.go
+# The gen package is separate from the strcase package (so we don't pollute
+# our go.mod with its dependencies) so we need to cd into its directory to
+# run the tests.
+.PHONY: testgenpkg
+testgenpkg:
+	@cd $(MAKEFILE_DIR)/internal/gen && $(MAKE) --quiet test
 
 # Test that `go generate` does not change tables.go
 .PHONY: testgenerate
@@ -104,19 +59,15 @@ testgenerate: bin/gen
 
 # Run all tests (slow)
 .PHONY: testall
-testall: exhaustive testskipped testgenerate
-
-# Install richgo
-bin/richgo:
-	@echo '$(yellow)INFO:$(term-reset) Installing richgo version: $(RICHGO_VERSION)'
-	@mkdir -p $(GOBIN)
-	@GOBIN=$(GOBIN) $(GO) install github.com/kyoh86/richgo@$(RICHGO_VERSION)
+testall: exhaustive testskipped testgenerate testgenpkg
 
 # Actual ci target (separate because so that we can override GO)
 .PHONY: .ci
 .ci: GO = $(RICHGO_TARGET)
 .ci: export RICHGO_FORCE_COLOR=1
 .ci: testverbose
+.ci:
+	@cd $(MAKEFILE_DIR)/internal/gen && $(MAKE) --quiet ci
 
 # Run and colorize verbose tests for CI
 .PHONY: ci
@@ -140,13 +91,6 @@ vet-gen:
 
 .PHONY: vet
 vet: vet-strcase vet-gen
-
-# Install golangci-lint
-bin/golangci-lint:
-	@echo '$(yellow)INFO:$(term-reset) Installing golangci-lint version: $(GOLANGCI_VERSION)'
-	@mkdir -p $(GOBIN)
-	@GOBIN=$(GOBIN) $(GO) install \
-		github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_VERSION)
 
 golangci-lint-gen: override GOLANGCI_EXTRA_FLAGS += --build-tags=gen gen.go
 golangci-lint-gen: override GOLANGCI_SKIP =
@@ -197,3 +141,11 @@ clean:
 	@rm -f cpu*.out mem*.out
 	@rm -rf DATA bin
 	@$(GO) clean -i -cache
+
+# WARN:
+#
+# .PHONY: testgentables
+# testgentables:
+# 	@$(MAKE) --quiet --directory=$(MAKEFILE_DIR)/internal/gentables test
+#
+# include $(MAKEFILE_DIR)/internal/gen/Makefile

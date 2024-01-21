@@ -9,20 +9,18 @@ import (
 	"os/exec"
 	"reflect"
 	"sort"
-	"sync"
 	"syscall"
 	"testing"
 	"unicode"
 
+	"github.com/charlievieth/strcase/internal/gen/util"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 	"golang.org/x/term"
 	"golang.org/x/text/unicode/rangetable"
 )
 
-var initTablesOnce sync.Once
-
-func testInitTables() {
+func TestMain(m *testing.M) {
 	// Tests must run with the same CLDR and Unicode version of the Go
 	// version running the tests. This is because we use the unicode
 	// package to assert that our code is correct.
@@ -32,7 +30,12 @@ func testInitTables() {
 			panic(`The "-` + name + `" flag may not be set for tests.`)
 		}
 	}
-	initTablesOnce.Do(initTables)
+	root, err := util.ProjectRoot()
+	if err != nil {
+		panic(err)
+	}
+	initTables(root)
+	os.Exit(m.Run())
 }
 
 func sortedKeys[M ~map[string]V, V any](m M) []string {
@@ -64,7 +67,7 @@ func diff(t testing.TB, v1, v2 any) {
 
 	// Don't use t.TempDir() since we want to preserve the files so
 	// that users can inspect them on test failure.
-	tmp, err := os.MkdirTemp("", "strcase-*")
+	tmp, err := os.MkdirTemp("", "strcase.*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,8 +110,6 @@ func rangetableEqual(r1, r2 *unicode.RangeTable) bool {
 }
 
 func compareRangeTables(t *testing.T, want, got map[string]*unicode.RangeTable) {
-	testInitTables()
-
 	t.Run("Keys", func(t *testing.T) {
 		k1 := sortedKeys(want)
 		k2 := sortedKeys(got)
@@ -138,13 +139,7 @@ func compareRangeTables(t *testing.T, want, got map[string]*unicode.RangeTable) 
 	})
 }
 
-// NB: Annoyingly the order of tests matter here since we depend on
-// some functions to update global variables. This isn't great, but
-// considering that this is not a library and we execute these funcs
-// in a certain order it's not really a concern.
-
 func TestCategories(t *testing.T) {
-	testInitTables()
 	compareRangeTables(t, unicode.Categories, loadCategoryTables())
 }
 
@@ -155,16 +150,6 @@ func TestScript(t *testing.T) {
 func TestProperty(t *testing.T) {
 	compareRangeTables(t, unicode.Properties, loadScriptOrProperty(true))
 }
-
-// func TestFoldCategory(t *testing.T) {
-// 	categories, _ := loadCasefold()
-// 	compareRangeTables(t, unicode.FoldCategory, categories)
-// }
-
-// func TestFoldScript(t *testing.T) {
-// 	_, scripts := loadCasefold()
-// 	compareRangeTables(t, unicode.FoldScript, scripts)
-// }
 
 func TestLoadCasefold(t *testing.T) {
 	categories, scripts := loadCasefold()
@@ -177,8 +162,6 @@ func TestLoadCasefold(t *testing.T) {
 }
 
 func TestUnicodeCategories(t *testing.T) {
-	testInitTables()
-
 	rangeTable := func(a []map[string]*unicode.RangeTable) *unicode.RangeTable {
 		tabs := make([]*unicode.RangeTable, 0, len(a))
 		for _, m := range a {
@@ -265,7 +248,6 @@ func TestGenerateSpans(t *testing.T) {
 }
 
 func TestGenerateCaseRanges(t *testing.T) {
-	testInitTables()
 	got := caseRanges
 	want := unicode.CaseRanges
 	if !reflect.DeepEqual(got, want) {
@@ -274,7 +256,6 @@ func TestGenerateCaseRanges(t *testing.T) {
 }
 
 func TestToUpperLower(t *testing.T) {
-	testInitTables()
 	for r := rune(0); r <= unicode.MaxRune; r++ {
 		if toLower(r) != unicode.ToLower(r) {
 			t.Errorf("toLower(%U) = %U; want: %U", r, toLower(r), unicode.ToLower(r))
@@ -286,7 +267,6 @@ func TestToUpperLower(t *testing.T) {
 }
 
 func TestSimpleFold(t *testing.T) {
-	testInitTables()
 	for r := rune(0); r <= unicode.MaxRune; r++ {
 		if simpleFold(r) != unicode.SimpleFold(r) {
 			t.Errorf("simpleFold(%[1]q/%[1]U) = %[2]q/%[2]U; want: %[3]q/%[3]U", r,
@@ -295,6 +275,15 @@ func TestSimpleFold(t *testing.T) {
 	}
 }
 
+// WARN: DELETE ME
+// func TestFindModfile(t *testing.T) {
+// 	wd, err := os.Getwd()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	t.Fatal(findModfile(wd, "", "github.com/charlievieth/strcase"))
+// }
+
 /*
 func diff(t testing.TB, v1, v2 any) {
 	if _, err := exec.LookPath("git"); err != nil {
@@ -302,7 +291,7 @@ func diff(t testing.TB, v1, v2 any) {
 		return
 	}
 
-	tmp, err := os.MkdirTemp("", "strcase-*")
+	tmp, err := os.MkdirTemp("", "strcase.*")
 	if err != nil {
 		t.Fatal(err)
 	}

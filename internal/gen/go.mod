@@ -1,12 +1,12 @@
 module github.com/charlievieth/strcase/internal/gen
 
-go 1.18
+go 1.21
 
 require (
-	github.com/charlievieth/strcase v0.0.1
 	github.com/schollz/progressbar/v3 v3.14.1
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
+	golang.org/x/mod v0.14.0
 	golang.org/x/term v0.16.0
 	golang.org/x/text v0.14.0
 )

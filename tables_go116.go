@@ -5,8 +5,21 @@
 
 package strcase
 
+import "unicode"
+
 // UnicodeVersion is the Unicode version from which the tables in this package are derived.
 const UnicodeVersion = "13.0.0"
+
+func init() {
+	// This is essentially a compile time assertion that can only fail if a
+	// future Go release updates the version of Unicode it supports.
+	//
+	// TLDR: https://github.com/charlievieth/strcase/issues
+	if UnicodeVersion != unicode.Version {
+		panic("strcase.UnicodeVersion \"" + UnicodeVersion +
+			"\" != unicode.Version \"" + unicode.Version + "\"")
+	}
+}
 
 const _CaseFoldsSeed = 0x24F847
 const _CaseFoldsShift = 19
@@ -4198,7 +4211,7 @@ func toUpperLowerSpecial(r rune) (rune, rune, bool) {
 	return r, r, false
 }
 
-const _FoldMapSeed = 0x96480000
+const _FoldMapSeed = 0x96480001
 const _FoldMapShift = 24
 
 // _FoldMap stores the Unicode case-folds for characters that have two or more folds.
@@ -4292,7 +4305,7 @@ var _FoldMap = [256][4]uint16{
 	183: {0xA64B, 0x1C88, 0xA64A},         // ['ꙋ' 'ᲈ' 'Ꙋ']
 }
 
-const _FoldMapExcludingUpperLowerSeed = 0x96480000
+const _FoldMapExcludingUpperLowerSeed = 0x96480001
 const _FoldMapExcludingUpperLowerShift = 24
 
 // _FoldMapExcludingUpperLower stores the Unicode case-folds for charactecrs that

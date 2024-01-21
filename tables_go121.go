@@ -5,8 +5,21 @@
 
 package strcase
 
+import "unicode"
+
 // UnicodeVersion is the Unicode version from which the tables in this package are derived.
 const UnicodeVersion = "15.0.0"
+
+func init() {
+	// This is essentially a compile time assertion that can only fail if a
+	// future Go release updates the version of Unicode it supports.
+	//
+	// TLDR: https://github.com/charlievieth/strcase/issues
+	if UnicodeVersion != unicode.Version {
+		panic("strcase.UnicodeVersion \"" + UnicodeVersion +
+			"\" != unicode.Version \"" + unicode.Version + "\"")
+	}
+}
 
 const _CaseFoldsSeed = 0xFFE00C86
 const _CaseFoldsShift = 19

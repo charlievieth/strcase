@@ -7,6 +7,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -14,8 +15,6 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
-	"io"
-	"io/fs"
 	"log"
 	"math"
 	"os"
@@ -33,7 +32,6 @@ import (
 	"unicode"
 
 	"github.com/schollz/progressbar/v3"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"golang.org/x/term"
@@ -41,10 +39,21 @@ import (
 
 	"github.com/charlievieth/strcase/internal/gen/gen"
 	"github.com/charlievieth/strcase/internal/gen/ucd"
+	"github.com/charlievieth/strcase/internal/gen/util"
 )
 
 func init() {
 	initLogs()
+
+	// If $GOMAXPROCS isn't set, use the full capacity of the machine.
+	// For small machines, use at least 4 threads.
+	if os.Getenv("GOMAXPROCS") == "" {
+		n := runtime.NumCPU()
+		if n < 4 {
+			n = 4
+		}
+		runtime.GOMAXPROCS(n)
+	}
 }
 
 func initLogs() {
@@ -64,12 +73,18 @@ func initLogs() {
 
 // TODO: consider renaming the generated tables
 const (
+	MaxChar              = 0x10FFFF
 	caseFoldShift        = 19
 	caseFoldSize         = 8192
 	foldMapShift         = 24
 	foldMapSize          = 256
 	upperLowerTableSize  = 8192
 	upperLowerTableShift = 19
+)
+
+const (
+	GenCookieKey   = "b3d53e54921be5a951563a7e77bfcb1a"
+	GenCookieValue = "c1bbb5805a8c389e0dd50234d5c38cce"
 )
 
 type foldPair struct {
@@ -85,27 +100,11 @@ var (
 	asciiFold  [unicode.MaxASCII + 1]uint16
 )
 
-// isNaN reports whether x is a NaN without requiring the math package.
-// This will always return false if T is not floating-point.
-func isNaN[T constraints.Ordered](x T) bool {
-	return x != x
-}
-
-// cmpCompare is a copy of cmp.Compare from the Go 1.21 release.
-func cmpCompare[T constraints.Ordered](x, y T) int {
-	xNaN := isNaN(x)
-	yNaN := isNaN(y)
-	if xNaN && yNaN {
-		return 0
-	}
-	if xNaN || x < y {
-		return -1
-	}
-	if yNaN || x > y {
-		return +1
-	}
-	return 0
-}
+var (
+	chars   = make([]Char, MaxChar+1)
+	scripts = make(map[string][]rune)
+	props   = make(map[string][]rune) // a property looks like a script; can share the format
+)
 
 // TODO: move
 func loadCaseFolds() {
@@ -118,10 +117,10 @@ func loadCaseFolds() {
 		p1 := p.Rune(0)
 		p2 := p.Rune(2)
 		caseFolds = append(caseFolds, foldPair{uint32(p1), uint32(p2)})
-		chars[p1].foldCase = rune(p2)
+		chars[p1].foldCase = p2
 	})
 	slices.SortFunc(caseFolds, func(a, b foldPair) int {
-		return cmpCompare(a.From, b.From)
+		return cmp.Compare(a.From, b.From)
 	})
 }
 
@@ -130,14 +129,14 @@ var buildTags = map[string]struct{ version, buildTags, filename string }{
 	"15.0.0": {"15.0.0", "go1.21", "tables_go121.go"},
 }
 
-// tablesFile is the names of the file to generate and is based off
+// tablesFileName is the names of the file to generate and is based off
 // of the Go version this program is ran with.
 //
 // WARN: this must be called after command line flags are parsed
-func getTablesFile() string {
+func tablesFileName(dirname string) string {
 	// gen.UnicodeVersion is set by the "-unicode" flag
 	if name := buildTags[gen.UnicodeVersion()].filename; name != "" {
-		return name
+		return filepath.Join(dirname, name)
 	}
 	log.Panicf("unsupported Unicode version %q this script might need "+
 		"to be updated", gen.UnicodeVersion())
@@ -156,7 +155,7 @@ func generateSpans(start, end, delta int64) []span {
 		if end >= maxEnd {
 			end = maxEnd
 		}
-		spans = append(spans, span{Start: int64(i), End: int64(end)})
+		spans = append(spans, span{Start: i, End: end})
 	}
 
 	// Reverse spans since larger values are more likely to be better seeds.
@@ -187,6 +186,11 @@ type HashConfig struct {
 	HashShift uint32 // TODO: this can be calculated from TableSize
 	// TODO: name is confusing with HashShift
 	ShiftHash bool // Use shiftHash instead of hash
+
+	// Use the first valid hash value instead of performing an exhaustive
+	// search to find the "best" hash seed. The seed is not deterministic
+	// and this is only meant for testing since it is much much faster.
+	FirstValidHash bool
 }
 
 var hashSeedCache = map[string]uint32{}
@@ -244,11 +248,20 @@ func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
 
 	// TODO: set GOMAXPROCS to NumCPU ??
 	numProcs := runtime.GOMAXPROCS(0)
+
+	// When FirstValidHash we exit before consuming all spans.
+	done := make(chan struct{})
+	defer close(done)
+
 	ch := make(chan *span, numProcs*2)
 	go func() {
 		spans := generateSpans(1, math.MaxUint32, delta)
 		for i := range spans {
-			ch <- &spans[i]
+			select {
+			case ch <- &spans[i]:
+			case <-done:
+				return
+			}
 		}
 		close(ch)
 	}()
@@ -256,6 +269,7 @@ func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
 	var (
 		bestIndex = int64(math.MaxInt64)
 		bestSeed  uint32
+		foundSeed atomic.Bool
 		mu        sync.Mutex
 		wg        sync.WaitGroup
 	)
@@ -268,6 +282,9 @@ func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
 			defer wg.Done()
 			seen := make([]bool, conf.TableSize)
 			for sp := range ch {
+				if foundSeed.Load() {
+					return
+				}
 				best := atomic.LoadInt64(&bestIndex)
 			Loop:
 				for i := sp.Start; i <= sp.End && best >= int64(len(inputs)); i++ {
@@ -306,6 +323,13 @@ func (conf *HashConfig) GenerateHashValues(inputs []uint32) (hashSeed uint32) {
 						if maxIdx < best {
 							atomic.StoreInt64(&bestIndex, maxIdx)
 							atomic.StoreUint32(&bestSeed, seed)
+
+							// Stop at the first valid has
+							if conf.FirstValidHash && foundSeed.CompareAndSwap(false, true) {
+								log.Println("WARN: -first-valid-hash flag provided: stopping early")
+								mu.Unlock()
+								return
+							}
 						}
 						mu.Unlock()
 					}
@@ -655,8 +679,6 @@ func toLower(r rune) rune {
 	return to(unicode.LowerCase, r, caseRanges)
 }
 
-// WARN: we need CaseRanges - and that is goind to suck to generate
-// WARN: this breaks because we rely on the "unicode" package here
 func folds(sr rune) []rune {
 	r := simpleFold(sr)
 	runes := make([]rune, 1, 2)
@@ -668,7 +690,7 @@ func folds(sr rune) []rune {
 	return runes
 }
 
-func genCaseFolds(w *bytes.Buffer) {
+func genCaseFolds(w *bytes.Buffer, firstValidHash bool) {
 	folds := caseFolds
 	inputs := make([]uint32, len(folds))
 	for i, p := range folds {
@@ -676,9 +698,10 @@ func genCaseFolds(w *bytes.Buffer) {
 	}
 
 	conf := HashConfig{
-		TableName: "_CaseFolds",
-		TableSize: caseFoldSize,
-		HashShift: caseFoldShift,
+		TableName:      "_CaseFolds",
+		TableSize:      caseFoldSize,
+		HashShift:      caseFoldShift,
+		FirstValidHash: firstValidHash,
 	}
 	seed := conf.GenerateHashValues(inputs)
 
@@ -686,7 +709,7 @@ func genCaseFolds(w *bytes.Buffer) {
 	pairs := make([]foldPair, len(folds))
 	copy(pairs, folds)
 	slices.SortFunc(pairs, func(a, b foldPair) int {
-		return cmpCompare(a.From, b.From)
+		return cmp.Compare(a.From, b.From)
 	})
 
 	hashes := make([]foldPair, 0, len(pairs))
@@ -697,7 +720,7 @@ func genCaseFolds(w *bytes.Buffer) {
 		})
 	}
 	slices.SortFunc(hashes, func(a, b foldPair) int {
-		return cmpCompare(a.From, b.From)
+		return cmp.Compare(a.From, b.From)
 	})
 
 	fmt.Fprint(w, "\n")
@@ -722,7 +745,7 @@ func dedupe(r []rune) []rune {
 }
 
 // TODO: consider renaming this table
-func genFoldTable(w *bytes.Buffer) {
+func genFoldTable(w *bytes.Buffer, firstValidHash bool) {
 	runes := make(map[rune][]rune)
 	rangetable.Visit(categories, func(r rune) {
 		ff := folds(r)
@@ -731,11 +754,6 @@ func genFoldTable(w *bytes.Buffer) {
 		}
 		if len(ff) == 1 && toUpper(r) != toLower(r) {
 			runes[r] = append(runes[r], ff...)
-		}
-		// WARN WARN WARN WARN WARN
-		// WARN WARN WARN WARN WARN
-		if len(runes) > 1_000_000 {
-			panic(fmt.Sprintf("fold runes: %d", len(runes)))
 		}
 	})
 	// FIXME: fix the below since we have to work around it in the code
@@ -754,9 +772,10 @@ func genFoldTable(w *bytes.Buffer) {
 	}
 
 	conf := HashConfig{
-		TableName: "_FoldMap",
-		TableSize: foldMapSize,
-		HashShift: foldMapShift,
+		TableName:      "_FoldMap",
+		TableSize:      foldMapSize,
+		HashShift:      foldMapShift,
+		FirstValidHash: firstValidHash,
 	}
 	seed := conf.GenerateHashValues(keys)
 
@@ -775,7 +794,7 @@ func genFoldTable(w *bytes.Buffer) {
 		folds = append(folds, rs)
 	}
 	slices.SortFunc(folds, func(f1, f2 []rune) int {
-		return cmpCompare(f1[0], f2[0])
+		return cmp.Compare(f1[0], f2[0])
 	})
 
 	fmt.Fprint(w, "\n")
@@ -823,7 +842,7 @@ func genFoldTable(w *bytes.Buffer) {
 		noUpperLower = append(noUpperLower, runeSet{uint32(k), [2]rune{a[0], a[1]}})
 	}
 	slices.SortFunc(noUpperLower, func(c1, c2 runeSet) int {
-		return cmpCompare(c1.r, c2.r)
+		return cmp.Compare(c1.r, c2.r)
 	})
 
 	const foldMapExcludingUpperLowerComment = `
@@ -842,7 +861,7 @@ func genFoldTable(w *bytes.Buffer) {
 	fmt.Fprintln(w, "\ta [2]uint16")
 	fmt.Fprintln(w, "}{")
 	for _, c := range noUpperLower {
-		h := hash(uint32(c.r), seed, foldMapShift)
+		h := hash(c.r, seed, foldMapShift)
 		if c.a[0] > math.MaxUint16 {
 			log.Fatalf("rune 0x%04X is larger than MaxUint16 0x%04X", c.a[0], math.MaxUint16)
 		}
@@ -855,7 +874,7 @@ func genFoldTable(w *bytes.Buffer) {
 	fmt.Fprint(w, "}\n\n")
 }
 
-func genUpperLowerTable(w *bytes.Buffer) {
+func genUpperLowerTable(w *bytes.Buffer, firstValidHash bool) {
 	// WARN: attempt to use caseOrbit so that we don't have to handle special
 	// cases with toUpperLowerSpecial.
 
@@ -898,10 +917,11 @@ func genUpperLowerTable(w *bytes.Buffer) {
 	keys = slices.Compact(keys)
 
 	conf := HashConfig{
-		TableName: "_UpperLower",
-		TableSize: upperLowerTableSize,
-		HashShift: upperLowerTableShift,
-		ShiftHash: true,
+		TableName:      "_UpperLower",
+		TableSize:      upperLowerTableSize,
+		HashShift:      upperLowerTableShift,
+		ShiftHash:      true,
+		FirstValidHash: firstValidHash,
 	}
 	seed := conf.GenerateHashValues(keys)
 
@@ -918,7 +938,7 @@ func genUpperLowerTable(w *bytes.Buffer) {
 	fmt.Fprint(w, "}\n\n")
 
 	slices.SortFunc(special, func(c1, c2 Case) int {
-		return cmpCompare(c1.Rune, c2.Rune)
+		return cmp.Compare(c1.Rune, c2.Rune)
 	})
 
 	fmt.Fprintln(w, `
@@ -954,8 +974,9 @@ func init() {
 	w.WriteString(s)
 }
 
-func runCommand(args ...string) {
+func runCommand(dir string, args ...string) {
 	cmd := exec.Command("go", args...)
+	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error:   %v", err)
@@ -971,7 +992,7 @@ func testBuild(tablesFile string, data []byte, skipTests bool) {
 		log.Panic(err)
 	}
 
-	tables := filepath.Join(dir, tablesFile)
+	tables := filepath.Join(dir, filepath.Base(tablesFile))
 	overlay := filepath.Join(dir, "overlay.json")
 
 	type overlayJSON struct {
@@ -980,7 +1001,7 @@ func testBuild(tablesFile string, data []byte, skipTests bool) {
 
 	overlayData, err := json.Marshal(overlayJSON{
 		Replace: map[string]string{
-			tablesFile: tables,
+			filepath.Base(tablesFile): tables,
 		},
 	})
 	if err != nil {
@@ -994,9 +1015,10 @@ func testBuild(tablesFile string, data []byte, skipTests bool) {
 		log.Panic(err)
 	}
 
-	runCommand("build", "-overlay="+overlay)
+	cmdDir := filepath.Dir(tablesFile)
+	runCommand(cmdDir, "build", "-overlay="+overlay)
 	if !skipTests {
-		runCommand("test", "-overlay="+overlay)
+		runCommand(cmdDir, "test", "-overlay="+overlay)
 	}
 
 	os.RemoveAll(dir) // Only remove temp dir if successful
@@ -1021,10 +1043,19 @@ func writeFile(name string, data []byte) {
 		os.Remove(tmp)
 		log.Panic(err)
 	}
-	if err := f.Close(); err != nil {
+	// if err := f.Close(); err != nil {
+	// 	exit(err)
+	// }
+	// if err := os.WriteFile(tmp, data, 0644); err != nil {
+	// 	exit(err)
+	// }
+	if _, err := f.Write(data); err != nil {
 		exit(err)
 	}
-	if err := os.WriteFile(tmp, data, 0644); err != nil {
+	if err := f.Chmod(0644); err != nil {
+		exit(err)
+	}
+	if err := f.Close(); err != nil {
 		exit(err)
 	}
 	if err := os.Rename(tmp, name); err != nil {
@@ -1033,7 +1064,7 @@ func writeFile(name string, data []byte) {
 }
 
 func writeTemp(name string, b []byte) {
-	dir, err := os.MkdirTemp("", "strcase-gen-*")
+	dir, err := os.MkdirTemp("", "strcase.gen.*")
 	if err != nil {
 		log.Panic(err)
 	}
@@ -1044,7 +1075,10 @@ func writeTemp(name string, b []byte) {
 	log.Println("TMPFILE:", path)
 }
 
-func writeGo(w *bytes.Buffer, tablesFile string, buildTags string) {
+// TODO: use gen.CodeWriter
+//
+// writeGo formats the Go source in w and re-writes it back to w.
+func writeGo(w *bytes.Buffer, tablesFile, buildTags string) {
 	data := make([]byte, w.Len())
 	copy(data, w.Bytes())
 	src, err := format.Source(data)
@@ -1058,6 +1092,7 @@ func writeGo(w *bytes.Buffer, tablesFile string, buildTags string) {
 	}
 }
 
+// TODO: where did this come from and rename
 func prefix() string {
 	h := sha256.New()
 	b := make([]byte, 8)
@@ -1079,12 +1114,14 @@ type TableInfo struct {
 }
 
 var tableInfo = TableInfo{
-	TableHashes: make(map[string]uint32),
+	TableHashes: map[string]uint32{},
 }
 
-func readTableInfo() (map[string]TableInfo, error) {
+func readTableInfo(tablesFile string) (map[string]TableInfo, error) {
 	m := make(map[string]TableInfo)
-	data, err := os.ReadFile(".tables.json")
+	// The ".tables.json" file is adjacent to the generated tables file.
+	dir := filepath.Dir(tablesFile)
+	data, err := os.ReadFile(filepath.Join(dir, ".tables.json"))
 	if err != nil {
 		return m, err
 	}
@@ -1095,18 +1132,21 @@ func readTableInfo() (map[string]TableInfo, error) {
 }
 
 // TODO: change this to use the Unicode version instead of the file name
+//
+// Note: loadTableInfo may be an absolute path.
 func loadTableInfo(tablesFile string) {
-	m, err := readTableInfo()
+	m, err := readTableInfo(tablesFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return
 		}
 		log.Panic(err)
 	}
-	tableInfo = m[tablesFile]
+	base := filepath.Base(tablesFile)
+	tableInfo = m[base]
 	// TODO: do we need this intermediary step ??
 	if tableInfo.Filename == "" {
-		tableInfo.Filename = tablesFile
+		tableInfo.Filename = base
 	}
 	if tableInfo.TableHashes == nil {
 		tableInfo.TableHashes = make(map[string]uint32)
@@ -1114,20 +1154,25 @@ func loadTableInfo(tablesFile string) {
 }
 
 func updateTableInfoFile(tablesFile, fileHash, foldHash string) {
-	tableInfo.Filename = tablesFile
+	dir, base := filepath.Split(tablesFile)
+
+	tableInfo.Filename = base
 	tableInfo.UnicodeVersion = gen.UnicodeVersion()
 	tableInfo.CLDRVersion = gen.CLDRVersion()
 	tableInfo.CaseFoldHash = foldHash
 	tableInfo.GenGoHash = fileHash
 
-	m, _ := readTableInfo() // WARN: handle this error
-	m[tablesFile] = tableInfo
+	m, err := readTableInfo(tablesFile)
+	if err != nil && !os.IsNotExist(err) {
+		log.Panic(err)
+	}
+	m[base] = tableInfo
 
 	data, err := json.MarshalIndent(m, "", "    ")
 	if err != nil {
 		log.Panic(err)
 	}
-	writeFile(".tables.json", data)
+	writeFile(filepath.Join(dir, ".tables.json"), data)
 }
 
 func fileExists(name string) bool {
@@ -1163,12 +1208,6 @@ type Char struct {
 	foldCase  rune // simple case folding
 	caseOrbit rune // next in simple case folding orbit
 }
-
-const MaxChar = 0x10FFFF
-
-var chars = make([]Char, MaxChar+1)
-var scripts = make(map[string][]rune)
-var props = make(map[string][]rune) // a property looks like a script; can share the format
 
 func allCategories() []string {
 	a := make([]string, 0, len(category))
@@ -1238,6 +1277,18 @@ func loadCategoryTables() map[string]*unicode.RangeTable {
 	list := allCategories()
 
 	cats := make(map[string]*unicode.RangeTable)
+	//
+	// TODO: do this to optimize dry-run time
+	//
+	// if gen.UnicodeVersion() == unicode.Version {
+	// 	for _, name := range list {
+	// 		if _, ok := unicode.Categories[name]; !ok {
+	// 			log.Fatal("unknown category", name)
+	// 		}
+	// 		cats[name] = unicode.Categories[name]
+	// 	}
+	// 	return cats
+	// }
 	for _, name := range list {
 		if _, ok := category[name]; !ok {
 			log.Fatal("unknown category", name)
@@ -1269,6 +1320,16 @@ func dumpRange(inCategory Op) *unicode.RangeTable {
 
 // PropList.txt has the same format as Scripts.txt so we can share its parser.
 func loadScriptOrProperty(doProps bool) map[string]*unicode.RangeTable {
+
+	// WARN: this causes an error !!
+	//
+	// if gen.UnicodeVersion() == unicode.Version {
+	// 	if doProps {
+	// 		return unicode.Properties
+	// 	}
+	// 	return unicode.Scripts
+	// }
+
 	file := "Scripts.txt"
 	table := scripts
 	if doProps {
@@ -1367,7 +1428,7 @@ func loadCasefold() (foldCategory, foldScript map[string]*unicode.RangeTable) {
 		}
 	}
 
-	return loadCatFold(cat), loadCatFold(scr)
+	return loadCatFold(cat), loadCatFold(scr) // TODO: this takes ~60ms
 }
 
 func loadAsciiFold() {
@@ -1375,11 +1436,12 @@ func loadAsciiFold() {
 		c := chars[i]
 		f := c.caseOrbit
 		if f == 0 {
-			if c.lowerCase != i && c.lowerCase != 0 {
+			switch {
+			case c.lowerCase != i && c.lowerCase != 0:
 				f = c.lowerCase
-			} else if c.upperCase != i && c.upperCase != 0 {
+			case c.upperCase != i && c.upperCase != 0:
 				f = c.upperCase
-			} else {
+			default:
 				f = i
 			}
 		}
@@ -1459,11 +1521,12 @@ func loadCatFold(m map[string]map[rune]bool) map[string]*unicode.RangeTable {
 	return tabs
 }
 
-func initTables() {
+// TODO: move to the top
+func initTables(tablesFile string) {
+	loadTableInfo(tablesFile)
 	loadChars()
-	loadTableInfo(getTablesFile())
-	loadCaseFolds() // download Unicode tables
-	foldCategories, foldScripts := loadCasefold()
+	loadCaseFolds()                               // download Unicode tables
+	foldCategories, foldScripts := loadCasefold() // TODO: this is slow (~200ms)
 
 	cats := []map[string]*unicode.RangeTable{
 		loadCategoryTables(),
@@ -1496,54 +1559,29 @@ func requireFlags(names ...string) {
 	}
 }
 
-// see: `go help list`
-type GoListPackage struct {
-	Dir    string   // directory containing package sources
-	Module struct { // info about package's containing module, if any (can be nil)
-		Dir string // module directory
+func listSourceFiles(dir string) []string {
+	match := func(name string) bool {
+		if name == "go.mod" || name == "go.sum" {
+			return true
+		}
+		if strings.HasSuffix(name, "_test.go") {
+			return false
+		}
+		switch filepath.Ext(name) {
+		case ".go", ".c", ".cc", ".cpp", ".cxx", ".f", ".F", ".f90", ".for",
+			".h", ".hh", ".hpp", ".hxx", ".m", ".s", ".S", ".swig", ".swigcxx",
+			".sx", ".syso":
+			return true
+		}
+		return false
 	}
-	GoFiles           []string // .go source files (excluding CgoFiles, TestGoFiles, XTestGoFiles)
-	CgoFiles          []string // .go source files that import "C"
-	CompiledGoFiles   []string // .go files presented to compiler (when using -compiled)
-	IgnoredGoFiles    []string // .go source files ignored due to build constraints
-	IgnoredOtherFiles []string // non-.go source files ignored due to build constraints
-	CFiles            []string // .c source files
-	CXXFiles          []string // .cc, .cxx and .cpp source files
-	MFiles            []string // .m source files
-	HFiles            []string // .h, .hh, .hpp and .hxx source files
-	FFiles            []string // .f, .F, .for and .f90 Fortran source files
-	SFiles            []string // .s source files
-	SwigFiles         []string // .swig files
-	SwigCXXFiles      []string // .swigcxx files
-}
-
-// TODO: move this to a package
-func runGoListCommand(pkgPath, modFile string) *GoListPackage {
-	cmd := exec.Command("go", "list", "-json", "-modfile", modFile, pkgPath)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Fatalf("error running command %q: %v\n%s",
-			cmd.Args, err, bytes.TrimSpace(out))
-	}
-	var p GoListPackage
-	if err := json.Unmarshal(out, &p); err != nil {
-		log.Fatal(err)
-	}
-	return &p
-}
-
-func projectRoot() string {
-	return runGoListCommand("github.com/charlievieth/strcase/internal/gen/gentables", "").Dir
-}
-
-func listFiles(dir string, match func(d fs.DirEntry) bool) []string {
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
 	}
 	var a []string
 	for _, d := range des {
-		if match(d) {
+		if match(d.Name()) {
 			a = append(a, filepath.Join(dir, d.Name()))
 		}
 	}
@@ -1552,37 +1590,40 @@ func listFiles(dir string, match func(d fs.DirEntry) bool) []string {
 }
 
 func hashGenFiles() string {
-	root := projectRoot()
-	gendir := filepath.Join(root, "internal/gentables")
+	root, err := util.GenTablesRoot()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	files := listFiles(gendir, func(d fs.DirEntry) bool {
-		if d.IsDir() {
-			return false
-		}
-		n := d.Name()
-		return n == "go.mod" || n == "go.sum" || strings.HasSuffix(n, ".go")
-	})
+	files := listSourceFiles(root)
+	if len(files) == 0 {
+		log.Fatal("no go source files in:", root)
+	}
 
 	h := sha256.New()
 	for _, name := range files {
-		fmt.Fprintf(h, "%s\x00", name)
-		f, err := os.Open(name)
+		fmt.Fprintf(h, "%s\x00", filepath.Base(name))
+		data, err := os.ReadFile(name)
 		if err != nil {
 			log.Fatal(err)
 		}
-		_, err = io.Copy(h, f)
-		f.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
-		h.Write([]byte{'\x00', '\x00'})
+		_, _ = h.Write(data)
+		_, _ = h.Write([]byte{'\x00', '\x00'})
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+// TODO: use this
+// var colorizeOutput bool
+
 func realMain() int {
 	initLogs() // Other packages configure logs on init so do it again here
+
+	root, err := util.ProjectRoot()
+	if err != nil {
+		log.Panic(err)
+	}
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [OPTION]...\n",
@@ -1591,7 +1632,7 @@ func realMain() int {
 	}
 
 	// NB(charlie): the "-url", "-iana", "-unicode", and "-cldr" flags are
-	// registered by the github.com/charlievieth/strcase/internal/gen package.
+	// registered by the github.com/charlievieth/strcase/internal/gen/gen package.
 	requireFlags("url", "iana", "unicode", "cldr")
 
 	skipTests := flag.Bool("skip-tests", false, "skip running tests")
@@ -1606,18 +1647,76 @@ func realMain() int {
 	cpuprofile := flag.String("cpuprofile", "",
 		"write cpu profile to `file`\n"+
 			"NOTE: this traps SIGINT.\n"+
-			"  First SIGINT the cpu profile is written to `file`.\n"+
+			"  First SIGINT the cpu profile is written to 'file'.\n"+
 			"  Second SIGINT the program aborts.")
 
-	// WARN: use or remove
-	outputDir := flag.String("dir", ".", "write generated table files to this directory")
+	firstValidHash := flag.Bool("first-valid-hash", false,
+		"use the first valid hash instead of performing an exhaustive search (testing only, much faster)")
+
+	outputDir := flag.String("dir", root, "write generated tables to this directory")
 
 	flag.Parse()
 
-	tablesFile := getTablesFile()
+	// Validate Unicode version flag
+
+	if _, ok := buildTags[gen.UnicodeVersion()]; !ok {
+		supportedVersions := maps.Keys(buildTags)
+		slices.Sort(supportedVersions)
+		log.Printf("The selected Unicode version %q is unsupported. Either the version\n"+
+			"is incorrect or this code needs to updated to handle a new version of Go.\n"+
+			"The supported Unicode versions are: %q.", gen.UnicodeVersion(), supportedVersions)
+		return 1
+	}
+
+	// if os.Getenv(GenCookieKey) != GenCookieValue {
+	// 	sigs := []os.Signal{
+	// 		syscall.SIGABRT,
+	// 		syscall.SIGINT,
+	// 		syscall.SIGQUIT,
+	// 		syscall.SIGSTOP,
+	// 		syscall.SIGTERM,
+	// 		syscall.SIGTSTP,
+	// 		syscall.SIGWINCH,
+	// 	}
+	// 	// FOO
+	// 	ch := make(chan os.Signal)
+	// 	signal.Notify(ch, sigs...)
+	// 	cmd := exec.Command(os.Args[0], os.Args[1:]...)
+	// 	cmd.Stdin = os.Stdin
+	// 	cmd.Stdout = os.Stdout
+	// 	cmd.Stderr = os.Stderr
+	// 	cmd.Env = append(cmd.Environ(), GenCookieKey+"="+GenCookieValue)
+	// 	if err := cmd.Start(); err != nil {
+	// 		log.Panic(err)
+	// 	}
+	// 	go func() {
+	// 		for sig := range ch {
+	// 			if cmd.Process != nil {
+	// 				cmd.Process.Signal(sig)
+	// 			}
+	// 			switch sig {
+	// 			case syscall.SIGABRT, syscall.SIGINT, syscall.SIGQUIT,
+	// 				syscall.SIGSTOP, syscall.SIGTERM, syscall.SIGTSTP:
+	// 				signal.Stop(ch)
+	// 			}
+	// 		}
+	// 	}()
+	// 	if err := cmd.Wait(); err != nil {
+	// 		var ee *exec.ExitError
+	// 		if errors.As(err, &ee) {
+	// 			return ee.ExitCode()
+	// 		}
+	// 		return 1
+	// 	}
+	// 	return 0
+	// }
+
+	tablesFile := tablesFileName(*outputDir)
 	// Use the Unicode version as the log prefix since we invoke this program
 	// multiple times with different versions.
 	log.SetPrefix("(" + gen.UnicodeVersion() + ") ")
+
+	log.Println("Tables file:", tablesFile)
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -1644,28 +1743,20 @@ func realMain() int {
 	// WARN: remove if not used
 	if !*updateGenHash && *outputDir != "." {
 		if err := os.MkdirAll(*outputDir, 0755); err != nil {
-			log.Fatal(err)
+			log.Println("error:", err)
+			return 1
 		}
-	}
-
-	// Validate Unicode version flag
-
-	if _, ok := buildTags[gen.UnicodeVersion()]; !ok {
-		supportedVersions := maps.Keys(buildTags)
-		slices.Sort(supportedVersions)
-		log.Fatalf("The selected Unicode version %q is unsupported. Either the version\n"+
-			"is incorrect or this code needs to updated to handle a new version of Go.\n"+
-			"The supported Unicode versions are: %q.", gen.UnicodeVersion(), supportedVersions)
 	}
 
 	buildTags := buildTags[gen.UnicodeVersion()].buildTags
 	if buildTags == "" {
-		log.Fatalf("missing build tags for unicode version: %q", gen.UnicodeVersion())
+		log.Printf("missing build tags for unicode version: %q", gen.UnicodeVersion())
+		return 1
 	}
 
 	// loadTableInfo() // WARN
 	// loadCaseFolds() // download Unicode tables // WARN
-	initTables()
+	initTables(tablesFile)
 	// log.Panic("HASH:", os.Args[0])
 	// WARN: need to make sure we hash this file and not the binary.
 	fileHash := hashGenFiles() // hash gentables source files
@@ -1725,6 +1816,7 @@ func realMain() int {
 		return a
 	}
 
+	// TODO: print a relative path
 	log.Printf("gen: would update "+tablesFile+" due to the following changes:\n"+
 		"    unicode_version: %s   => %s\n"+
 		"    cldr_version:    %s       => %s\n"+
@@ -1757,9 +1849,9 @@ func realMain() int {
 
 		writeInitGuard(&w)
 
-		genCaseFolds(&w)
-		genUpperLowerTable(&w)
-		genFoldTable(&w)
+		genCaseFolds(&w, *firstValidHash)
+		genUpperLowerTable(&w, *firstValidHash)
+		genFoldTable(&w, *firstValidHash)
 
 		writeGo(&w, tablesFile, buildTags)
 		if *skipBuild {
