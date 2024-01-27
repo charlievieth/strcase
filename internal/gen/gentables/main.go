@@ -516,6 +516,10 @@ func getCaseState(i rune) (c *caseState) {
 //
 // TODO: fixup the above comment.
 func generateCaseRanges() []unicode.CaseRange {
+	if gen.UnicodeVersion() == unicode.Version {
+		return unicode.CaseRanges
+	}
+	// The requested Unicode version does not match the stdlibs
 	var (
 		cases      []unicode.CaseRange
 		startState *caseState     // the start of a run; nil for not active
@@ -1275,20 +1279,19 @@ func loadCategoryTables() map[string]*unicode.RangeTable {
 	}
 
 	list := allCategories()
+	cats := make(map[string]*unicode.RangeTable, len(list))
 
-	cats := make(map[string]*unicode.RangeTable)
-	//
-	// TODO: do this to optimize dry-run time
-	//
-	// if gen.UnicodeVersion() == unicode.Version {
-	// 	for _, name := range list {
-	// 		if _, ok := unicode.Categories[name]; !ok {
-	// 			log.Fatal("unknown category", name)
-	// 		}
-	// 		cats[name] = unicode.Categories[name]
-	// 	}
-	// 	return cats
-	// }
+	// Avoid calculating these tables if possible
+	if gen.UnicodeVersion() == unicode.Version {
+		for _, name := range list {
+			if _, ok := unicode.Categories[name]; !ok {
+				log.Fatal("unknown category", name)
+			}
+			cats[name] = unicode.Categories[name]
+		}
+		return cats
+	}
+
 	for _, name := range list {
 		if _, ok := category[name]; !ok {
 			log.Fatal("unknown category", name)
@@ -1320,15 +1323,12 @@ func dumpRange(inCategory Op) *unicode.RangeTable {
 
 // PropList.txt has the same format as Scripts.txt so we can share its parser.
 func loadScriptOrProperty(doProps bool) map[string]*unicode.RangeTable {
-
-	// WARN: this causes an error !!
-	//
-	// if gen.UnicodeVersion() == unicode.Version {
-	// 	if doProps {
-	// 		return unicode.Properties
-	// 	}
-	// 	return unicode.Scripts
-	// }
+	if gen.UnicodeVersion() == unicode.Version {
+		if doProps {
+			return unicode.Properties
+		}
+		return unicode.Scripts
+	}
 
 	file := "Scripts.txt"
 	table := scripts
@@ -1410,6 +1410,11 @@ func loadCasefold() (foldCategory, foldScript map[string]*unicode.RangeTable) {
 
 	loadAsciiFold()
 	loadCaseOrbit()
+
+	// Fast exit if we don't need to recalculate these tables.
+	if gen.UnicodeVersion() == unicode.Version {
+		return unicode.FoldCategory, unicode.FoldScript
+	}
 
 	// Tables of category and script folding exceptions: code points
 	// that must be added when interpreting a particular category/script
