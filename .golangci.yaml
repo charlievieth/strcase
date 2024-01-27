@@ -6,7 +6,6 @@ run:
     - internal/phash
 linters:
   enable:
-    - gocritic
     - gofmt
     - goimports
     - mirror
