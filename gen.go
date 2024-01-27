@@ -72,7 +72,7 @@ var projectRoot = sync.OnceValue(func() string {
 	return root
 })
 
-func buildGen() string {
+var buildGen = sync.OnceValue(func() string {
 	root := projectRoot()
 
 	// Create "bin" directory
@@ -110,28 +110,46 @@ func buildGen() string {
 		log.Fatalf("error running command %q: %v", cmd.Args, err)
 	}
 	return exe
+})
+
+func genCmd(args ...string) int {
+	root := projectRoot()
+	cmd := exec.Command(buildGen(), args...)
+	cmd.Dir = root
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Printf("error running command %q: %v", cmd.Args, err)
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return ee.ExitCode()
+		}
+		return 3
+	}
+	return 0
+}
+
+func usage() {
+	const msg = "Usage: %[1]s [GENTABLES OPTION...]\n" +
+		"\n" +
+		"%[1]s is a wrapper for running the generation tool internal/gen/gentables.\n" +
+		"It builds internal/gen/gentables then runs it for each supported Unicode version\n" +
+		"with the provided args (which are passed to gentables directly)."
+	fmt.Fprintf(os.Stderr, msg, filepath.Base(os.Args[0]))
+	os.Exit(1)
 }
 
 func realMain(args []string) int {
-	root := projectRoot()
-
-	exe := buildGen()
-
+	if len(args) == 0 {
+		usage()
+	}
+	var exitcode int
 	// TODO: supporting Unicode version 12.0.0 is annoying since arm64 support
 	// is lacking on Go 1.15 and below.
-	var exitcode int
 	for _, version := range []string{"13.0.0", "15.0.0"} {
-		cmd := exec.Command(exe, append([]string{"-unicode", version}, args...)...)
-		cmd.Dir = root
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			log.Printf("error running command %q: %v", cmd.Args, err)
-			var ee *exec.ExitError
-			if errors.As(err, &ee) {
-				return ee.ExitCode()
-			}
-			return 3
+		code := genCmd(append([]string{"-unicode", version}, args...)...)
+		if exitcode == 0 {
+			exitcode = code
 		}
 	}
 	return exitcode
