@@ -1662,6 +1662,11 @@ func realMain() int {
 
 	flag.Parse()
 
+	if flag.NArg() != 0 {
+		flag.Usage()
+		return 1
+	}
+
 	// Validate Unicode version flag
 
 	if _, ok := buildTags[gen.UnicodeVersion()]; !ok {
