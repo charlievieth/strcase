@@ -152,7 +152,7 @@ func randRune(rr *rand.Rand) (r rune) {
 		// TODO: is this correct?
 		return foldableRunes[rr.Intn(len(foldableRunes))]
 	case f <= 0.75:
-		return rune(rr.Int31n(unicode.MaxRune)) // may be invalid
+		return rr.Int31n(unicode.MaxRune) // may be invalid
 	default:
 		return rune(randASCII(rr))
 	}
@@ -216,15 +216,16 @@ func TestInvalidRune(t *testing.T) {
 	}
 }
 
+// TODO: use a randomly shuffled slice of all runes?
 func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
-	if cap(rs) < n {
+	if rs == nil || cap(rs) < n {
 		rs = make([]rune, n)
 	} else {
 		rs = rs[:n]
 	}
 	if *invalidRunes {
 		for i := range rs {
-			rs[i] = rune(rr.Int31n(unicode.MaxRune))
+			rs[i] = rr.Int31n(unicode.MaxRune)
 		}
 		// Add an invalid rune half of the time
 		if i := rr.Intn(len(rs)*2 + 1); i < len(rs) {
