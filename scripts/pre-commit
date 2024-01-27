@@ -3,7 +3,12 @@
 set -eu
 
 # Check if 'go generate' needs to be run.
-# TODO: check if .tables.json is not staged.
+
+# TODO: see if we can only run this against the Unicode version native to
+# the installed version of Go since that takes around ~40ms compared to
+# ~450ms when we have to generate all the tables for the non-native version.
+
+FILES='^(gen\.go|tables_\w+\.go|internal/gen/gentables/main\.go|)$'
 
 ERROR=Error
 if [ -t 1 ]; then
@@ -21,30 +26,32 @@ fi
 exec 1>&2
 
 if git diff --cached --name-only --diff-filter=M -z "${against}" |
-    \grep --null --quiet '^gen\.go$'; then
+    \grep --null --quiet --extended-regexp "${FILES}"; then
 
     # Project root
-    root="$(go list -f '{{.Dir}}' github.com/charlievieth/strcase)"
+    root="$(git rev-parse --show-toplevel)"
     exit_code=0
 
-    if ! go run "${root}/gen.go" -dry-run >/dev/null 2>&1; then
-        echo "${ERROR}: Cannot commit changes to \"gen.go\" without re-running \`go generate\`."
+    [ -d "${root}/bin" ] || mkdir -p "${root}/bin"
+    GOBIN="${root}/bin" go install "${root}/gen.go"
+
+    if ! "${root}/bin/gen" -dry-run >/dev/null 2>&1; then
+        echo "${ERROR}: Cannot commit changes without re-running \`go generate\`."
         echo ''
         echo 'This will cause failures in CI.'
         echo ''
-        echo "Output of \`go run ${root}/gen.go -dry-run\`:"
+        echo "Output of \`go run ${root}/bin/gen -dry-run\`:"
         echo ''
         echo '################################################################################'
-        go run "${root}/gen.go" -dry-run || true
+        "${root}/bin/gen" -dry-run || true
         echo '################################################################################'
 
         exit_code=1
     fi
 
-    # Changes to gen.go changes .tables.json so they should always be
-    # committed together.
-    if ! git diff --cached --name-only --diff-filter=M -z HEAD |
-        \grep --null --quiet '^\.tables\.json$'; then
+    # Make sure changes to generation code and the .tables.json are coordinated.
+    if ! git diff --cached --name-only --diff-filter=M -z "${against}" |
+        \grep --null --quiet --extended-regexp '^\.tables\.json$'; then
 
         if [ $exit_code -ne 0 ]; then
             echo '' # Add a new line to separate this error from the prior one
