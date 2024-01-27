@@ -8,7 +8,7 @@ set -eu
 # the installed version of Go since that takes around ~40ms compared to
 # ~450ms when we have to generate all the tables for the non-native version.
 
-FILES='^(gen\.go|tables_\w+\.go|internal/gen/gentables/main\.go|)$'
+FILES='^(tables_\w+\.go|internal/gen/gentables/main\.go|)$'
 
 ERROR=Error
 if [ -t 1 ]; then
