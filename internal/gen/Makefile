@@ -1,12 +1,15 @@
 # vim: ts=4 sw=4
 
+MAKEFILE_PATH := $(realpath $(lastword $(MAKEFILE_LIST)))
+MAKEFILE_DIR  := $(abspath $(dir $(MAKEFILE_PATH)))
+
 # Run tests and linters. If this passes then CI tests
 # should also pass.
 .PHONY: all
 all: test lint
 
 # Common variables
-include ../../common.mk
+include $(MAKEFILE_DIR)/../../common.mk
 
 GEN_GOLANGCI_FLAGS ?= $(GOLANGCI_FLAGS) --skip-dirs='^(gen|ucd)$$'
 

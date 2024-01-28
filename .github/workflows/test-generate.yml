@@ -38,8 +38,8 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Test Generate
-        run: make testgenerate
+      - name: Test
+        run: make ci
 
       - name: Vet
         run: make vet
