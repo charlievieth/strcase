@@ -70,6 +70,7 @@ testall: exhaustive testskipped testgenerate testgenpkg
 # Run and colorize verbose tests for CI
 .PHONY: ci
 ci: bin/richgo
+ci: vet
 ci: .ci
 
 # Calibrate brute-force cutover
