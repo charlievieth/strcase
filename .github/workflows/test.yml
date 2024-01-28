@@ -16,14 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         name: Cache unicode
         with:
           path: DATA
           key: ${{ runner.os }}-data-${{ hashFiles('**/*.txt') }}
 
       # Cache richgo and golangci-lint
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         name: Cache bin
         with:
           path: bin
