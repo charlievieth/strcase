@@ -26,4 +26,3 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
-          args: --sort-results --skip-dirs='/(gen|phash)($|/)' --enable=misspell,goimports,gofmt,gocheckcompilerdirectives
