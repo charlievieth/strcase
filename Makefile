@@ -66,8 +66,6 @@ testall: exhaustive testskipped testgenerate testgenpkg
 .ci: GO = $(RICHGO_TARGET)
 .ci: export RICHGO_FORCE_COLOR=1
 .ci: testverbose
-.ci:
-	@cd $(MAKEFILE_DIR)/internal/gen && $(MAKE) --quiet ci
 
 # Run and colorize verbose tests for CI
 .PHONY: ci

@@ -1,5 +1,5 @@
 ---
-name: Test
+name: Test Generate
 
 on:
   push:
@@ -10,9 +10,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./internal/gen
     strategy:
       matrix:
-        go-version: ['1.19', '1.20', '1.21.x']
+        go-version: ['1.21.x']
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +29,7 @@ jobs:
       - uses: actions/cache@v4
         name: Cache bin
         with:
-          path: bin
+          path: ${{ github.workspace }}/bin
           # The Makefile sets the version of richgo and golangci-lint
           key: ${{ runner.os }}-bin-${{ hashFiles('${{ github.workspace }}/common.mk') }}
 
