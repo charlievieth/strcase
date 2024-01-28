@@ -32,17 +32,23 @@ justifies the allocation.
 ## Development Environment Setup
 
 Run `make pre-commit` to install a git pre-commit hook that checks if either
-[gen.go](./gen.go) or [.tables.json](./.tables.json) are out of date.
-Any change to [gen.go](./gen.go) requires the code generation to be re-run (`go
-generate`) and the resulting changes to [.tables.json](./.tables.json) to be
-committed along side any changes to [gen.go](./gen.go).
-The [.tables.json](./.tables.json) stores a hash of the [gen.go](./gen.go) file
-so that we don't accidentally change hash table generation logic without also
-re-running the generation code (this may change in a future release since
-re-generating the hash tables is slow).
+[internal/gen/gentables/main.go](./internal/gen/gentables/main.go) or
+[.tables.json](./.tables.json) are out of date. Any change to
+`internal/gen/gentables` requires the code generation to be re-run (`go
+generate`) and the resulting changes to `.tables.json` to be committed along
+side any changes to `internal/gen/gentables`. The `.tables.json` stores a hash
+of the `internal/gen/gentables` Go files so that we don't accidentally change
+hash table generation logic without also re-running the generation code (this
+may change in a future release since re-generating the hash tables is slow).
 
 The `testgenerate` make target can be used to check if `go generate` needs to
 be ran.
+
+**NOTE:** The [gen.go](./gen.go) is a wrapper that can be used to run the
+generation code for all supported Unicode version and is what the Makefile
+uses. It exists because `internal/gen` is a separate module and it handles
+the building of the generate binary. This was done to prevent the separate
+the generate dependencies from the strcase dependencies.
 
 ## Running Tests
 
@@ -51,6 +57,9 @@ This will run all the tests, perform a more exhaustive fuzz test, and
 lint the code.
 
 During development running `go test` is generally sufficient.
+
+If working on the generation code the [internal/gen/Makefile](./internal/gen/Makefile)
+can be used.
 
 ## Running Benchmarks
 
