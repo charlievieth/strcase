@@ -25,6 +25,38 @@ func isStrcaseModule(name string) (bool, error) {
 	return modRe.Match(data), nil
 }
 
+// sync.OnceValue from go.1.21 copied here for backwards compatibility.
+//
+// onceValue returns a function that invokes f only once and returns the value
+// returned by f. The returned function may be called concurrently.
+//
+// If f panics, the returned function will panic with the same value on every call.
+func onceValue[T any](f func() T) func() T {
+	var (
+		once   sync.Once
+		valid  bool
+		p      any
+		result T
+	)
+	g := func() {
+		defer func() {
+			p = recover()
+			if !valid {
+				panic(p)
+			}
+		}()
+		result = f()
+		valid = true
+	}
+	return func() T {
+		once.Do(g)
+		if !valid {
+			panic(p)
+		}
+		return result
+	}
+}
+
 func findModfile(child string) (string, error) {
 	const pkg = "github.com/charlievieth/strcase"
 	if !filepath.IsAbs(child) {
@@ -60,7 +92,7 @@ func findModfile(child string) (string, error) {
 		"in directory: %q", pkg, child)
 }
 
-var projectRoot = sync.OnceValue(func() string {
+var projectRoot = onceValue(func() string {
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Panic(err)
@@ -72,7 +104,7 @@ var projectRoot = sync.OnceValue(func() string {
 	return root
 })
 
-var buildGen = sync.OnceValue(func() string {
+var buildGen = onceValue(func() string {
 	root := projectRoot()
 
 	// Create "bin" directory
