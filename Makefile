@@ -10,8 +10,8 @@ all: install test vet golangci-lint testgenerate
 # Install pre-commit hooks and download modules
 .PHONY: install
 install: pre-commit
-	@go mod download
-	@go install
+	@$(GO) mod download
+	@$(GO) install
 
 # TODO: I don't think we need/want override here
 
@@ -140,11 +140,3 @@ clean:
 	@rm -f cpu*.out mem*.out
 	@rm -rf DATA bin
 	@$(GO) clean -i -cache
-
-# WARN:
-#
-# .PHONY: testgentables
-# testgentables:
-# 	@$(MAKE) --quiet --directory=$(MAKEFILE_DIR)/internal/gentables test
-#
-# include $(MAKEFILE_DIR)/internal/gen/Makefile
