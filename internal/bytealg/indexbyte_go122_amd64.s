@@ -1,4 +1,5 @@
-//go:build go1.22
+//go:build amd64 && go1.22
+// +build amd64,go1.22
 
 // Copyright 2023 Charlie Vieth. All rights reserved.
 // Use of this source code is governed by the MIT license.
@@ -89,6 +90,7 @@ sse:
 	JMP  sseloopentry
 
 	PCALIGN $16
+
 sseloop:
 	// Move the next 16-byte chunk of the data into X1.
 	MOVOU (DI), X1
@@ -178,14 +180,14 @@ avx2:
 
 #endif
 	// Create a mask in Y4 that converts text to upper case.
-	MOVD         CX, X0 // 32 (space ' ') already stored in CX
-	VPBROADCASTB X0, Y4
+	VPBROADCASTB X2, Y4 // space ' ' already stored in X2
 
 	MOVD         AX, X0
 	LEAQ         -32(SI)(BX*1), R11
 	VPBROADCASTB X0, Y1
 
 	PCALIGN $32
+
 avx2_loop:
 	VMOVDQU  (DI), Y2
 	VPOR     Y4, Y2, Y2  // Convert data to lowercase
@@ -242,6 +244,7 @@ sse:
 	JMP  sseloopentry
 
 	PCALIGN $16
+
 sseloop:
 	// Move the next 16-byte chunk of the data into X1.
 	MOVOU (DI), X1
@@ -329,6 +332,7 @@ avx2:
 	VPBROADCASTB X0, Y1
 
 	PCALIGN $32
+
 avx2_loop:
 	VMOVDQU  (DI), Y2
 	VPCMPEQB Y1, Y2, Y3

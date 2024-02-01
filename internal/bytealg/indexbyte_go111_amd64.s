@@ -1,4 +1,5 @@
-//go:build !go1.22
+//go:build amd64 && !go1.22
+// +build amd64,!go1.22
 
 // Copyright 2023 Charlie Vieth. All rights reserved.
 // Use of this source code is governed by the MIT license.
@@ -177,8 +178,7 @@ avx2:
 
 #endif
 	// Create a mask in Y4 that converts text to upper case.
-	MOVD         CX, X0 // 32 (space ' ') already stored in CX
-	VPBROADCASTB X0, Y4
+	VPBROADCASTB X2, Y4 // space ' ' already stored in X2
 
 	MOVD         AX, X0
 	LEAQ         -32(SI)(BX*1), R11
