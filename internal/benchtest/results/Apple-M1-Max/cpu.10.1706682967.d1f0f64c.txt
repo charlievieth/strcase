@@ -1,0 +1,2 @@
+machdep.cpu.core_count: 10
+machdep.cpu.brand_string: Apple M1 Max

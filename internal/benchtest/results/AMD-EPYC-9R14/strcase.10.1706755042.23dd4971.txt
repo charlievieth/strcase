@@ -1,0 +1,1376 @@
+goos: linux
+goarch: amd64
+pkg: github.com/charlievieth/strcase/internal/benchtest
+cpu: AMD EPYC 9R14
+BenchmarkIndexRune-4                 	98197036	        12.21 ns/op
+BenchmarkIndexRune-4                 	98176148	        12.21 ns/op
+BenchmarkIndexRune-4                 	98289451	        12.21 ns/op
+BenchmarkIndexRune-4                 	98196795	        12.21 ns/op
+BenchmarkIndexRune-4                 	98359704	        12.21 ns/op
+BenchmarkIndexRune-4                 	98170044	        12.21 ns/op
+BenchmarkIndexRune-4                 	98267317	        12.21 ns/op
+BenchmarkIndexRune-4                 	98236105	        12.21 ns/op
+BenchmarkIndexRune-4                 	98298067	        12.21 ns/op
+BenchmarkIndexRune-4                 	98160649	        12.21 ns/op
+BenchmarkIndexRuneLongString-4       	90188260	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	90156549	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	90250263	        13.30 ns/op
+BenchmarkIndexRuneLongString-4       	90123310	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	90200402	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	90296306	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	89936475	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	90200937	        13.29 ns/op
+BenchmarkIndexRuneLongString-4       	89939036	        13.30 ns/op
+BenchmarkIndexRuneLongString-4       	90093532	        13.29 ns/op
+BenchmarkIndexRuneFastPath-4         	210656074	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210634692	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210603517	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210628436	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210622214	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210598110	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210644475	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210648882	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210632650	         5.697 ns/op
+BenchmarkIndexRuneFastPath-4         	210632827	         5.697 ns/op
+BenchmarkIndex-4                     	185079237	         5.968 ns/op
+BenchmarkIndex-4                     	194250036	         5.968 ns/op
+BenchmarkIndex-4                     	201073092	         5.968 ns/op
+BenchmarkIndex-4                     	196889498	         5.968 ns/op
+BenchmarkIndex-4                     	201070063	         5.968 ns/op
+BenchmarkIndex-4                     	198300292	         5.968 ns/op
+BenchmarkIndex-4                     	201088867	         5.968 ns/op
+BenchmarkIndex-4                     	198118555	         5.968 ns/op
+BenchmarkIndex-4                     	201053714	         5.968 ns/op
+BenchmarkIndex-4                     	201061387	         5.968 ns/op
+BenchmarkLastIndex-4                 	233144245	         5.152 ns/op
+BenchmarkLastIndex-4                 	233199738	         5.151 ns/op
+BenchmarkLastIndex-4                 	233237676	         5.150 ns/op
+BenchmarkLastIndex-4                 	233319240	         5.149 ns/op
+BenchmarkLastIndex-4                 	233144806	         5.342 ns/op
+BenchmarkLastIndex-4                 	232849584	         5.149 ns/op
+BenchmarkLastIndex-4                 	233284898	         5.149 ns/op
+BenchmarkLastIndex-4                 	233127024	         5.147 ns/op
+BenchmarkLastIndex-4                 	234244507	         5.145 ns/op
+BenchmarkLastIndex-4                 	233239914	         5.150 ns/op
+BenchmarkIndexByte-4                 	260870520	         4.341 ns/op
+BenchmarkIndexByte-4                 	276460458	         4.340 ns/op
+BenchmarkIndexByte-4                 	276426781	         4.340 ns/op
+BenchmarkIndexByte-4                 	276493200	         4.341 ns/op
+BenchmarkIndexByte-4                 	276496058	         4.612 ns/op
+BenchmarkIndexByte-4                 	276462577	         4.341 ns/op
+BenchmarkIndexByte-4                 	260564590	         4.341 ns/op
+BenchmarkIndexByte-4                 	260802861	         4.340 ns/op
+BenchmarkIndexByte-4                 	276434504	         4.340 ns/op
+BenchmarkIndexByte-4                 	260214231	         4.340 ns/op
+BenchmarkEqualFold/ASCII-4           	142516719	         8.365 ns/op
+BenchmarkEqualFold/ASCII-4           	142335938	         8.442 ns/op
+BenchmarkEqualFold/ASCII-4           	143833706	         8.376 ns/op
+BenchmarkEqualFold/ASCII-4           	131251072	         8.308 ns/op
+BenchmarkEqualFold/ASCII-4           	142621234	         8.370 ns/op
+BenchmarkEqualFold/ASCII-4           	142459767	         8.327 ns/op
+BenchmarkEqualFold/ASCII-4           	141648291	         8.373 ns/op
+BenchmarkEqualFold/ASCII-4           	142770993	         8.416 ns/op
+BenchmarkEqualFold/ASCII-4           	143545736	         8.308 ns/op
+BenchmarkEqualFold/ASCII-4           	145532144	         8.382 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	34991097	        34.14 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35390152	        34.04 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35361224	        34.06 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	34969449	        34.05 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35367799	        34.05 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35171444	        34.08 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35261130	        34.06 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35393096	        34.14 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35360410	        34.04 ns/op
+BenchmarkEqualFold/UnicodePrefix-4   	35317575	        34.10 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45179480	        26.43 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45330760	        26.45 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45412623	        26.45 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45342459	        26.45 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45349725	        26.43 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45382311	        26.47 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45348250	        26.47 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45315373	        26.44 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45327046	        26.43 ns/op
+BenchmarkEqualFold/UnicodeSuffix-4   	45351595	        26.45 ns/op
+BenchmarkIndexHard1-4                	   14709	     81537 ns/op
+BenchmarkIndexHard1-4                	   14708	     81557 ns/op
+BenchmarkIndexHard1-4                	   14709	     81605 ns/op
+BenchmarkIndexHard1-4                	   14704	     81592 ns/op
+BenchmarkIndexHard1-4                	   14706	     81597 ns/op
+BenchmarkIndexHard1-4                	   14708	     81588 ns/op
+BenchmarkIndexHard1-4                	   14708	     81588 ns/op
+BenchmarkIndexHard1-4                	   14707	     81596 ns/op
+BenchmarkIndexHard1-4                	   14706	     81596 ns/op
+BenchmarkIndexHard1-4                	   14706	     81588 ns/op
+BenchmarkIndexHard2-4                	     468	   2558066 ns/op
+BenchmarkIndexHard2-4                	     469	   2547304 ns/op
+BenchmarkIndexHard2-4                	     472	   2559498 ns/op
+BenchmarkIndexHard2-4                	     464	   2560057 ns/op
+BenchmarkIndexHard2-4                	     469	   2556080 ns/op
+BenchmarkIndexHard2-4                	     472	   2534129 ns/op
+BenchmarkIndexHard2-4                	     464	   2533875 ns/op
+BenchmarkIndexHard2-4                	     464	   2534006 ns/op
+BenchmarkIndexHard2-4                	     471	   2534048 ns/op
+BenchmarkIndexHard2-4                	     469	   2558162 ns/op
+BenchmarkIndexHard3-4                	     566	   2095726 ns/op
+BenchmarkIndexHard3-4                	     566	   2095455 ns/op
+BenchmarkIndexHard3-4                	     566	   2095968 ns/op
+BenchmarkIndexHard3-4                	     566	   2094793 ns/op
+BenchmarkIndexHard3-4                	     566	   2128310 ns/op
+BenchmarkIndexHard3-4                	     567	   2094055 ns/op
+BenchmarkIndexHard3-4                	     566	   2094560 ns/op
+BenchmarkIndexHard3-4                	     566	   2093850 ns/op
+BenchmarkIndexHard3-4                	     568	   2094009 ns/op
+BenchmarkIndexHard3-4                	     566	   2105467 ns/op
+BenchmarkIndexHard4-4                	     784	   1509537 ns/op
+BenchmarkIndexHard4-4                	     784	   1509647 ns/op
+BenchmarkIndexHard4-4                	     784	   1513766 ns/op
+BenchmarkIndexHard4-4                	     784	   1509645 ns/op
+BenchmarkIndexHard4-4                	     784	   1509651 ns/op
+BenchmarkIndexHard4-4                	     784	   1509565 ns/op
+BenchmarkIndexHard4-4                	     784	   1509603 ns/op
+BenchmarkIndexHard4-4                	     784	   1509545 ns/op
+BenchmarkIndexHard4-4                	     784	   1509766 ns/op
+BenchmarkIndexHard4-4                	     784	   1509466 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663198 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663254 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663194 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663244 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663352 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663177 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663242 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663337 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663297 ns/op
+BenchmarkLastIndexHard1-4            	     709	   1663184 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663318 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663240 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663314 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663575 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663393 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663302 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663467 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663254 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663383 ns/op
+BenchmarkLastIndexHard2-4            	     709	   1663246 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663851 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1664013 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663943 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663928 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663850 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663850 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663841 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663883 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663958 ns/op
+BenchmarkLastIndexHard3-4            	     709	   1663902 ns/op
+BenchmarkCountHard1-4                	   14706	     81582 ns/op
+BenchmarkCountHard1-4                	   14707	     81578 ns/op
+BenchmarkCountHard1-4                	   14706	     81581 ns/op
+BenchmarkCountHard1-4                	   14708	     81565 ns/op
+BenchmarkCountHard1-4                	   14709	     81597 ns/op
+BenchmarkCountHard1-4                	   14703	     81600 ns/op
+BenchmarkCountHard1-4                	   14703	     81598 ns/op
+BenchmarkCountHard1-4                	   14704	     81600 ns/op
+BenchmarkCountHard1-4                	   14704	     81596 ns/op
+BenchmarkCountHard1-4                	   14703	     81602 ns/op
+BenchmarkCountHard2-4                	     463	   2558968 ns/op
+BenchmarkCountHard2-4                	     464	   2534888 ns/op
+BenchmarkCountHard2-4                	     470	   2558387 ns/op
+BenchmarkCountHard2-4                	     465	   2534088 ns/op
+BenchmarkCountHard2-4                	     468	   2537633 ns/op
+BenchmarkCountHard2-4                	     469	   2536981 ns/op
+BenchmarkCountHard2-4                	     470	   2536371 ns/op
+BenchmarkCountHard2-4                	     465	   2533748 ns/op
+BenchmarkCountHard2-4                	     468	   2536249 ns/op
+BenchmarkCountHard2-4                	     470	   2565498 ns/op
+BenchmarkCountHard3-4                	     567	   2092976 ns/op
+BenchmarkCountHard3-4                	     567	   2093489 ns/op
+BenchmarkCountHard3-4                	     566	   2090789 ns/op
+BenchmarkCountHard3-4                	     567	   2092675 ns/op
+BenchmarkCountHard3-4                	     566	   2094184 ns/op
+BenchmarkCountHard3-4                	     558	   2116446 ns/op
+BenchmarkCountHard3-4                	     566	   2093611 ns/op
+BenchmarkCountHard3-4                	     567	   2096007 ns/op
+BenchmarkCountHard3-4                	     567	   2090746 ns/op
+BenchmarkCountHard3-4                	     567	   2091497 ns/op
+BenchmarkIndexTorture-4              	   59653	     20131 ns/op
+BenchmarkIndexTorture-4              	   59642	     20133 ns/op
+BenchmarkIndexTorture-4              	   59666	     20132 ns/op
+BenchmarkIndexTorture-4              	   59613	     20130 ns/op
+BenchmarkIndexTorture-4              	   59611	     20127 ns/op
+BenchmarkIndexTorture-4              	   59617	     20129 ns/op
+BenchmarkIndexTorture-4              	   59601	     20130 ns/op
+BenchmarkIndexTorture-4              	   59649	     20131 ns/op
+BenchmarkIndexTorture-4              	   59632	     20122 ns/op
+BenchmarkIndexTorture-4              	   59619	     20134 ns/op
+BenchmarkCountTorture-4              	   61533	     19514 ns/op
+BenchmarkCountTorture-4              	   61546	     19514 ns/op
+BenchmarkCountTorture-4              	   61514	     19512 ns/op
+BenchmarkCountTorture-4              	   61552	     19512 ns/op
+BenchmarkCountTorture-4              	   61491	     19515 ns/op
+BenchmarkCountTorture-4              	   61537	     19512 ns/op
+BenchmarkCountTorture-4              	   61521	     19512 ns/op
+BenchmarkCountTorture-4              	   61479	     19516 ns/op
+BenchmarkCountTorture-4              	   61502	     19505 ns/op
+BenchmarkCountTorture-4              	   61544	     19512 ns/op
+BenchmarkCountTortureOverlapping-4   	     235	   4747473 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4744423 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4747257 ns/op
+BenchmarkCountTortureOverlapping-4   	     242	   4747368 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4776051 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4745063 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4743428 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4743762 ns/op
+BenchmarkCountTortureOverlapping-4   	     232	   4748303 ns/op
+BenchmarkCountTortureOverlapping-4   	     250	   4744565 ns/op
+BenchmarkCountByte/10-4              	100000000	        10.20 ns/op	 980.36 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.19 ns/op	 981.01 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.18 ns/op	 982.58 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.31 ns/op	 969.60 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.31 ns/op	 969.80 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.31 ns/op	 969.65 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.31 ns/op	 969.74 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.20 ns/op	 980.76 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.31 ns/op	 969.76 MB/s
+BenchmarkCountByte/10-4              	100000000	        10.18 ns/op	 982.35 MB/s
+BenchmarkCountByte/32-4              	52010542	        23.02 ns/op	1389.81 MB/s
+BenchmarkCountByte/32-4              	52062712	        23.04 ns/op	1388.97 MB/s
+BenchmarkCountByte/32-4              	52649511	        23.06 ns/op	1387.88 MB/s
+BenchmarkCountByte/32-4              	52011354	        22.78 ns/op	1404.46 MB/s
+BenchmarkCountByte/32-4              	52029507	        23.05 ns/op	1388.22 MB/s
+BenchmarkCountByte/32-4              	51967837	        22.91 ns/op	1396.86 MB/s
+BenchmarkCountByte/32-4              	52021816	        23.03 ns/op	1389.43 MB/s
+BenchmarkCountByte/32-4              	52018366	        23.03 ns/op	1389.78 MB/s
+BenchmarkCountByte/32-4              	52043317	        22.79 ns/op	1404.40 MB/s
+BenchmarkCountByte/32-4              	51984204	        23.30 ns/op	1373.67 MB/s
+BenchmarkCountByte/4K-4              	  537000	      2234 ns/op	1833.88 MB/s
+BenchmarkCountByte/4K-4              	  536882	      2233 ns/op	1833.94 MB/s
+BenchmarkCountByte/4K-4              	  536744	      2234 ns/op	1833.84 MB/s
+BenchmarkCountByte/4K-4              	  536862	      2234 ns/op	1833.55 MB/s
+BenchmarkCountByte/4K-4              	  536812	      2234 ns/op	1833.80 MB/s
+BenchmarkCountByte/4K-4              	  537244	      2233 ns/op	1834.00 MB/s
+BenchmarkCountByte/4K-4              	  536652	      2234 ns/op	1833.75 MB/s
+BenchmarkCountByte/4K-4              	  536822	      2234 ns/op	1833.88 MB/s
+BenchmarkCountByte/4K-4              	  536871	      2233 ns/op	1834.07 MB/s
+BenchmarkCountByte/4K-4              	  536390	      2233 ns/op	1834.01 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282436 ns/op	1837.64 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282456 ns/op	1837.63 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282456 ns/op	1837.63 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282420 ns/op	1837.66 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282355 ns/op	1837.71 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282318 ns/op	1837.74 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282485 ns/op	1837.60 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282323 ns/op	1837.73 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282277 ns/op	1837.77 MB/s
+BenchmarkCountByte/4M-4              	     520	   2282420 ns/op	1837.66 MB/s
+BenchmarkCountByte/64M-4             	      30	  37737384 ns/op	1778.31 MB/s
+BenchmarkCountByte/64M-4             	      30	  37740370 ns/op	1778.17 MB/s
+BenchmarkCountByte/64M-4             	      30	  37736449 ns/op	1778.36 MB/s
+BenchmarkCountByte/64M-4             	      30	  37736671 ns/op	1778.35 MB/s
+BenchmarkCountByte/64M-4             	      30	  37738364 ns/op	1778.27 MB/s
+BenchmarkCountByte/64M-4             	      30	  37740782 ns/op	1778.15 MB/s
+BenchmarkCountByte/64M-4             	      30	  37738130 ns/op	1778.28 MB/s
+BenchmarkCountByte/64M-4             	      30	  37731329 ns/op	1778.60 MB/s
+BenchmarkCountByte/64M-4             	      30	  37728659 ns/op	1778.72 MB/s
+BenchmarkCountByte/64M-4             	      30	  37727020 ns/op	1778.80 MB/s
+BenchmarkIndexAnyASCII/1:1-4         	184331992	         6.715 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	192356233	         6.373 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	192361182	         6.239 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	184354538	         6.239 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	184316673	         6.238 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	192334087	         6.394 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	192352076	         6.239 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	178358120	         6.238 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	184348401	         6.238 ns/op
+BenchmarkIndexAnyASCII/1:1-4         	184148942	         6.256 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142719454	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142704987	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142717242	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142719163	         8.672 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142719909	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142696940	         8.580 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142712665	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142712347	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142724308	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:2-4         	142718606	         8.545 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142724540	         8.537 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142703214	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142710106	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142712622	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142709406	         8.892 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142670517	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142696636	         8.411 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142667905	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142151913	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:4-4         	142689888	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142686111	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	140649525	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142697206	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142700953	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142701571	         8.411 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	139504077	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142698142	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142688080	         8.410 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142693256	         8.482 ns/op
+BenchmarkIndexAnyASCII/1:8-4         	142687694	         8.411 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142681434	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142690276	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142709574	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142728709	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142711603	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142719392	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142713525	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142727656	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142720114	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:16-4        	142720483	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138264010	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138274016	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138261554	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138271047	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138260781	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138269233	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138265299	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138256104	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138258882	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:32-4        	138269916	         8.679 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142726152	         8.407 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142709406	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142729558	         8.407 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142727414	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142726869	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142692122	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142691272	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142687126	         8.408 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142733815	         8.409 ns/op
+BenchmarkIndexAnyASCII/1:64-4        	142725015	         8.409 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	192329839	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	192309145	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	192336559	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	184328514	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	192295962	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	190000218	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	190267998	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	188342383	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	192295885	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:1-4        	192330100	         6.239 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	64718893	        18.37 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65243400	        18.35 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65439261	        18.45 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	64974460	        18.44 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	64921939	        18.40 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65448398	        18.36 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65024656	        18.33 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65357991	        18.43 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65529914	        18.41 ns/op
+BenchmarkIndexAnyASCII/16:2-4        	65374616	        18.40 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	58080601	        20.71 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57738126	        20.72 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57970723	        20.70 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57971926	        20.69 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57981619	        20.70 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57632222	        20.70 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57853398	        20.70 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	58036188	        20.70 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57952500	        20.70 ns/op
+BenchmarkIndexAnyASCII/16:4-4        	57746524	        20.69 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	45965114	        26.06 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46089860	        26.07 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46036372	        26.06 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46062471	        26.05 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46088019	        26.06 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46081576	        26.07 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46055702	        26.06 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46094038	        26.05 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	46007744	        26.07 ns/op
+BenchmarkIndexAnyASCII/16:8-4        	45934288	        26.05 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30467911	        39.44 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30414088	        39.42 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30463704	        39.42 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30444837	        39.39 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30459922	        39.46 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30501057	        39.45 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30465784	        39.40 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30497298	        39.37 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30339630	        39.39 ns/op
+BenchmarkIndexAnyASCII/16:16-4       	30429444	        39.44 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18414418	        65.05 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18466086	        65.07 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18443536	        65.08 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18429670	        65.01 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18461613	        65.07 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18453710	        65.07 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18465244	        65.01 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18452918	        65.04 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18442864	        65.07 ns/op
+BenchmarkIndexAnyASCII/16:32-4       	18408106	        65.04 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9170564	       131.0 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9152395	       130.8 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9163111	       131.0 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9168897	       131.0 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9168517	       130.9 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9144548	       130.9 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9156120	       131.0 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9172281	       130.9 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9166425	       130.9 ns/op
+BenchmarkIndexAnyASCII/16:64-4       	 9181978	       131.0 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134040002	         8.953 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134041377	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134042557	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134045739	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134044560	         8.953 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134047416	         8.953 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134032563	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134045062	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134032492	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:1-4       	134049267	         8.952 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7992520	       150.4 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7999041	       150.6 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7948016	       150.4 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7973322	       151.0 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7936822	       151.5 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7985443	       150.6 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7995586	       150.7 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7959786	       150.7 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7999088	       150.9 ns/op
+BenchmarkIndexAnyASCII/256:2-4       	 7978737	       150.7 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7709068	       154.1 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7816214	       153.9 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7737154	       154.4 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7824313	       153.8 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7821772	       154.1 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7810491	       154.6 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7774435	       154.6 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7747539	       155.1 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7824086	       155.7 ns/op
+BenchmarkIndexAnyASCII/256:4-4       	 7829450	       154.6 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7310750	       163.2 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7317096	       163.5 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7272884	       163.2 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7387318	       163.8 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7333348	       163.6 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7380804	       163.4 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7263440	       164.0 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7339718	       165.3 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7387114	       164.7 ns/op
+BenchmarkIndexAnyASCII/256:8-4       	 7355702	       165.0 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7024382	       170.9 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7044217	       170.9 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7010526	       170.9 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7040826	       171.0 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7045458	       170.9 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7022535	       170.9 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7039546	       170.8 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7038523	       171.0 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7031209	       170.8 ns/op
+BenchmarkIndexAnyASCII/256:16-4      	 7009582	       170.9 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6057960	       198.3 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6066506	       198.2 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6058802	       198.2 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6061831	       197.7 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6072252	       198.2 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6070353	       198.2 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6057955	       198.1 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6050809	       198.0 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6052124	       197.9 ns/op
+BenchmarkIndexAnyASCII/256:32-4      	 6063610	       198.2 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4604954	       260.6 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4610546	       260.1 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4602415	       260.8 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4595968	       260.8 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4595281	       260.9 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4612006	       261.0 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4594824	       260.3 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4599225	       260.9 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4608307	       260.7 ns/op
+BenchmarkIndexAnyASCII/256:64-4      	 4587648	       260.6 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	315954067	         3.526 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	315952021	         3.798 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	340223964	         3.526 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	340253092	         3.798 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	340255573	         3.526 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	340291216	         3.527 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	315988257	         3.526 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	315999075	         3.527 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	340288698	         3.798 ns/op
+BenchmarkIndexAnyUTF8/1:1-4          	315942550	         3.526 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	139658797	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	141725594	         8.549 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	130101156	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	140919852	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	140280944	         9.223 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	142693407	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	141552284	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	142682632	         8.617 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	142209009	         8.953 ns/op
+BenchmarkIndexAnyUTF8/1:2-4          	142702196	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142691797	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142697803	         8.411 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142703488	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142703472	         8.640 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142688882	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142699158	         8.463 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142692342	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	142692874	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	140482520	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:4-4          	141551458	         8.477 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142684498	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	138225939	         8.755 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142685046	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142686336	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142691568	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142689309	         8.409 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142672044	         8.546 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	140376498	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142677836	         8.906 ns/op
+BenchmarkIndexAnyUTF8/1:8-4          	142297159	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142688362	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142689993	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142680100	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142672842	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142681123	         8.409 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142687437	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142690077	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142695170	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142695952	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:16-4         	142690411	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138205020	         8.681 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138234904	         8.682 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138229492	         8.681 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138225712	         8.682 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138244791	         8.681 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138235483	         8.682 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138230241	         8.682 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138229716	         8.681 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138234172	         8.681 ns/op
+BenchmarkIndexAnyUTF8/1:32-4         	138223858	         8.682 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142684269	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142682416	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142685760	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142684807	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142691452	         8.409 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142682677	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142671838	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142672018	         8.410 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142694413	         8.409 ns/op
+BenchmarkIndexAnyUTF8/1:64-4         	142667841	         8.410 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	92871198	        13.22 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	89155476	        13.21 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	96057556	        13.04 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	91207234	        13.17 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	84810783	        13.31 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	82880970	        13.17 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	86402206	        12.89 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	86990239	        13.13 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	90667653	        13.07 ns/op
+BenchmarkIndexAnyUTF8/16:1-4         	96051190	        13.41 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	34343863	        33.08 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	33882549	        33.67 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	35542436	        33.34 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	35898870	        33.52 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	36173391	        33.45 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	36102456	        34.39 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	36676795	        33.21 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	36383883	        33.28 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	35942966	        33.61 ns/op
+BenchmarkIndexAnyUTF8/16:2-4         	37160661	        34.08 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	37635531	        31.82 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	38143188	        31.99 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	37531029	        31.99 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	37639309	        32.10 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	36983658	        32.23 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	37751326	        32.16 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	38000042	        31.93 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	37529409	        31.91 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	37608037	        32.22 ns/op
+BenchmarkIndexAnyUTF8/16:4-4         	38339857	        32.05 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	13124401	        95.75 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	12387780	        92.14 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	12986937	        91.42 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	12519925	        94.44 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	12539677	        93.17 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	13124583	        92.40 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	13122500	        91.62 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	13123956	        92.41 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	13114112	        93.92 ns/op
+BenchmarkIndexAnyUTF8/16:8-4         	13011310	        98.50 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13124182	        91.64 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13119344	        93.38 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13119950	        91.43 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13125837	        92.28 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	12969253	        92.39 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	12681025	        92.12 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13124596	        93.12 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13031547	        92.51 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13126917	        91.69 ns/op
+BenchmarkIndexAnyUTF8/16:16-4        	13124937	        92.48 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12531458	        95.77 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12527372	        96.22 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12529653	        96.57 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12531459	        97.94 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12529243	        96.29 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12506827	        96.85 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12527060	        96.53 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12523405	        96.57 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12533762	        97.24 ns/op
+BenchmarkIndexAnyUTF8/16:32-4        	12390508	        97.43 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11547354	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11221404	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11547283	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11549526	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11545587	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11548659	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11548891	       104.7 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11548074	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	11549884	       103.9 ns/op
+BenchmarkIndexAnyUTF8/16:64-4        	10834586	       103.9 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 8067272	       151.1 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 8083645	       149.0 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 7975034	       150.4 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 8060353	       149.2 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 7960066	       149.5 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 7913824	       149.5 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 7685625	       149.7 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 7852959	       148.9 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 8065622	       149.3 ns/op
+BenchmarkIndexAnyUTF8/256:1-4        	 7991325	       148.9 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3922665	       310.6 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3940962	       307.0 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3922780	       306.5 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3936458	       307.2 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3937238	       309.0 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3834308	       310.9 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3824920	       305.9 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3839725	       308.7 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3890440	       306.3 ns/op
+BenchmarkIndexAnyUTF8/256:2-4        	 3888516	       309.9 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7079254	       167.7 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7254061	       168.3 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7255237	       166.2 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7217554	       209.1 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7273747	       165.6 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7268725	       166.1 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7195202	       167.5 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7096305	       166.6 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7246626	       166.0 ns/op
+BenchmarkIndexAnyUTF8/256:4-4        	 7109006	       165.9 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3587890	       336.1 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3577291	       337.7 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3563798	       335.4 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3564367	       336.3 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3579440	       337.5 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3517803	       334.3 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3619591	       337.2 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3598023	       333.6 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3584263	       339.5 ns/op
+BenchmarkIndexAnyUTF8/256:8-4        	 3583312	       338.4 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11454172	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11436111	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11481380	       105.2 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11457018	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11479380	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11480437	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11476282	       104.6 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11479056	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11473237	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:16-4       	11452381	       104.5 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2349312	       513.4 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2341356	       512.7 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2346567	       516.2 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2339056	       512.0 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2340025	       512.1 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2343748	       513.2 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2315292	       513.6 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2340344	       514.8 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2342698	       515.0 ns/op
+BenchmarkIndexAnyUTF8/256:32-4       	 2312304	       512.6 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 1825957	       589.4 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2032995	       590.3 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2036164	       590.8 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2030325	       589.8 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2033217	       590.4 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2034016	       590.8 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2026678	       590.2 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2030096	       590.9 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2034758	       590.0 ns/op
+BenchmarkIndexAnyUTF8/256:64-4       	 2032958	       590.4 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	175442662	         6.681 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	177043226	         6.507 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	182258247	         6.507 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	173263034	         6.565 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	184553229	         6.507 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	176788653	         6.766 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	177143979	         6.506 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	172363384	         7.053 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	179790835	         6.503 ns/op
+BenchmarkLastIndexAnyASCII/1:1-4     	177591412	         6.576 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	184559913	         6.651 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	184541564	         6.550 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	184535482	         6.610 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	177127689	         6.546 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	184506517	         6.815 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	177119617	         6.787 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	182115272	         6.508 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	184551121	         6.677 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	180661567	         6.555 ns/op
+BenchmarkLastIndexAnyASCII/1:2-4     	184500741	         6.554 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	184472875	         6.619 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	184520629	         6.688 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	180547815	         6.507 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	180261070	         7.053 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	182950854	         6.508 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	184731043	         6.782 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	184434374	         6.827 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	177005878	         6.639 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	171403226	         7.052 ns/op
+BenchmarkLastIndexAnyASCII/1:4-4     	184502845	         6.745 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	177175653	         6.687 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	172530216	         6.540 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	184540723	         6.507 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	177070382	         6.754 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	181148980	         7.052 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	177334442	         6.777 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	176452996	         6.773 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	184554426	         6.689 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	184429160	         6.506 ns/op
+BenchmarkLastIndexAnyASCII/1:8-4     	176956573	         6.778 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184318813	         6.712 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184311676	         6.704 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184309482	         6.512 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	177558500	         6.781 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184318300	         6.510 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	177080778	         6.510 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184320007	         6.665 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184320951	         6.510 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184299762	         6.511 ns/op
+BenchmarkLastIndexAnyASCII/1:16-4    	184272427	         6.511 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	170290670	         6.903 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176924444	         6.782 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176956198	         7.053 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176928138	         7.054 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	170314399	         7.053 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176936168	         6.782 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176937981	         6.782 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176944108	         7.053 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176955014	         6.782 ns/op
+BenchmarkLastIndexAnyASCII/1:32-4    	176942491	         6.782 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163829970	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163829132	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163836537	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163848884	         7.325 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163842699	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163805487	         7.325 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163857523	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163846513	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163849647	         7.324 ns/op
+BenchmarkLastIndexAnyASCII/1:64-4    	163857052	         7.325 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66572425	        17.98 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66718113	        18.02 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66634126	        18.00 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66741042	        18.01 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66516154	        18.01 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66501296	        17.99 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66617953	        17.99 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66776287	        18.00 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66779854	        18.03 ns/op
+BenchmarkLastIndexAnyASCII/16:1-4    	66409399	        17.99 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65798088	        18.25 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65762137	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65766825	        18.25 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65739008	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65750610	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65765812	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65827828	        18.25 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65759041	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65741569	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:2-4    	65687516	        18.24 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58940670	        20.35 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58971196	        20.35 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	59014934	        20.36 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58853400	        20.37 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58924202	        20.35 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58837644	        20.36 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58867056	        20.34 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	59098318	        20.38 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	58757179	        20.34 ns/op
+BenchmarkLastIndexAnyASCII/16:4-4    	59025529	        20.34 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46175694	        25.94 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46162831	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46283637	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46214797	        25.94 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46272572	        25.93 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46207272	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46173346	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46278657	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46210792	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:8-4    	46194961	        25.95 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30913040	        38.83 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30885201	        38.82 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30910810	        38.83 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30893503	        38.85 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30771093	        38.82 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30874306	        38.85 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30953245	        38.84 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30935458	        38.84 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30848647	        38.81 ns/op
+BenchmarkLastIndexAnyASCII/16:16-4   	30918488	        38.83 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18312315	        65.54 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18310938	        65.56 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18299478	        65.50 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18270132	        65.54 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18327144	        65.55 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18294232	        65.53 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18304923	        65.54 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18293235	        65.55 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18293617	        65.55 ns/op
+BenchmarkLastIndexAnyASCII/16:32-4   	18303450	        65.54 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9199348	       130.7 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9214261	       130.4 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9185974	       130.5 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9210092	       130.7 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9187172	       130.5 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9189987	       130.4 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9211300	       130.7 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9209406	       130.9 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9195408	       130.9 ns/op
+BenchmarkLastIndexAnyASCII/16:64-4   	 9195297	       130.5 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8291468	       143.5 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8428812	       143.0 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8366362	       142.8 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8358624	       143.1 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8300066	       143.7 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8347934	       144.1 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8452464	       143.2 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8401910	       143.4 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8391550	       143.0 ns/op
+BenchmarkLastIndexAnyASCII/256:1-4   	 8381014	       143.2 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8345782	       144.7 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8308922	       144.8 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8292949	       144.8 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8330064	       145.0 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8256206	       145.2 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8267698	       144.7 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8359192	       145.2 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8320196	       144.6 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8314983	       144.9 ns/op
+BenchmarkLastIndexAnyASCII/256:2-4   	 8302953	       145.0 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8011821	       148.9 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8042101	       149.2 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8088033	       148.8 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8087426	       148.8 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8127985	       149.3 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8103658	       149.0 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8086692	       148.9 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8056303	       148.4 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8048646	       148.9 ns/op
+BenchmarkLastIndexAnyASCII/256:4-4   	 8079820	       148.7 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7623950	       156.4 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7676973	       156.8 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7666262	       156.4 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7683570	       156.8 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7679433	       156.6 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7654898	       155.9 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7638787	       156.7 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7680105	       156.8 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7676030	       156.7 ns/op
+BenchmarkLastIndexAnyASCII/256:8-4   	 7708935	       156.5 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7284388	       164.8 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7287771	       164.2 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7318786	       164.5 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7315225	       164.5 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7297905	       164.4 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7224426	       164.6 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7310823	       164.5 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7304328	       164.4 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7320228	       164.3 ns/op
+BenchmarkLastIndexAnyASCII/256:16-4  	 7273665	       164.3 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6237028	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6248502	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6251103	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6249932	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6253628	       192.2 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6259419	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6253046	       192.1 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6244015	       192.1 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6254284	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:32-4  	 6255576	       192.0 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4664680	       255.6 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4678052	       256.1 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4667808	       255.7 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4689862	       256.3 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4695217	       256.0 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4679710	       256.5 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4693371	       255.4 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4689316	       255.9 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4700322	       255.7 ns/op
+BenchmarkLastIndexAnyASCII/256:64-4  	 4679185	       256.0 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	174423777	         7.053 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	176650452	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	176249043	         6.730 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	177130162	         6.535 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	184547673	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	173834205	         6.652 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	184512518	         6.727 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	184498255	         6.506 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	184455022	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:1-4      	177160232	         6.502 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	184773933	         6.522 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	173554864	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	184524390	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	179698938	         6.679 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	180603260	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	184441035	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	170524310	         6.708 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	184485444	         6.707 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	184491363	         6.506 ns/op
+BenchmarkLastIndexAnyUTF8/1:2-4      	177132768	         6.506 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	184545882	         6.635 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	184684957	         6.893 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	171405688	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	182619688	         6.655 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	179003190	         7.054 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	182006160	         6.618 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	170483079	         7.053 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	178826973	         7.053 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	184056478	         6.751 ns/op
+BenchmarkLastIndexAnyUTF8/1:4-4      	184491087	         6.756 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	184310095	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	179068678	         6.507 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	177044332	         6.506 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	184571271	         6.543 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	184036057	         6.763 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	174135394	         6.591 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	184700899	         6.506 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	172684897	         7.053 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	177095282	         6.666 ns/op
+BenchmarkLastIndexAnyUTF8/1:8-4      	178257588	         6.506 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	184317986	         6.511 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	176961613	         6.511 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	177080899	         6.511 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	178171800	         6.510 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	184301076	         6.732 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	184322892	         6.510 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	184336033	         6.511 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	183147022	         6.510 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	184327096	         6.511 ns/op
+BenchmarkLastIndexAnyUTF8/1:16-4     	184321442	         6.510 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	176957530	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	176931469	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	170280052	         6.781 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	176939340	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	170260662	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	176943411	         6.909 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	176945145	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	176947716	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	170273599	         6.781 ns/op
+BenchmarkLastIndexAnyUTF8/1:32-4     	170271436	         6.782 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163840460	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163838791	         7.325 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163838721	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163845925	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163833742	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163848021	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163825489	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163843932	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163812361	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/1:64-4     	163826889	         7.324 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30074815	        39.87 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30086125	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30084715	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30086473	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30072199	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30106408	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30087746	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30086577	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30305827	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:1-4     	30087482	        39.60 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10884992	       112.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10663431	       110.9 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10673370	       113.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10492017	       114.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10144862	       113.5 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10949274	       110.8 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10443548	       113.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10765371	       113.6 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10858146	       116.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:2-4     	10872711	       113.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10676540	       109.6 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10748481	       110.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10858576	       109.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10854336	       110.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10950189	       112.6 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10853402	       112.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10532740	       109.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10845483	       109.6 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10949377	       112.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:4-4     	10842326	       111.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10837942	       109.6 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10858636	       112.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10872087	       112.9 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10764082	       111.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10607034	       109.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10857038	       114.1 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10949976	       114.0 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10888063	       109.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10705803	       109.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:8-4     	10861928	       115.5 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	10950824	       109.1 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11088564	       108.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	10965255	       108.8 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	10950172	       108.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11087443	       116.6 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11087650	       109.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11083677	       108.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11086662	       108.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11085302	       108.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:16-4    	11083821	       109.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10145775	       118.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10370242	       116.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10139860	       115.1 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10531567	       114.1 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10532594	       119.8 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10226670	       114.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10116170	       115.8 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10472106	       114.2 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10189028	       114.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:32-4    	10532634	       116.8 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9893132	       124.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9511435	       123.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9848186	       122.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9503950	       124.9 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9798744	       122.4 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9550323	       121.3 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9637609	       121.5 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9787399	       121.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9722692	       121.7 ns/op
+BenchmarkLastIndexAnyUTF8/16:64-4    	 9807582	       123.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2124663	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2125752	       564.6 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2126017	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2125592	       564.7 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2124858	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2125744	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2125982	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2125555	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2125605	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:1-4    	 2124546	       564.5 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  714877	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  715261	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  714638	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  715021	      1711 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  714595	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  715062	      1733 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  714315	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  715214	      1735 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  714645	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:2-4    	  713696	      1737 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  714716	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  715683	      1696 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  714768	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  714954	      1745 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  714738	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  715456	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  715377	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  714394	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  715489	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:4-4    	  714771	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  715222	      1736 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  714877	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  713823	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  715664	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  715155	      1734 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  713432	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  715198	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  714313	      1709 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  714507	      1694 ns/op
+BenchmarkLastIndexAnyUTF8/256:8-4    	  714418	      1741 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  715484	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  714140	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  715002	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  713710	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  715694	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  713919	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  715500	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  715050	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  715122	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:16-4   	  714637	      1677 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  686745	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  686266	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  686584	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  685996	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  687285	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  686431	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  686744	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  685944	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  687126	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:32-4   	  686014	      1747 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635881	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  636117	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635044	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635209	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635911	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635730	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635251	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635664	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635548	      1886 ns/op
+BenchmarkLastIndexAnyUTF8/256:64-4   	  635736	      1886 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22468	     53405 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22464	     53401 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22470	     53404 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22466	     53402 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22466	     60926 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22465	     53408 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22466	     53405 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22468	     53406 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22466	     54236 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic2-4         	   22465	     53405 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19268	     62335 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19268	     62362 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19267	     62272 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19264	     62275 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19225	     62280 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19267	     62278 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19267	     62279 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19268	     62279 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19268	     62279 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic4-4         	   19267	     62275 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14773	     81230 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14769	     81236 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14770	     81251 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14768	     81240 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14770	     81256 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14768	     81248 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14769	     81246 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14769	     81271 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14769	     81243 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic8-4         	   14763	     81256 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29527	     40628 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29534	     40618 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29530	     40622 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29522	     40628 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29527	     40632 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29529	     40633 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29538	     40631 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29528	     40636 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29523	     40625 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic16-4        	   29529	     40629 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59569	     20141 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59142	     20280 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59150	     20284 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59155	     20283 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59041	     20325 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59020	     20322 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59138	     20282 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59013	     20322 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59115	     20282 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic32-4        	   59154	     20289 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113266	     10587 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113304	     10596 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113310	     10589 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113204	     10604 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113202	     10595 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113214	     10590 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113274	     10588 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113190	     10595 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113278	     10591 ns/op
+BenchmarkIndexPeriodic/IndexPeriodic64-4        	  113323	     10611 ns/op
+BenchmarkIndexByte_Bytes/10-4                   	279728594	         4.327 ns/op	2310.98 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	294868628	         4.236 ns/op	2360.68 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	274860733	         4.293 ns/op	2329.48 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	260228416	         4.218 ns/op	2370.94 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	268432438	         4.294 ns/op	2328.64 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	294911312	         4.083 ns/op	2449.21 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	294872686	         4.069 ns/op	2457.72 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	294912805	         4.339 ns/op	2304.71 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	294929781	         4.069 ns/op	2457.73 MB/s
+BenchmarkIndexByte_Bytes/10-4                   	265531886	         4.069 ns/op	2457.82 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260242400	         4.612 ns/op	6937.89 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260198278	         4.611 ns/op	6939.85 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260211741	         4.612 ns/op	6938.70 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260208519	         4.612 ns/op	6939.15 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260256694	         4.613 ns/op	6936.57 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260180330	         4.612 ns/op	6939.17 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260119849	         4.611 ns/op	6939.77 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260204082	         4.613 ns/op	6937.34 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260191472	         4.611 ns/op	6939.22 MB/s
+BenchmarkIndexByte_Bytes/32-4                   	260222025	         4.612 ns/op	6937.91 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23776062	        50.51 ns/op	81098.75 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23779728	        50.54 ns/op	81047.45 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23020003	        50.52 ns/op	81074.77 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23777857	        50.51 ns/op	81085.80 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23771526	        50.51 ns/op	81093.74 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	22881354	        50.53 ns/op	81054.75 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	22875866	        50.53 ns/op	81056.37 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23779086	        50.54 ns/op	81040.52 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23768426	        50.53 ns/op	81065.77 MB/s
+BenchmarkIndexByte_Bytes/4K-4                   	23148818	        50.51 ns/op	81096.75 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24847	     48338 ns/op	86770.55 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24831	     48285 ns/op	86865.00 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24819	     48338 ns/op	86771.22 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24823	     48314 ns/op	86814.31 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24849	     48298 ns/op	86841.88 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24837	     48321 ns/op	86800.66 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24835	     48328 ns/op	86788.08 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24840	     48335 ns/op	86776.25 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24814	     48302 ns/op	86835.43 MB/s
+BenchmarkIndexByte_Bytes/4M-4                   	   24841	     48290 ns/op	86857.27 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     745	   1400616 ns/op	47913.82 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     837	   1395019 ns/op	48106.07 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     835	   1394506 ns/op	48123.75 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     829	   1399927 ns/op	47937.41 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     836	   1400209 ns/op	47927.74 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     834	   1403551 ns/op	47813.64 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     831	   1403746 ns/op	47807.00 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     832	   1403653 ns/op	47810.15 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     834	   1400738 ns/op	47909.65 MB/s
+BenchmarkIndexByte_Bytes/64M-4                  	     832	   1403342 ns/op	47820.75 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98060550	        12.21 ns/op	 819.19 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98199848	        12.21 ns/op	 819.04 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98198652	        12.21 ns/op	 819.16 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98236024	        12.21 ns/op	 819.22 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98277626	        12.21 ns/op	 819.22 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98286553	        12.21 ns/op	 819.20 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98207001	        12.21 ns/op	 819.18 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98237641	        12.21 ns/op	 819.22 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98111050	        12.21 ns/op	 819.09 MB/s
+BenchmarkIndexRune_Bytes/10-4                   	98220585	        12.21 ns/op	 819.13 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92053002	        13.02 ns/op	2457.66 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92145458	        13.02 ns/op	2457.45 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92037045	        13.03 ns/op	2456.24 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92061130	        13.02 ns/op	2457.40 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92100055	        13.02 ns/op	2457.56 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92231934	        13.02 ns/op	2457.29 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92086690	        13.02 ns/op	2457.58 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	92155854	        13.02 ns/op	2457.63 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	91998513	        13.02 ns/op	2457.41 MB/s
+BenchmarkIndexRune_Bytes/32-4                   	91787967	        13.02 ns/op	2457.71 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14788399	        81.11 ns/op	50496.56 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14791180	        81.12 ns/op	50495.51 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14784924	        81.12 ns/op	50490.21 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14792838	        81.12 ns/op	50496.17 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14792156	        81.11 ns/op	50498.26 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14790216	        81.12 ns/op	50494.29 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14793786	        81.11 ns/op	50498.25 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14792458	        81.11 ns/op	50496.72 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14793766	        81.12 ns/op	50494.53 MB/s
+BenchmarkIndexRune_Bytes/4K-4                   	14792751	        81.11 ns/op	50498.47 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16702	     71883 ns/op	58349.11 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16683	     71841 ns/op	58383.09 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16676	     71909 ns/op	58328.05 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16690	     71815 ns/op	58404.37 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16681	     71848 ns/op	58377.75 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16702	     71913 ns/op	58324.64 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16689	     71918 ns/op	58320.28 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16674	     71923 ns/op	58316.45 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16701	     71840 ns/op	58384.02 MB/s
+BenchmarkIndexRune_Bytes/4M-4                   	   16702	     71891 ns/op	58342.23 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     763	   1480783 ns/op	45319.86 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     793	   1478801 ns/op	45380.59 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     794	   1481713 ns/op	45291.40 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     792	   1480117 ns/op	45340.25 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     793	   1479567 ns/op	45357.10 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     795	   1475272 ns/op	45489.13 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     793	   1479584 ns/op	45356.58 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     795	   1479323 ns/op	45364.59 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     796	   1481771 ns/op	45289.64 MB/s
+BenchmarkIndexRune_Bytes/64M-4                  	     793	   1479992 ns/op	45344.07 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	184313931	         6.239 ns/op	1602.89 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	184321819	         6.239 ns/op	1602.76 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	192329278	         6.239 ns/op	1602.79 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	192327422	         6.239 ns/op	1602.73 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	184332296	         6.239 ns/op	1602.79 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	192311817	         6.239 ns/op	1602.90 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	177123039	         6.239 ns/op	1602.71 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	184320093	         6.239 ns/op	1602.79 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	192347350	         6.239 ns/op	1602.76 MB/s
+BenchmarkIndexRuneASCII_Bytes/10-4              	192357541	         6.240 ns/op	1602.65 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176909376	         6.783 ns/op	4717.49 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176857333	         6.784 ns/op	4716.75 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176873150	         6.782 ns/op	4718.03 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176892933	         6.784 ns/op	4716.95 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176853072	         6.784 ns/op	4717.27 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176857719	         6.784 ns/op	4716.69 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176879652	         6.783 ns/op	4717.39 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176894722	         6.783 ns/op	4717.37 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176907420	         6.784 ns/op	4716.73 MB/s
+BenchmarkIndexRuneASCII_Bytes/32-4              	176893904	         6.784 ns/op	4717.08 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22595674	        53.06 ns/op	77197.98 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22611228	        53.07 ns/op	77181.47 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22633490	        53.07 ns/op	77183.16 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22617117	        53.06 ns/op	77191.94 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22601756	        53.07 ns/op	77183.27 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22617042	        53.08 ns/op	77170.91 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22609438	        53.06 ns/op	77196.13 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22648078	        53.07 ns/op	77186.99 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22576425	        53.07 ns/op	77181.62 MB/s
+BenchmarkIndexRuneASCII_Bytes/4K-4              	22614054	        53.06 ns/op	77191.17 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24962	     48056 ns/op	87279.04 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24969	     48063 ns/op	87265.93 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24948	     48052 ns/op	87286.68 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24966	     48070 ns/op	87254.74 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24967	     51357 ns/op	81669.87 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24958	     48077 ns/op	87240.98 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24954	     48071 ns/op	87252.71 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24961	     48050 ns/op	87289.97 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24967	     48065 ns/op	87263.21 MB/s
+BenchmarkIndexRuneASCII_Bytes/4M-4              	   24961	     48069 ns/op	87255.29 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     793	   1417118 ns/op	47355.89 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     826	   1420131 ns/op	47255.40 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     825	   1418620 ns/op	47305.74 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     822	   1417919 ns/op	47329.11 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     828	   1409910 ns/op	47597.98 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     825	   1410890 ns/op	47564.90 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     824	   1410580 ns/op	47575.38 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     823	   1405379 ns/op	47751.45 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     830	   1411789 ns/op	47534.61 MB/s
+BenchmarkIndexRuneASCII_Bytes/64M-4             	     829	   1410430 ns/op	47580.41 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	341269123	         3.252 ns/op	3075.46 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	370208232	         3.251 ns/op	3075.89 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	340309248	         3.526 ns/op	2835.68 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	341513665	         3.526 ns/op	2835.79 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	341702607	         3.250 ns/op	3076.79 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	370130097	         3.252 ns/op	3074.77 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	340296927	         3.253 ns/op	3074.24 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	341300468	         3.252 ns/op	3075.28 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	341817626	         3.252 ns/op	3074.67 MB/s
+BenchmarkIndexNonASCII_Bytes/10-4               	340215094	         3.252 ns/op	3075.34 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	334510754	         3.526 ns/op	9074.24 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	315910550	         3.798 ns/op	8425.71 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	340270441	         3.530 ns/op	9066.14 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	335365471	         3.527 ns/op	9073.86 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	340062368	         3.527 ns/op	9073.02 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	340304937	         3.531 ns/op	9063.44 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	340029588	         3.527 ns/op	9073.38 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	339964708	         3.530 ns/op	9065.83 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	340004760	         3.529 ns/op	9066.87 MB/s
+BenchmarkIndexNonASCII_Bytes/32-4               	322304050	         3.798 ns/op	8425.24 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	23622730	        49.64 ns/op	82511.39 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	22304264	        49.65 ns/op	82501.48 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	24159577	        49.64 ns/op	82505.91 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	24164960	        49.65 ns/op	82504.71 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	22160132	        49.64 ns/op	82509.12 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	22386870	        55.19 ns/op	74215.72 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	24167394	        49.70 ns/op	82422.09 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	24157546	        55.27 ns/op	74103.68 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	22497292	        49.65 ns/op	82498.55 MB/s
+BenchmarkIndexNonASCII_Bytes/4K-4               	24163221	        49.69 ns/op	82422.83 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24934	     48125 ns/op	87155.21 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24943	     48122 ns/op	87160.54 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24950	     48090 ns/op	87217.56 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24936	     48105 ns/op	87191.12 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24934	     48097 ns/op	87205.57 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24939	     48099 ns/op	87201.05 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24945	     48134 ns/op	87138.70 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24955	     48087 ns/op	87222.53 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24933	     48133 ns/op	87140.73 MB/s
+BenchmarkIndexNonASCII_Bytes/4M-4               	   24916	     48185 ns/op	87046.18 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     780	   1423386 ns/op	47147.34 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     823	   1409841 ns/op	47600.31 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     824	   1415899 ns/op	47396.63 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     831	   1408921 ns/op	47631.38 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     826	   1414235 ns/op	47452.40 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     825	   1406652 ns/op	47708.22 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     824	   1412341 ns/op	47516.04 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     824	   1412876 ns/op	47498.04 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     829	   1407145 ns/op	47691.52 MB/s
+BenchmarkIndexNonASCII_Bytes/64M-4              	     831	   1408047 ns/op	47660.94 MB/s
+PASS
+ok  	github.com/charlievieth/strcase/internal/benchtest	2105.917s
