@@ -1,3 +1,5 @@
+//go:build go1.22
+
 // Copyright 2023 Charlie Vieth. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
@@ -86,6 +88,7 @@ sse:
 	LEAQ -16(SI)(BX*1), AX // AX = address of last 16 bytes
 	JMP  sseloopentry
 
+	PCALIGN $16
 sseloop:
 	// Move the next 16-byte chunk of the data into X1.
 	MOVOU (DI), X1
@@ -182,6 +185,7 @@ avx2:
 	LEAQ         -32(SI)(BX*1), R11
 	VPBROADCASTB X0, Y1
 
+	PCALIGN $32
 avx2_loop:
 	VMOVDQU  (DI), Y2
 	VPOR     Y4, Y2, Y2  // Convert data to lowercase
@@ -237,6 +241,7 @@ sse:
 	LEAQ -16(SI)(BX*1), AX // AX = address of last 16 bytes
 	JMP  sseloopentry
 
+	PCALIGN $16
 sseloop:
 	// Move the next 16-byte chunk of the data into X1.
 	MOVOU (DI), X1
@@ -323,6 +328,7 @@ avx2:
 	LEAQ         -32(SI)(BX*1), R11
 	VPBROADCASTB X0, Y1
 
+	PCALIGN $32
 avx2_loop:
 	VMOVDQU  (DI), Y2
 	VPCMPEQB Y1, Y2, Y3
