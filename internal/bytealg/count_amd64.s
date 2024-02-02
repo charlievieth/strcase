@@ -93,7 +93,7 @@ TEXT countbodyCase<>(SB), NOSPLIT, $0
 
 	MOVQ SI, DI
 
-	CMPQ BX, $32
+	CMPQ BX, $64
 	JA   avx2
 
 sse:
