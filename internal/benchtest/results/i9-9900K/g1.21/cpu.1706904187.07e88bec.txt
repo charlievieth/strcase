@@ -1,0 +1,37 @@
+Architecture:                       x86_64
+CPU op-mode(s):                     32-bit, 64-bit
+Address sizes:                      43 bits physical, 48 bits virtual
+Byte Order:                         Little Endian
+CPU(s):                             8
+On-line CPU(s) list:                0-7
+Vendor ID:                          GenuineIntel
+Model name:                         Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+CPU family:                         6
+Model:                              158
+Thread(s) per core:                 1
+Core(s) per socket:                 8
+Socket(s):                          1
+Stepping:                           12
+BogoMIPS:                           7199.99
+Flags:                              fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon nopl xtopology tsc_reliable nonstop_tsc cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault invpcid_single ssbd ibrs ibpb stibp fsgsbase tsc_adjust bmi1 avx2 smep bmi2 invpcid rdseed adx smap clflushopt xsaveopt xsavec xsaves arat md_clear flush_l1d arch_capabilities
+Hypervisor vendor:                  VMware
+Virtualization type:                full
+L1d cache:                          256 KiB (8 instances)
+L1i cache:                          256 KiB (8 instances)
+L2 cache:                           2 MiB (8 instances)
+L3 cache:                           16 MiB (1 instance)
+NUMA node(s):                       1
+NUMA node0 CPU(s):                  0-7
+Vulnerability Gather data sampling: Unknown: Dependent on hypervisor status
+Vulnerability Itlb multihit:        KVM: Mitigation: VMX unsupported
+Vulnerability L1tf:                 Not affected
+Vulnerability Mds:                  Mitigation; Clear CPU buffers; SMT Host state unknown
+Vulnerability Meltdown:             Not affected
+Vulnerability Mmio stale data:      Mitigation; Clear CPU buffers; SMT Host state unknown
+Vulnerability Retbleed:             Mitigation; IBRS
+Vulnerability Spec rstack overflow: Not affected
+Vulnerability Spec store bypass:    Mitigation; Speculative Store Bypass disabled via prctl and seccomp
+Vulnerability Spectre v1:           Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:           Mitigation; IBRS, IBPB conditional, STIBP disabled, RSB filling, PBRSB-eIBRS Not affected
+Vulnerability Srbds:                Unknown: Dependent on hypervisor status
+Vulnerability Tsx async abort:      Not affected
