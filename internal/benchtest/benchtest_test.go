@@ -22,15 +22,16 @@ func benchIndexRune(b *testing.B, s string, r rune) {
 	if strings.IndexRune(s, r) != strcase.IndexRune(s, r) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(s, r)
 		}
-	} else if *benchLower {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(strings.ToUpper(s), unicode.ToUpper(r))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.IndexRune(s, r)
 		}
@@ -41,15 +42,16 @@ func benchIndex(b *testing.B, s, substr string) {
 	if strings.Index(s, substr) != strcase.Index(s, substr) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.Index(s, substr)
 		}
-	} else if *benchLower {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.Index(strings.ToUpper(s), strings.ToUpper(substr))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.Index(s, substr)
 		}
@@ -60,15 +62,16 @@ func benchIndexByte(b *testing.B, s string, c byte) {
 	if strings.IndexByte(s, c) != strcase.IndexByte(s, c) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(s, c)
 		}
-	} else if *benchLower {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(strings.ToUpper(s), byte(unicode.ToUpper(rune(c))))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.IndexByte(s, c)
 		}
@@ -79,15 +82,16 @@ func benchLastIndex(b *testing.B, s, substr string) {
 	if strings.LastIndex(s, substr) != strcase.LastIndex(s, substr) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(s, substr)
 		}
-	} else if *benchLower {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(strings.ToUpper(s), strings.ToUpper(substr))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.LastIndex(s, substr)
 		}
@@ -98,13 +102,14 @@ func benchEqualFold(b *testing.B, s1, s2 string) {
 	if strings.EqualFold(s1, s2) != strcase.EqualFold(s1, s2) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.EqualFold(s1, s2)
 		}
-	} else if *benchLower {
+	case *benchLower:
 		b.Skip("skipping: benchmark not relevant with -stdlib-case flag")
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.EqualFold(s1, s2)
 		}
@@ -115,15 +120,16 @@ func benchCount(b *testing.B, s, substr string) {
 	if strings.Count(s, substr) != strcase.Count(s, substr) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.Count(s, substr)
 		}
-	} else if *benchLower {
+	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.Count(strings.ToUpper(s), strings.ToUpper(substr))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.Count(s, substr)
 		}
@@ -134,15 +140,16 @@ func benchIndexAny(b *testing.B, s, cutset string) {
 	if strings.IndexAny(s, cutset) != strcase.IndexAny(s, cutset) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.IndexAny(s, cutset)
 		}
-	} else if *benchLower {
+	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.IndexAny(strings.ToUpper(s), strings.ToUpper(cutset))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.IndexAny(s, cutset)
 		}
@@ -153,15 +160,16 @@ func benchLastIndexAny(b *testing.B, s, cutset string) {
 	if strings.LastIndexAny(s, cutset) != strcase.LastIndexAny(s, cutset) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
-	if *benchStdLib {
+	switch {
+	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
 			strings.LastIndexAny(s, cutset)
 		}
-	} else if *benchLower {
+	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.LastIndexAny(strings.ToUpper(s), strings.ToUpper(cutset))
 		}
-	} else {
+	default:
 		for i := 0; i < b.N; i++ {
 			strcase.LastIndexAny(s, cutset)
 		}
