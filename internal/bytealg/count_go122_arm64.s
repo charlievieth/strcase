@@ -1,5 +1,5 @@
-//go:build arm64 && !go1.22
-// +build arm64,!go1.22
+//go:build arm64 && go1.22
+// +build arm64,go1.22
 
 // Copyright 2018 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -73,8 +73,9 @@ TEXT countbytebodyCase<>(SB), NOSPLIT, $0
 	BEQ  chunk
 
 	// Work with not 32-byte aligned head
-	BIC $0x1f, R0, R3
-	ADD $0x20, R3
+	BIC     $0x1f, R0, R3
+	ADD     $0x20, R3
+	PCALIGN $16
 
 head_loop:
 	MOVBU.P 1(R0), R5
@@ -103,8 +104,9 @@ chunk:
 	VMOV R1, V0.B16
 
 	// Clear the low 64-bit element of V7 and V8
-	VEOR V7.B8, V7.B8, V7.B8
-	VEOR V8.B8, V8.B8, V8.B8
+	VEOR    V7.B8, V7.B8, V7.B8
+	VEOR    V8.B8, V8.B8, V8.B8
+	PCALIGN $16
 
 	// Count the target byte in 32-byte chunk
 chunk_loop:
@@ -162,8 +164,9 @@ TEXT countbytebody<>(SB), NOSPLIT, $0
 	BEQ  chunk
 
 	// Work with not 32-byte aligned head
-	BIC $0x1f, R0, R3
-	ADD $0x20, R3
+	BIC     $0x1f, R0, R3
+	ADD     $0x20, R3
+	PCALIGN $16
 
 head_loop:
 	MOVBU.P 1(R0), R5
@@ -192,8 +195,9 @@ chunk:
 	VMOV R1, V0.B16
 
 	// Clear the low 64-bit element of V7 and V8
-	VEOR V7.B8, V7.B8, V7.B8
-	VEOR V8.B8, V8.B8, V8.B8
+	VEOR    V7.B8, V7.B8, V7.B8
+	VEOR    V8.B8, V8.B8, V8.B8
+	PCALIGN $16
 
 	// Count the target byte in 32-byte chunk
 chunk_loop:
