@@ -1,5 +1,5 @@
-//go:build amd64 && !go1.22
-// +build amd64,!go1.22
+//go:build amd64 && go1.22
+// +build amd64,go1.22
 
 #include "go_asm.h"
 #include "textflag.h"
@@ -43,6 +43,8 @@ TEXT indexByteBodyNonASCII<>(SB), NOSPLIT, $0
 sse:
 	LEAQ -16(SI)(BX*1), AX // AX = address of last 16 bytes
 	JMP  sseloopentry
+
+	PCALIGN $16
 
 sseloop:
 	// Move the next 16-byte chunk of the data into X1.
@@ -133,6 +135,8 @@ avx2:
 	MOVD         AX, X0
 	LEAQ         -32(SI)(BX*1), R11
 	VPBROADCASTB X0, Y1
+
+	PCALIGN $32
 
 avx2_loop:
 	VMOVDQU  (DI), Y2
