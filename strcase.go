@@ -1274,15 +1274,11 @@ func indexRuneCase(s string, r rune) int {
 		// Inlined version of utf8.EncodeRune
 		{
 			const (
-				t1 = 0b00000000
-				tx = 0b10000000
-				t2 = 0b11000000
-				t3 = 0b11100000
-				t4 = 0b11110000
-
-				maskx = 0b00111111
-
-				rune1Max = 1<<7 - 1
+				tx       = 0b10000000
+				t2       = 0b11000000
+				t3       = 0b11100000
+				t4       = 0b11110000
+				maskx    = 0b00111111
 				rune2Max = 1<<11 - 1
 				rune3Max = 1<<16 - 1
 			)
