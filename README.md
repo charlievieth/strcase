@@ -18,15 +18,7 @@ accurate, blazing fast, and never allocates memory.
   [strings.ToUpper](https://pkg.go.dev/strings#ToUpper) for case-insensitivity.
 * Fast and optimized for amd64 and arm64. For non-pathological inputs strcase
   is only 25-50% slower than the strings package.
-
-## Usage
-
-strcase is a drop-in replacement for the strings package wherever
-case-insensitive matching is desired.
-
-That is, you can safely replace any strings function with its strcase
-counterpart and get case-insensitive matching without having to change
-any other part of your code.
+* Any string matched by strcase will also match with [strings.EqualFold](https://pkg.go.dev/strings#EqualFold)
 
 ## Installation
 
@@ -42,7 +34,9 @@ Install by running:
   than 2x slower than the strings package and is often only 30-50% slower.
   - The `IndexByte`, `IndexNonASCII` and `Count` functions are implemented in
     assembly and use SSE/AVX2 on `amd64` and NEON on `arm64`.
-    [unicode](https://pkg.go.dev/unicode) package. This can be up to 10x faster.
+  - Instead of using the [unicode](https://pkg.go.dev/unicode) package for case
+    conversions strcase uses its own multiplicative hash tables that are roughly
+    10x faster (at the cost of package size).
 - Accurate: Unicode simple folding is used to determine equality.
   - Any matched text would also match with
     [`strings.EqualFold`](https://pkg.go.dev/strings#EqualFold).
@@ -54,19 +48,19 @@ Install by running:
 strcase provides two functons for checking if a string contains non-ASCII
 characters that are highly optimized for amd64/arm64:
 
-- [IndexNonASCII](https://pkg.go.dev/github.com/charlievieth/strcase#IndexNonASCII):
+- [strcase.IndexNonASCII](https://pkg.go.dev/github.com/charlievieth/strcase#IndexNonASCII):
   IndexNonASCII returns the index of first non-ASCII rune in s, or -1 if s consists
   only of ASCII characters.
-- [ContainsNonASCII](https://pkg.go.dev/github.com/charlievieth/strcase#ContainsNonASCII):
+- [strcase.ContainsNonASCII](https://pkg.go.dev/github.com/charlievieth/strcase#ContainsNonASCII):
   ContainsNonASCII returns true if s contains any non-ASCII characters.
 
 ## Caveats
 
 All invalid Unicode points and invalid multibyte UTF-8 sequences are considered
-equal. This because Go converts invalid UTF-8 sequences to the Unicode
+equal. This is because Go converts invalid UTF-8 sequences to the Unicode
 replacement character `0xFFFD`
-([`unicode.ReplacementChar`](https://pkg.go.dev/unicode#pkg-constants) and
-[`utf8.RuneError`](https://pkg.go.dev/unicode/utf8#pkg-constants)).
+([unicode.ReplacementChar](https://pkg.go.dev/unicode#pkg-constants) and
+[utf8.RuneError](https://pkg.go.dev/unicode/utf8#pkg-constants)).
 This occurs both when [ranging](https://go.dev/ref/spec#For_statements) over of
 a string or using the [utf8](https://pkg.go.dev/utf8) package's `Decode*`
 functions.
@@ -90,7 +84,7 @@ tends to within 30-50% of the strings package for non-pathological inputs.
 
 * Instead of using the standard library's Unicode package, which uses a binary
   search for its lookup tables, strcase uses multiplicative hashing for its
-  lookup tables. This often 10x faster at the cost of larger tables.
+  lookup tables. This is 10x faster at the cost of larger tables.
 * Searching for runes (IndexRune) is a big determinant of strcase's performance.
   Instead of searching for runes by their first byte (like the strings package)
   strcase searches for the second byte, which is more unique, then looks
@@ -126,6 +120,8 @@ document for details.
 
 The following benchmarks were created using
 [internal/benchtest](https://github.com/charlievieth/strcase/tree/master/internal/benchtest).
+Additional, processor specific benchmarks can be found in
+[internal/benchtest/results](https://github.com/charlievieth/strcase/tree/master/internal/benchtest/results).
 
 <details>
 <summary>arm64</summary>
