@@ -7,7 +7,7 @@ MAKEFILE_DIR  := $(abspath $(dir $(MAKEFILE_PATH)))
 
 # Test options
 GO             ?= go
-GOBIN          ?= $(MAKEFILE_DIR)/bin
+GOBIN           = $(MAKEFILE_DIR)/bin
 GO_COVER_MODE  ?= count
 GO_COVER_FLAGS ?= -cover -covermode=$(GO_COVER_MODE)
 GO_TEST_FLAGS  ?= -shuffle=on
