@@ -401,7 +401,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 	switch {
 	case !hasFolds0 && u0 == l0 && !hasFolds1 && u1 == l1:
 		// Fast check for the first rune.
-		i := indexRuneCase(s, u0)
+		i := strings.Index(s, substr[:sz0+sz1])
 		if i < 0 {
 			return -1
 		}
