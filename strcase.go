@@ -208,9 +208,9 @@ hasUnicode:
 			sr, s = rune(_lower[s[0]&0x7F]), s[1:]
 		} else {
 			r, size := utf8.DecodeRuneInString(s)
-			sr, s = caseFold(r), s[size:]
+			sr, s = r, s[size:]
 		}
-		if tr == sr || caseFold(tr) == sr {
+		if tr == sr || caseFold(tr) == caseFold(sr) {
 			continue
 		}
 		return false, len(s) == 0
@@ -1327,7 +1327,8 @@ func indexRuneCase(s string, r rune) int {
 			}
 		}
 		if n >= len(s) {
-			if string(r) == s {
+			// TODO: test if this is faster
+			if n == len(s) && string(r) == s {
 				return 0
 			}
 			return -1
