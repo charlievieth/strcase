@@ -27,7 +27,7 @@ func benchIndexRune(b *testing.B, s string, r rune) {
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(s, r)
 		}
-	case *benchStdLib:
+	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(strings.ToUpper(s), unicode.ToUpper(r))
 		}
@@ -42,16 +42,29 @@ func benchIndex(b *testing.B, s, substr string) {
 	if strings.Index(s, substr) != strcase.Index(s, substr) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
+	setBytes := func(fn func(s, substr string) int) {
+		n := fn(s, substr)
+		if n >= 0 {
+			b.SetBytes(int64(n + len(substr)))
+		} else {
+			b.SetBytes(int64(len(s)))
+		}
+	}
 	switch {
 	case *benchStdLib:
+		setBytes(strings.Index)
 		for i := 0; i < b.N; i++ {
 			strings.Index(s, substr)
 		}
-	case *benchStdLib:
+	case *benchLower:
+		setBytes(func(s, substr string) int {
+			return strings.Index(strings.ToUpper(s), strings.ToUpper(substr))
+		})
 		for i := 0; i < b.N; i++ {
 			strings.Index(strings.ToUpper(s), strings.ToUpper(substr))
 		}
 	default:
+		setBytes(strcase.Index)
 		for i := 0; i < b.N; i++ {
 			strcase.Index(s, substr)
 		}
@@ -67,7 +80,7 @@ func benchIndexByte(b *testing.B, s string, c byte) {
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(s, c)
 		}
-	case *benchStdLib:
+	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(strings.ToUpper(s), byte(unicode.ToUpper(rune(c))))
 		}
@@ -87,7 +100,7 @@ func benchLastIndex(b *testing.B, s, substr string) {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(s, substr)
 		}
-	case *benchStdLib:
+	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(strings.ToUpper(s), strings.ToUpper(substr))
 		}
