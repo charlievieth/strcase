@@ -19,7 +19,7 @@ TEXT ·IndexByte(SB), NOSPLIT, $0-40
 	BLS  index_case  // c is a letter
 	SUB  $97, R1, R3
 	CMPW $25, R3
-	BHI  index       // c is a letter
+	BHI  index       // c is not a letter
 
 index_case:
 	B indexbytebodyCase<>(SB)
