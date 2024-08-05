@@ -1570,22 +1570,45 @@ func BenchmarkIndexByteEmpty(b *testing.B) {
 	}
 }
 
-const _s = "|0123456789abcdefghijklmnopqrstu_wxyzABCDEFGHIJKLMNOPQRSTU_WXYZ|" // 64
+// Benchmark the handling of [KkSs] which require a check for their
+// equivalent Unicode folds.
+func BenchmarkIndexByteLongSpecial(b *testing.B) {
+	var bmbuf []byte
 
-const benchmarkStringLong = "" +
-	_s + _s + _s + _s + _s + _s + _s + _s + // 512
-	"V" +
-	_s + _s + _s + _s + _s + _s + _s + _s + // 512
-	"v"
+	bmIndexByte := func(index func(string, byte) int) func(b *testing.B, n int) {
+		return func(b *testing.B, n int) {
+			buf := bmbuf[0:n]
+			buf[n/2] = 's'
+			copy(buf[n-2:], "ſ")
+			s := string(buf)
+			// We scan the first half of the string twice but the match occurs
+			// in the first half so using that index here seems more fair than
+			// using the full length of the string as number of bytes processed.
+			b.SetBytes(int64(index(s, 's')))
+			for i := 0; i < b.N; i++ {
+				j := index(s, 's')
+				if j != n/2 {
+					b.Fatal("bad index", j)
+				}
+			}
+			buf[n/2] = '\x00'
+			buf[n-2] = '\x00'
+			buf[n-1] = '\x00'
+		}
+	}
 
-func BenchmarkIndexByteLong(b *testing.B) {
-	const ch = 'V'
-	if got := IndexByte(benchmarkStringLong, ch); got != 512 {
-		b.Fatalf("wrong index: expected 17, got=%d", got)
+	benchBytes := func(b *testing.B, sizes []int, f func(b *testing.B, n int)) {
+		for _, n := range sizes {
+			b.Run(valName(n), func(b *testing.B) {
+				if len(bmbuf) < n {
+					bmbuf = make([]byte, n)
+				}
+				f(b, n)
+			})
+		}
 	}
-	for i := 0; i < b.N; i++ {
-		IndexByte(benchmarkStringLong, ch)
-	}
+
+	benchBytes(b, indexSizes, bmIndexByte(IndexByte))
 }
 
 func BenchmarkLastIndexByte(b *testing.B) {
