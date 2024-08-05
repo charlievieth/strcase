@@ -16,7 +16,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/charlievieth/strcase/internal/cstr"
 	"golang.org/x/text/unicode/rangetable"
 )
 
@@ -65,14 +64,6 @@ var compareTests = []CompareTest{
 	{"a" + string(utf8.RuneError), "a\xFF", 0},
 }
 
-func mustHaveCstr(t testing.TB) {
-	if !cstr.Enabled {
-		t.Skipf("cstr: package not available on platform: %s/%s",
-			runtime.GOOS, runtime.GOARCH)
-		panic("unreachable")
-	}
-}
-
 func TestCompare(t *testing.T) {
 	// Test the tests (NOTE: we may want to remove this at some point since
 	// strings.ToLower is not always correct).
@@ -104,46 +95,6 @@ func TestEqualFold(t *testing.T) {
 			t.Errorf("EqualFold(%q, %q) = %t; want: %t", test.s, test.t, got, want)
 		}
 	}
-}
-
-func hasUnicode(s string) bool {
-	for _, r := range s {
-		if r >= utf8.RuneSelf {
-			return true
-		}
-	}
-	return false
-}
-
-func TestCompareReference(t *testing.T) {
-	mustHaveCstr(t)
-
-	t.Run("Strcasecmp", func(t *testing.T) {
-		for _, test := range compareTests {
-			if !utf8.ValidString(test.s) || !utf8.ValidString(test.t) {
-				continue
-			}
-			if hasUnicode(test.s) || hasUnicode(test.t) {
-				continue
-			}
-			got := cstr.Strcasecmp(test.s, test.t)
-			if got != test.out {
-				t.Errorf("Strcasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
-			}
-		}
-	})
-
-	t.Run("Wcscasecmp", func(t *testing.T) {
-		for _, test := range compareTests {
-			if !utf8.ValidString(test.s) || !utf8.ValidString(test.t) {
-				continue
-			}
-			got := cstr.Wcscasecmp(test.s, test.t)
-			if got != test.out {
-				t.Errorf("Wcscasecmp(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
-			}
-		}
-	})
 }
 
 type IndexTest struct {
@@ -184,6 +135,7 @@ var indexTests = []IndexTest{
 	{"abc", "a", 0},
 	{"abc", "b", 1},
 	{"abc", "c", 2},
+	{"ABC", "BC", 1},
 	{"abc", "x", -1},
 	// test special cases in Index() for short strings
 	{"", "ab", -1},
@@ -299,14 +251,25 @@ var unicodeIndexTests = []IndexTest{
 	{"a\u212a", "a\u212a", 0},
 	{"a\u212a", "a\u212a\u212a", -1},
 
-	// WARN: fix these
+	// Test that İ does not fold to [Ii]
 	{"İ", "İ", 0},
+	{"İ", "i", -1},
+	{"İ", "I", -1},
 	{"İİ", "İİ", 0},
 	{"İİİİ", "İİ", 0},
 	{"İİİİİİ", "İİ", 0},
 	{"0123456789İİ", "İİ", 10},
 	{"01234567890123456789İİ", "İİ", 20},
 	{"İİ" + strings.Repeat("a", 64), "İİ" + strings.Repeat("a", 64), 0},
+
+	// "İ" does not fold to "i"
+	{"İ", "i", -1},
+	{"aİ", "ai", -1},
+	{"aİ", "ai", -1},
+	// Test cases found by fuzzing
+	{"\x00iK", "iK", 1},
+	{"İKKKK\x00iK", "iK", 15},
+	{"İKKKKiK", "iK", 14},
 
 	// Tests discovered with fuzzing
 	{"4=K ", "=\u212a", 1},
@@ -345,12 +308,14 @@ var unicodeIndexTests = []IndexTest{
 	},
 }
 
-// TODO: do we need this?
 func init() {
-	p0 := strings.Repeat("\u212a", 64)
+	// Append some test cases that include Kelvin K and ASCII K. Since Kelvin
+	// K is 3x the width of ASCII [Kk] we want to test the logic for handling
+	// that.
+	p0 := strings.Repeat("\u212a", 64) // Kelvin K
 	p1 := strings.Repeat("K", 64)
 	n := utf8.RuneLen('\u212a')
-	for i := 2; i <= 64; i += 2 {
+	for i := 2; i <= 64; i *= 2 {
 		s0 := p0[:i*n]
 		s1 := p1[:i]
 		unicodeIndexTests = append(unicodeIndexTests, IndexTest{s0, s1, 0}, IndexTest{s1, s0, 0})
@@ -426,6 +391,8 @@ var lastIndexTests = []IndexTest{
 	{"4=K ", "=\u212a", 1},
 	{"I", "\u0131", -1},
 	{"aßẛ", "ß", 1},
+	{"OFf", "İF", -1},
+	{"``Ɽ", "\U000823eb`", -1},
 
 	{"\u0250\u0250\u0250\u0250\u0250 a", "\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F A", 0}, // grows one byte per char
 	{"a\u0250\u0250\u0250\u0250\u0250", "A\u2C6F\u2C6F\u2C6F\u2C6F\u2C6F", 0},   //
@@ -485,17 +452,8 @@ func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, tes
 	}
 }
 
-// Test that Index and C's Strcasestr return the same result.
-func TestIndexStrcasestr(t *testing.T) {
-	mustHaveCstr(t)
-	filter := func(it IndexTest) bool {
-		return !hasUnicode(it.s) && !hasUnicode(it.sep)
-	}
-	tests := filterIndexTests(filter, indexTests)
-	runIndexTests(t, cstr.Strcasestr, "Strcasestr", tests, true)
-}
-
-// WARN: do we need this??
+// Reference test using regex: this will identify bad test cases and is more
+// accurate than our reference Index (since it might have bugs).
 func TestIndexRegex(t *testing.T) {
 	index := func(s, sep string) int {
 		i := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(sep)).FindStringIndex(s)
@@ -519,8 +477,47 @@ func TestIndex(t *testing.T) {
 	if t.Failed() {
 		t.Fatal("Reference Index function failed: tests are invalid")
 	}
-
 	runIndexTests(t, Index, "Index", tests, false)
+}
+
+// Extensively test the handling of Kelvin K since it is three times the size
+// of ASCII [Kk] it requires special handling.
+func TestIndexKelvin(t *testing.T) {
+	const K = "\u212A" // Kelvin
+
+	test := func(t *testing.T, s, substr string, want int) {
+		t.Helper()
+		if got := Index(s, substr); got != want {
+			t.Errorf("Index(%q, %q) = %d; want: %d", s, substr, got, want)
+		}
+	}
+
+	t.Run("Match0", func(t *testing.T) {
+		for i := 1; i < 128; i++ {
+			s := strings.Repeat("k", i)
+			substr := strings.Repeat(K, i)
+			test(t, s, substr, 0)
+			test(t, K+s[:len(s)-1], substr, 0)
+			test(t, s[:len(s)-1]+K, substr, 0)
+		}
+	})
+
+	r := strings.Repeat
+	t.Run("Match1", func(t *testing.T) {
+		for i := 1; i < 128; i++ {
+			test(t, "a"+r("k", i), r(K, i), 1)
+		}
+	})
+	t.Run("NoMatchPrefix", func(t *testing.T) {
+		for i := 1; i < 128; i++ {
+			test(t, "a"+r("k", i-1), r(K, i), -1)
+		}
+	})
+	t.Run("NoMatchSuffix", func(t *testing.T) {
+		for i := 1; i < 128; i++ {
+			test(t, r("k", i-1)+"a", r(K, i), -1)
+		}
+	})
 }
 
 func TestContains(t *testing.T) {
@@ -856,6 +853,7 @@ func TestIndexByte(t *testing.T) {
 		{"K", 'K', 0},
 		{"ſ", 's', 0},
 		{"ſ", 'S', 0},
+		{"sſ", 'S', 0},
 		{"aKkK", 'k', 1},
 		{"aſSs", 's', 1},
 	}
@@ -962,6 +960,7 @@ type PrefixTest struct {
 
 var prefixTests = []PrefixTest{
 	{"", "", true, true},
+	{"1", "", true, false},
 	{"1", "2", false, true},
 	{"foo", "f", true, false},
 	{"αβδ", "ΑΒΔ", true, true},
@@ -1152,6 +1151,7 @@ var CountTests = []struct {
 	{"a\u212akKa", "S", 0},
 	{"a\u212a", "a\u212a", 1},
 	{"a\u212aa\u212a", "a\u212a", 2},
+	{"sſS", "s", 3},
 }
 
 func TestCount(t *testing.T) {
@@ -1250,33 +1250,45 @@ func BenchmarkCompare(b *testing.B) {
 		}
 	})
 
+	bench := func(b *testing.B, s, t string) {
+		b.Helper()
+		n := len(s)
+		if len(t) < n {
+			n = len(t)
+		}
+		b.SetBytes(int64(n))
+		for i := 0; i < b.N; i++ {
+			Compare(s, t)
+		}
+	}
+
 	const s1 = "abcdefghijKz"
 	const s2 = "abcDefGhijKz"
 
 	b.Run("ASCII", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			Compare(s1, s2)
-		}
+		bench(b, s1, s2)
 	})
 
 	b.Run("ASCII_Long", func(b *testing.B) {
 		const s = s1 + s1 + s1 + s1 + s1
 		const t = s2 + s2 + s2 + s2 + s2
-		for i := 0; i < b.N; i++ {
-			Compare(s, t)
-		}
+		bench(b, s, t)
 	})
 
 	b.Run("UnicodePrefix", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			Compare("αβδ"+s1, "ΑΒΔ"+s2)
-		}
+		// WARN
+		const s1 = "AbCdCfghIjKz"
+		const s2 = "abcDeFGhijKz"
+		bench(b, "αβδ"+s1, "ΑΒΔ"+s2)
 	})
 
 	b.Run("UnicodeSuffix", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			Compare(s1+"αβδ", s2+"ΑΒΔ")
-		}
+		bench(b, s1+"αβδ", s2+"ΑΒΔ")
+	})
+
+	b.Run("Russian", func(b *testing.B) {
+		b.SetBytes(int64(len(russianText)))
+		bench(b, russianText, russianText)
 	})
 }
 
@@ -1434,25 +1446,19 @@ func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
 
 const benchmarkString = "some_text=some☺value"
 
-func BenchmarkIndexRabinKarpUnicode(b *testing.B) {
-	if i := indexRabinKarpUnicode(benchmarkString, "☺value"); i != 14 {
+func bmIndexRabinKarpUnicode(b *testing.B, s, substr string, want int) {
+	i := indexRabinKarpUnicode(s, substr)
+	if i != want {
 		b.Fatalf("invalid index: %d; want: %d", i, 14)
 	}
-	for i := 0; i < b.N; i++ {
-		indexRabinKarpUnicode(benchmarkString, "☺value")
-	}
-
-}
-
-// WARN: dev only
-func BenchmarkIndexRabinKarpRussian(b *testing.B) {
-	if i := indexRabinKarpUnicode(russianText, "БАГДАТСКОМ"); i != 444 {
-		b.Fatalf("invalid index: %d; want: %d", i, 444)
+	if i != -1 {
+		b.SetBytes(int64(i + len(substr)))
+	} else {
+		b.SetBytes(int64(len(substr)))
 	}
 	for i := 0; i < b.N; i++ {
-		indexRabinKarpUnicode(russianText, "БАГДАТСКОМ")
+		indexRabinKarpUnicode(s, substr)
 	}
-
 }
 
 // WARN: dev only
@@ -1461,6 +1467,7 @@ func BenchmarkIndexRuneRussian(b *testing.B) {
 	if got := IndexRune(russianText, 'ж'); got != want {
 		b.Fatalf("got: %d want: %d", got, want)
 	}
+	b.SetBytes(int64(len(russianText)))
 	for i := 0; i < b.N; i++ {
 		IndexRune(russianText, 'ж')
 	}
@@ -1478,8 +1485,6 @@ func BenchmarkIndexRune(b *testing.B) {
 		IndexRune(benchmarkString, '☺')
 	}
 }
-
-var benchmarkLongString = strings.Repeat(" ", 100) + benchmarkString
 
 func BenchmarkIndexRuneFastPath(b *testing.B) {
 	if got := IndexRune(benchmarkString, 'v'); got != 17 {
@@ -1539,6 +1544,7 @@ func bmIndexRune(index func(string, rune) int) func(b *testing.B, n int, s strin
 // Torture test IndexRune. This is useful for calculating the cutover
 // for when we should switch to strings.Index in indexRuneCase.
 func BenchmarkIndexRuneTorture_Bytes(b *testing.B) {
+	b.Log("WARN: this only tests runes that are 4 bytes!")
 	if *benchStdLib {
 		benchBytesUnicode(b, indexSizes, bmIndexRune(strings.IndexRune))
 	} else {
@@ -1551,6 +1557,7 @@ func BenchmarkIndexByte(b *testing.B) {
 	if got := IndexByte(benchmarkString, ch); got != 17 {
 		b.Fatalf("wrong index: expected 17, got=%d", got)
 	}
+	b.SetBytes(int64(len(benchmarkString)))
 	for i := 0; i < b.N; i++ {
 		IndexByte(benchmarkString, ch)
 	}
@@ -1599,14 +1606,27 @@ func BenchmarkLastIndexByte(b *testing.B) {
 // WARN
 var benchStdLib = flag.Bool("stdlib", false, "Use strings.Index in benchmarks (for comparison)")
 
+// WARN: this is not really fair because of strings.ToLower
 func benchmarkIndex(b *testing.B, s, substr string) {
 	if *benchStdLib {
-		s := strings.ToLower(s)
-		substr := strings.ToLower(substr)
+		n := strings.Index(strings.ToLower(s), strings.ToLower(substr))
+		if o := Index(s, substr); n != o {
+			b.Errorf("strings.Index(%q, %q) = %d; want: %d", s, substr, n, o)
+		}
+		if n >= 0 {
+			b.SetBytes(int64(len(s) + len(substr)))
+		} else {
+			b.SetBytes(int64(len(s)))
+		}
 		for i := 0; i < b.N; i++ {
-			strings.Index(s, substr)
+			strings.Index(strings.ToLower(s), strings.ToLower(substr))
 		}
 	} else {
+		if n := Index(s, substr); n >= 0 {
+			b.SetBytes(int64(len(s) + len(substr)))
+		} else {
+			b.SetBytes(int64(len(s)))
+		}
 		for i := 0; i < b.N; i++ {
 			Index(s, substr)
 		}
@@ -1629,20 +1649,21 @@ func BenchmarkLastIndex(b *testing.B) {
 	}
 }
 
-// WARN
-func BenchmarkLastIndexLong(b *testing.B) {
-	// str := benchmarkLongString +
-	str := benchmarkLongString + "k" + benchmarkLongString
-	// if got := Index(benchmarkString, "v"); got != 17 {
-	// 	b.Fatalf("wrong index: expected 17, got=%d", got)
-	// }
-	// if got := LastIndex(str, "\u212a"); got == -1 {
-	if got := LastIndex(str, "\u212a"); got == -1 {
-		b.Fatalf("wrong index: expected 17, got=%d", got)
+// Thanks to variable length encoding it's possible the needle
+// to be larger than the haystack.
+func BenchmarkLastIndexNeedleExceedsHaystack(b *testing.B) {
+	s := strings.Repeat("ab", 1024)
+	substr := "z" + s
+	i1 := strings.LastIndex(s, substr)
+	i2 := LastIndex(s, substr)
+	if i1 != i2 {
+		b.Fatalf("wrong index: expected: %d, got: %d", i1, i2)
 	}
+	// Can't compare perf to the stdlib because we have to scan
+	// the whole string and not just bail at the length mismatch.
+	b.SetBytes(int64(len(s)))
 	for i := 0; i < b.N; i++ {
-		// LastIndex(benchmarkString, "v")
-		LastIndex(str, "\u212a")
+		LastIndex(s, substr)
 	}
 }
 
@@ -1685,6 +1706,115 @@ func BenchmarkIndexRussian(b *testing.B) {
 	benchmarkIndex(b, russianText, "младенчестве")
 }
 
+// Pathological worst-case.
+func BenchmarkIndexLateMatchLargeNeedle(b *testing.B) {
+	bench := func(b *testing.B, s1, s2, s3 string) {
+		m := strings.Repeat(s1, 100/len(s1))
+		haystack := strings.Repeat(m+s2, 300) + m + s3
+		needle := m + s3
+		benchmarkIndex(b, haystack, needle)
+	}
+	b.Run("Latin", func(b *testing.B) {
+		bench(b, "AB", "C", "D")
+	})
+	b.Run("Cyrillic", func(b *testing.B) {
+		bench(b, "А̀ВЄ", "Ж", "Њ")
+	})
+	b.Run("Han", func(b *testing.B) {
+		bench(b, "遠方", "來", "矣")
+	})
+}
+
+// Pathological worst-case. Consistency here is a good thing.
+func BenchmarkIndexLateMatchSmallNeedle(b *testing.B) {
+	bench := func(b *testing.B, s1, s2 string) {
+		s := strings.Repeat(s1, 1_000/len(s1)) + s2
+		rs := []rune(s)
+		for i := 2; i <= 64; i *= 2 {
+			b.Run(strconv.Itoa(i), func(b *testing.B) {
+				benchmarkIndex(b, s, string(rs[len(rs)-i:]))
+			})
+		}
+	}
+	b.Run("Numeric", func(b *testing.B) {
+		bench(b, "123", "4")
+	})
+	b.Run("Latin", func(b *testing.B) {
+		bench(b, "abc", "d")
+	})
+	b.Run("Cyrillic", func(b *testing.B) {
+		bench(b, "А̀ВЄ", "Њ")
+	})
+	b.Run("Han", func(b *testing.B) {
+		bench(b, "遠方", "來")
+	})
+}
+
+// Pathological worst-case. Consistency here is a good thing.
+func BenchmarkIndexEarlyMatchSmallNeedle(b *testing.B) {
+	bench := func(b *testing.B, s1, s2 string) {
+		for i := 2; i <= 32; i += 2 {
+			s := strings.Repeat(s1, i) + s2
+			substr := s1 + s2
+			b.Run(strconv.Itoa(i), func(b *testing.B) {
+				benchmarkIndex(b, s, substr)
+			})
+		}
+	}
+	b.Run("Latin", func(b *testing.B) {
+		bench(b, "AB", "C")
+	})
+	b.Run("Cyrillic", func(b *testing.B) {
+		bench(b, "А̀В", "Њ")
+	})
+	b.Run("Han", func(b *testing.B) {
+		bench(b, "遠方", "來")
+	})
+}
+
+// Thanks to variable length encoding it's possible the needle
+// to be larger than the haystack.
+func BenchmarkIndexNeedleExceedsHaystack(b *testing.B) {
+	s := strings.Repeat("А̀В", 32*1024)
+	substr := s + s[:len(s)/2] + "z"
+	i1 := strings.Index(s, substr)
+	i2 := Index(s, substr)
+	if i1 != i2 {
+		b.Fatalf("wrong index: expected: %d, got: %d", i1, i2)
+	}
+	// Can't compare perf to the stdlib because we have to scan
+	// the whole string and not just bail at the length mismatch.
+	b.SetBytes(int64(len(s)))
+	for i := 0; i < b.N; i++ {
+		Index(s, substr)
+	}
+}
+
+// Pathological worst-case. Consistency here is a good thing.
+func BenchmarkLastIndexLateMatchSmallNeedle(b *testing.B) {
+	bench := func(b *testing.B, s1, s2 string) {
+		s := s2 + strings.Repeat(s1, 1_000/len(s1))
+		rs := []rune(s)
+		for _, i := range []int{2, 16, 32} {
+			b.Run(strconv.Itoa(i), func(b *testing.B) {
+				b.SetBytes(int64(len(s)))
+				substr := string(rs[:i])
+				for i := 0; i < b.N; i++ {
+					if j := LastIndex(s, substr); j != 0 {
+						b.Fatalf("LastIndex(%q, %q) = %d; want: %d", s, substr, j, 0)
+					}
+				}
+			})
+		}
+	}
+	b.Run("Cyrillic", func(b *testing.B) {
+		bench(b, "А̀ВЄ", "Њ")
+	})
+	b.Run("Han", func(b *testing.B) {
+		bench(b, "遠方", "來")
+	})
+}
+
 func makeBenchInputHard() string {
 	tokens := [...]string{
 		"<a>", "<p>", "<b>", "<strong>",
@@ -1709,6 +1839,12 @@ func benchmarkIndexHard(b *testing.B, sep string) {
 }
 
 func benchmarkLastIndexHard(b *testing.B, sep string) {
+	i := LastIndex(benchInputHard, sep)
+	if i < 0 {
+		b.SetBytes(int64(len(benchInputHard)))
+	} else {
+		b.SetBytes(int64(i + len(sep)))
+	}
 	for i := 0; i < b.N; i++ {
 		LastIndex(benchInputHard, sep)
 	}
@@ -1756,7 +1892,6 @@ func BenchmarkIndexPeriodicUnicode(b *testing.B) {
 	for _, skip := range [...]int{2, 4, 8, 16, 32, 64} {
 		b.Run(fmt.Sprintf("IndexPeriodic%d", skip), func(b *testing.B) {
 			s := strings.Repeat("α"+strings.Repeat(" ", skip-1), 1<<16/skip)
-			// s := strings.Repeat("Α"+strings.Repeat(" ", skip-1), 1<<16/skip)
 			benchmarkIndex(b, s, key)
 		})
 	}
@@ -1778,12 +1913,32 @@ func BenchmarkIndexNonASCII(b *testing.B) {
 	}
 }
 
+func BenchmarkHasPrefixASCII(b *testing.B) {
+	s := strings.Repeat("a", 64)
+	if !HasPrefix(s, s) {
+		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", s)
+	}
+	b.SetBytes(int64(len(s)))
+	for i := 0; i < b.N; i++ {
+		HasPrefix(s, s)
+	}
+}
+
 func BenchmarkHasPrefix(b *testing.B) {
 	if !HasPrefix(benchmarkString, benchmarkString) {
 		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", benchmarkString)
 	}
+	b.SetBytes(int64(len(benchmarkString)))
 	for i := 0; i < b.N; i++ {
 		HasPrefix(benchmarkString, benchmarkString)
+	}
+}
+
+func BenchmarkHasPrefixUnicode(b *testing.B) {
+	const prefix = "Владимир Маяковский родился"
+	b.SetBytes(int64(len(prefix)))
+	for i := 0; i < b.N; i++ {
+		HasPrefix(prefix, "Владимир МАЯКОВСКИЙ родился")
 	}
 }
 
@@ -1799,6 +1954,7 @@ func BenchmarkHasPrefixHard(b *testing.B) {
 	if !HasPrefix(benchInputHard, benchInputHard) {
 		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", benchInputHard)
 	}
+	b.SetBytes(int64(len(benchInputHard)))
 	for i := 0; i < b.N; i++ {
 		HasPrefix(benchInputHard, benchInputHard)
 	}
@@ -1808,16 +1964,11 @@ func BenchmarkHasPrefixRussian(b *testing.B) {
 	if !HasPrefix(russianLower, russianUpper) {
 		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", russianText)
 	}
+	b.SetBytes(int64(len(russianLower)))
 	for i := 0; i < b.N; i++ {
 		HasPrefix(russianLower, russianUpper)
 	}
 }
-
-// func BenchmarkHasPrefixRussianBaseline(b *testing.B) {
-// 	for i := 0; i < b.N; i++ {
-// 		strings.EqualFold(russianLower, russianUpper)
-// 	}
-// }
 
 func BenchmarkHasPrefixLonger(b *testing.B) {
 	prefix := strings.Repeat("\u212a", 32)
@@ -1827,6 +1978,7 @@ func BenchmarkHasPrefixLonger(b *testing.B) {
 	}
 
 	b.Run("Equal", func(b *testing.B) {
+		b.SetBytes(int64(len(prefix)))
 		for i := 0; i < b.N; i++ {
 			HasPrefix(s, prefix)
 		}
@@ -1834,6 +1986,7 @@ func BenchmarkHasPrefixLonger(b *testing.B) {
 
 	b.Run("ShortCircuitSize", func(b *testing.B) {
 		prefix := prefix + "\u212a"
+		b.SetBytes(int64(len(prefix)))
 		for i := 0; i < b.N; i++ {
 			HasPrefix(s, prefix)
 		}
@@ -1842,12 +1995,14 @@ func BenchmarkHasPrefixLonger(b *testing.B) {
 	// Benchmark the overhead of checking for Kelvin
 	b.Run("KelvinCheck", func(b *testing.B) {
 		s := s + "\u212a"
+		b.SetBytes(int64(len(s)))
 		for i := 0; i < b.N; i++ {
-			strings.Contains(s, string('\u212A'))
+			containsKelvin(s)
 		}
 	})
 }
 
+// TODO: need to compare against the stdlib
 func BenchmarkHasSuffix(b *testing.B) {
 	if !HasSuffix(benchmarkString, benchmarkString) {
 		b.Fatalf("HasSuffix(%[1]q, %[1]q) = false; want: true", benchmarkString)
@@ -1858,12 +2013,41 @@ func BenchmarkHasSuffix(b *testing.B) {
 }
 
 // TODO: match the logic of HasPrefix
+// TODO: need to compare against the stdlib
 func BenchmarkHasSuffixRussian(b *testing.B) {
 	if !HasSuffix(russianLower, russianUpper) {
 		b.Fatalf("HasSuffix(%[1]q, %[1]q) = false; want: true", russianText)
 	}
+	b.SetBytes(int64(len(russianLower)))
 	for i := 0; i < b.N; i++ {
 		HasSuffix(russianLower, russianUpper)
+	}
+}
+
+func benchmarkIndexAny(b *testing.B, s, chars string) {
+	i1 := strings.IndexAny(s, chars)
+	i2 := IndexAny(s, chars)
+	if i1 != i2 {
+		b.Fatalf("strings.IndexAny != IndexAny: %d != %d", i1, i2)
+	}
+	min := len(s)
+	for i, r := range chars {
+		o := strings.IndexRune(s, r)
+		if 0 <= o && o < min {
+			min = i + utf8.RuneLen(r) // Include the length of the matched rune
+		}
+	}
+	bytes := int64(min)
+	if *benchStdLib {
+		b.SetBytes(bytes)
+		for i := 0; i < b.N; i++ {
+			strings.IndexAny(s, chars)
+		}
+	} else {
+		b.SetBytes(bytes)
+		for i := 0; i < b.N; i++ {
+			IndexAny(s, chars)
+		}
 	}
 }
 
@@ -1873,9 +2057,7 @@ func BenchmarkIndexAnyASCII(b *testing.B) {
 	for k := 1; k <= 2048; k <<= 4 {
 		for j := 1; j <= 64; j <<= 1 {
 			b.Run(fmt.Sprintf("%d:%d", k, j), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					IndexAny(x[:k], cs[:j])
-				}
+				benchmarkIndexAny(b, x[:k], cs[:j])
 			})
 		}
 	}
@@ -1883,14 +2065,47 @@ func BenchmarkIndexAnyASCII(b *testing.B) {
 
 func BenchmarkIndexAnyUTF8(b *testing.B) {
 	x := strings.Repeat("#", 2048) // Never matches set
+	// TODO: use a more diverse string (diff languages)
 	cs := "你好世界, hello world. 你好世界, hello world. 你好世界, hello world."
 	for k := 1; k <= 2048; k <<= 4 {
 		for j := 1; j <= 64; j <<= 1 {
 			b.Run(fmt.Sprintf("%d:%d", k, j), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					IndexAny(x[:k], cs[:j])
+				var chars string
+				n := j
+				for i, r := range cs {
+					n--
+					if n <= 0 {
+						chars = cs[:i+utf8.RuneLen(r)]
+						break
+					}
 				}
+				benchmarkIndexAny(b, x[:k], chars)
 			})
+		}
+	}
+}
+
+func benchmarkLastIndexAny(b *testing.B, s, chars string) {
+	i1 := strings.LastIndexAny(s, chars)
+	i2 := LastIndexAny(s, chars)
+	if i1 != i2 {
+		b.Fatalf("strings.LastIndexAny != LastIndexAny: %d != %d", i1, i2)
+	}
+	// TODO: make sure the logic here is correct
+	i := strings.LastIndexAny(s, chars)
+	if i < 0 {
+		i = 0
+	}
+	bytes := int64(len(s) - i)
+	if *benchStdLib {
+		b.SetBytes(bytes)
+		for i := 0; i < b.N; i++ {
+			strings.LastIndexAny(s, chars)
+		}
+	} else {
+		b.SetBytes(bytes)
+		for i := 0; i < b.N; i++ {
+			LastIndexAny(s, chars)
 		}
 	}
 }
@@ -1902,7 +2117,7 @@ func BenchmarkLastIndexAnyASCII(b *testing.B) {
 		for j := 1; j <= 64; j <<= 1 {
 			b.Run(fmt.Sprintf("%d:%d", k, j), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					LastIndexAny(x[:k], cs[:j])
+					benchmarkLastIndexAny(b, x[:k], cs[:j])
 				}
 			})
 		}
@@ -1916,7 +2131,7 @@ func BenchmarkLastIndexAnyUTF8(b *testing.B) {
 		for j := 1; j <= 64; j <<= 1 {
 			b.Run(fmt.Sprintf("%d:%d", k, j), func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					LastIndexAny(x[:k], cs[:j])
+					benchmarkLastIndexAny(b, x[:k], cs[:j])
 				}
 			})
 		}
@@ -1986,8 +2201,8 @@ func BenchmarkCaseFold(b *testing.B) {
 func BenchmarkCaseFoldAll(b *testing.B) {
 	loadCaseFoldBenchmarkAll()
 	for i := 0; i < b.N; i++ {
-		for _, r := range caseFoldBenchmarkAll {
-			_ = caseFold(r)
+		for j := i; j < len(caseFoldBenchmarkAll) && j < b.N; j++ {
+			_ = caseFold(caseFoldBenchmarkAll[j])
 		}
 	}
 }
@@ -2054,10 +2269,11 @@ func BenchmarkToUpperLowerAll(b *testing.B) {
 
 func BenchmarkNonLetterASCII(b *testing.B) {
 	base := "!\"#$%&'()*+,-./0123456789:;<=>?@[\\]^_`{|}~"
-	base += base
-	for _, size := range []int{4, 8, 16, 24, 32, 64} {
+	base += base + base + base
+	for _, size := range []int{4, 8, 16, 24, 32, 64, 128} {
 		b.Run(fmt.Sprint(size), func(b *testing.B) {
 			s := base[:size]
+			b.SetBytes(int64(len(s)))
 			for i := 0; i < b.N; i++ {
 				nonLetterASCII(s)
 			}
