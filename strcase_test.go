@@ -1446,8 +1446,6 @@ func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
 
 const benchmarkString = "some_text=some☺value"
 
-const benchmarkString = "some_text=some☺value"
-
 // WARN: dev only
 func BenchmarkIndexRuneRussian(b *testing.B) {
 	want := strings.IndexRune(russianText, 'ж')
@@ -1482,6 +1480,7 @@ func BenchmarkIndexRuneFastPath(b *testing.B) {
 	}
 }
 
+// Benchmark buffer
 var bmbuf []byte
 
 func valName(x int) string {
@@ -1560,7 +1559,9 @@ func BenchmarkIndexByteEmpty(b *testing.B) {
 // Benchmark the handling of [KkSs] which require a check for their
 // equivalent Unicode folds.
 func BenchmarkIndexByteLongSpecial(b *testing.B) {
-	var bmbuf []byte
+	for i := range bmbuf {
+		bmbuf[i] = 0
+	}
 
 	bmIndexByte := func(index func(string, byte) int) func(b *testing.B, n int) {
 		return func(b *testing.B, n int) {
