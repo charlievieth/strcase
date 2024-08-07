@@ -1207,64 +1207,17 @@ func lastIndexRune(s string, r rune) int {
 		return -1
 	default:
 		if folds := foldMap(r); folds != nil {
-			switch uint16Len4(folds) {
-			case 1:
-				r0 := rune(folds[0])
-				for i := len(s); i > 0; {
-					var sr rune
-					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
-						i--
-					} else {
-						var size int
-						sr, size = utf8.DecodeLastRuneInString(s[:i])
-						i -= size
-					}
-					if sr == r0 {
-						return i
-					}
+			for i := len(s); i > 0; {
+				var sr rune
+				if sr = rune(s[i-1]); sr < utf8.RuneSelf {
+					i--
+				} else {
+					var size int
+					sr, size = utf8.DecodeLastRuneInString(s[:i])
+					i -= size
 				}
-			case 2:
-				r0, r1 := rune(folds[0]), rune(folds[1])
-				for i := len(s); i > 0; {
-					var sr rune
-					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
-						i--
-					} else {
-						var size int
-						sr, size = utf8.DecodeLastRuneInString(s[:i])
-						i -= size
-					}
-					if sr == r0 || sr == r1 {
-						return i
-					}
-				}
-			case 3:
-				r0, r1, r2 := rune(folds[0]), rune(folds[1]), rune(folds[2])
-				for i := len(s); i > 0; {
-					var sr rune
-					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
-						i--
-					} else {
-						var size int
-						sr, size = utf8.DecodeLastRuneInString(s[:i])
-						i -= size
-					}
-					if sr == r0 || sr == r1 || sr == r2 {
-						return i
-					}
-				}
-			case 4:
-				r0, r1, r2, r3 := rune(folds[0]), rune(folds[1]), rune(folds[2]), rune(folds[3])
-				for i := len(s); i > 0; {
-					var sr rune
-					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
-						i--
-					} else {
-						var size int
-						sr, size = utf8.DecodeLastRuneInString(s[:i])
-						i -= size
-					}
-					if sr == r0 || sr == r1 || sr == r2 || sr == r3 {
+				for j := 0; j < len(folds) && folds[j] != 0; j++ {
+					if sr == rune(folds[j]) {
 						return i
 					}
 				}
