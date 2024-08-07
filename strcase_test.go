@@ -1446,20 +1446,7 @@ func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
 
 const benchmarkString = "some_text=some☺value"
 
-func bmIndexRabinKarpUnicode(b *testing.B, s, substr string, want int) {
-	i := indexRabinKarpUnicode(s, substr)
-	if i != want {
-		b.Fatalf("invalid index: %d; want: %d", i, 14)
-	}
-	if i != -1 {
-		b.SetBytes(int64(i + len(substr)))
-	} else {
-		b.SetBytes(int64(len(substr)))
-	}
-	for i := 0; i < b.N; i++ {
-		indexRabinKarpUnicode(s, substr)
-	}
-}
+const benchmarkString = "some_text=some☺value"
 
 // WARN: dev only
 func BenchmarkIndexRuneRussian(b *testing.B) {
