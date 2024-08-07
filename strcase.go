@@ -1171,23 +1171,6 @@ func indexRune2(s string, lower, upper rune) (int, int) {
 	return n, sz
 }
 
-// uint16Len4 returns the number of non-zero values in a.
-func uint16Len4(a *[4]uint16) int {
-	// TODO: rename
-	switch {
-	case a[0] == 0:
-		return 0 // This should never happen.
-	case a[1] == 0:
-		return 1
-	case a[2] == 0:
-		return 2
-	case a[3] == 0:
-		return 3
-	default:
-		return 4
-	}
-}
-
 // lastIndexRune returns the last index of the first instance of the Unicode
 // code point r, or -1 if rune is not present in s.
 // If r is utf8.RuneError, it returns the last instance of any
