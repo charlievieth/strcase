@@ -2125,9 +2125,7 @@ func BenchmarkLastIndexAnyASCII(b *testing.B) {
 	for k := 1; k <= 2048; k <<= 4 {
 		for j := 1; j <= 64; j <<= 1 {
 			b.Run(fmt.Sprintf("%d:%d", k, j), func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					benchmarkLastIndexAny(b, x[:k], cs[:j])
-				}
+				benchmarkLastIndexAny(b, x[:k], cs[:j])
 			})
 		}
 	}
