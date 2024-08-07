@@ -417,9 +417,7 @@ func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, tes
 			}
 			var foldable bool
 			for _, r := range test.sep {
-				// TODO: delete me
-				// _, foldable = _FoldMap[r]
-				foldable := foldMap(r) != nil
+				foldable = foldMap(r) != nil
 				if foldable {
 					break
 				}
@@ -1996,19 +1994,19 @@ func BenchmarkHasPrefixLonger(b *testing.B) {
 	})
 
 	b.Run("ShortCircuitSize", func(b *testing.B) {
-		prefix := prefix + "\u212a"
-		b.SetBytes(int64(len(prefix)))
+		kprefix := prefix + "\u212a"
+		b.SetBytes(int64(len(kprefix)))
 		for i := 0; i < b.N; i++ {
-			HasPrefix(s, prefix)
+			HasPrefix(s, kprefix)
 		}
 	})
 
 	// Benchmark the overhead of checking for Kelvin
 	b.Run("KelvinCheck", func(b *testing.B) {
-		s := s + "\u212a"
-		b.SetBytes(int64(len(s)))
+		ks := s + "\u212a"
+		b.SetBytes(int64(len(ks)))
 		for i := 0; i < b.N; i++ {
-			containsKelvin(s)
+			containsKelvin(ks)
 		}
 	})
 }
