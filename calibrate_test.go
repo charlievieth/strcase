@@ -5,56 +5,53 @@ package strcase
 
 import (
 	"flag"
-	"fmt"
-	"runtime"
-	"sort"
 	"strings"
 	"testing"
 )
 
 var calibrate = flag.Bool("calibrate", false, "compute crossover for linear vs. binary search")
 
-// TODO: use this
+// // TODO: use this
+// //
+// // TestCalibrate determines the cutoff where a brute-force-search is faster
+// // than the current Index algorithm.
+// func TestCalibrateBruteForce(t *testing.T) {
+// 	if !*calibrate {
+// 		return
+// 	}
 //
-// TestCalibrate determines the cutoff where a brute-force-search is faster
-// than the current Index algorithm.
-func TestCalibrateBruteForce(t *testing.T) {
-	if !*calibrate {
-		return
-	}
-
-	// TODO: run this on amd64
-	if runtime.GOARCH == "amd64" {
-		fmt.Printf("warning: running calibration on %s\n", runtime.GOARCH)
-	}
-
-	bench := func(t *testing.T, name, prefix string) {
-		t.Run(name, func(t *testing.T) {
-			n := sort.Search(64, func(n int) bool {
-				key := prefix + "a"
-				s := strings.Repeat(prefix+strings.Repeat(" ", n-1), 1<<16/n)
-				bruteForce := func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						bruteForceIndexUnicode(s, key)
-					}
-				}
-				shortIndex := func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						shortIndexUnicode(s, key)
-					}
-				}
-				bmbrute := testing.Benchmark(bruteForce)
-				bmshort := testing.Benchmark(shortIndex)
-				fmt.Printf("n=%d: brute=%d index=%d\n", n, bmbrute.NsPerOp(), bmshort.NsPerOp())
-				return bmbrute.NsPerOp()*100 > bmshort.NsPerOp()*110
-			})
-			fmt.Printf("calibration: brute-force cutoff = %d\n", n)
-		})
-	}
-
-	bench(t, "Unicode", "α")
-	bench(t, "ASCII", "a")
-}
+// 	// TODO: run this on amd64
+// 	if runtime.GOARCH == "amd64" {
+// 		fmt.Printf("warning: running calibration on %s\n", runtime.GOARCH)
+// 	}
+//
+// 	bench := func(t *testing.T, name, prefix string) {
+// 		t.Run(name, func(t *testing.T) {
+// 			n := sort.Search(64, func(n int) bool {
+// 				key := prefix + "a"
+// 				s := strings.Repeat(prefix+strings.Repeat(" ", n-1), 1<<16/n)
+// 				bruteForce := func(b *testing.B) {
+// 					for i := 0; i < b.N; i++ {
+// 						bruteForceIndexUnicode(s, key)
+// 					}
+// 				}
+// 				shortIndex := func(b *testing.B) {
+// 					for i := 0; i < b.N; i++ {
+// 						shortIndexUnicode(s, key)
+// 					}
+// 				}
+// 				bmbrute := testing.Benchmark(bruteForce)
+// 				bmshort := testing.Benchmark(shortIndex)
+// 				fmt.Printf("n=%d: brute=%d index=%d\n", n, bmbrute.NsPerOp(), bmshort.NsPerOp())
+// 				return bmbrute.NsPerOp()*100 > bmshort.NsPerOp()*110
+// 			})
+// 			fmt.Printf("calibration: brute-force cutoff = %d\n", n)
+// 		})
+// 	}
+//
+// 	bench(t, "Unicode", "α")
+// 	bench(t, "ASCII", "a")
+// }
 
 // This test checks if the performance of strings.LastIndexByte has improved
 // and beats the naive implementation (based on Go 1.19) that is used here.
