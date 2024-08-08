@@ -9,27 +9,6 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-const MaxBruteForce = 64
-
-// TODO: use MaxLen in strcase
-//
-// func init() {
-// 	if cpu.X86.HasAVX2 {
-// 		MaxLen = 63
-// 	} else {
-// 		MaxLen = 31
-// 	}
-// }
-
-// Cutover reports the number of failures of IndexByte we should tolerate
-// before switching over to Index.
-// n is the number of bytes processed so far.
-// See the bytes.Index implementation for details.
-func Cutover(n int) int {
-	// 1 error per 8 characters, plus a few slop to start.
-	return (n + 16) / 8
-}
-
 // Offsets into internal/cpu records for use in assembly.
 const (
 	offsetX86HasAVX2   = unsafe.Offsetof(cpu.X86.HasAVX2)

@@ -15,6 +15,7 @@ import (
 	"testing"
 	"unicode"
 	"unicode/utf8"
+	"unsafe"
 
 	"golang.org/x/text/unicode/rangetable"
 )
@@ -707,6 +708,16 @@ var indexRuneTests = []IndexRuneTest{
 	{"İ", 'İ', 0},  // U+0130
 	{"i", 'İ', -1}, // U+0130
 	{"ſS*ք", 'S', 0},
+
+	// Test cutover when strings.IndexByte does not advance far
+	// enough. All the runes here have the same last byte when
+	// encoded as UTF-8.
+	{strings.Repeat("ā", 128) + "Á", 'Á', len("ā") * 128}, // 2 bytes per-rune
+	{strings.Repeat("ā", 128), 'Á', -1},
+	{strings.Repeat("ᲅ", 128) + "ꙅ", 'ꙅ', len("ᲅ") * 128}, // 3 bytes per-rune
+	{strings.Repeat("ᲅ", 128), 'ꙅ', -1},
+	{strings.Repeat("𥺻", 128) + "𥻻", '𥻻', len("𥺻") * 128}, // 4 bytes per-rune
+	{strings.Repeat("𥺻", 128), '𥻻', -1},
 }
 
 func TestIndexRune(t *testing.T) {
@@ -1523,6 +1534,89 @@ func bmIndexRune(index func(string, rune) int) func(b *testing.B, n int, s strin
 			}
 		}
 	}
+}
+
+func benchBytes(b *testing.B, sizes []int, f func(b *testing.B, n int)) {
+	for _, n := range sizes {
+		b.Run(valName(n), func(b *testing.B) {
+			if len(bmbuf) < n {
+				bmbuf = make([]byte, n)
+			}
+			b.SetBytes(int64(n))
+			f(b, n)
+		})
+	}
+}
+
+func bmIndexRuneCaseUnicode(rt *unicode.RangeTable, needle rune) func(b *testing.B, n int) {
+	var rs []rune
+	for _, r16 := range rt.R16 {
+		for r := rune(r16.Lo); r <= rune(r16.Hi); r += rune(r16.Stride) {
+			if r != needle {
+				rs = append(rs, r)
+			}
+		}
+	}
+	for _, r32 := range rt.R32 {
+		for r := rune(r32.Lo); r <= rune(r32.Hi); r += rune(r32.Stride) {
+			if r != needle {
+				rs = append(rs, r)
+			}
+		}
+	}
+	// Shuffle the runes so that they are not in descending order.
+	// The sort is deterministic since this is used for benchmarks,
+	// which need to be repeatable.
+	rr := rand.New(rand.NewSource(1))
+	rr.Shuffle(len(rs), func(i, j int) {
+		rs[i], rs[j] = rs[j], rs[i]
+	})
+	uchars := string(rs)
+
+	return func(b *testing.B, n int) {
+		buf := bmbuf[0:n]
+		o := copy(buf, uchars)
+		for o < len(buf) {
+			o += copy(buf[o:], uchars)
+		}
+
+		// Make space for the needle rune at the end of buf.
+		m := utf8.RuneLen(needle)
+		for o := m; o > 0; {
+			_, sz := utf8.DecodeLastRune(buf)
+			copy(buf[len(buf)-sz:], "\x00\x00\x00\x00")
+			buf = buf[:len(buf)-sz]
+			o -= sz
+		}
+		buf = utf8.AppendRune(buf[:n-m], needle)
+		s := *(*string)(unsafe.Pointer(&buf))
+
+		n -= m // adjust for rune len
+		for i := 0; i < b.N; i++ {
+			j := indexRuneCase(s, needle)
+			if j != n {
+				b.Fatal("bad index", j)
+			}
+		}
+		for i := range buf {
+			buf[i] = 0
+		}
+	}
+}
+
+func BenchmarkIndexRuneCaseUnicode(b *testing.B) {
+	b.Run("Latin", func(b *testing.B) {
+		// Latin is mostly 1, 2, 3 byte runes.
+		benchBytes(b, indexSizes, bmIndexRuneCaseUnicode(unicode.Latin, 'é'))
+	})
+	b.Run("Cyrillic", func(b *testing.B) {
+		// Cyrillic is mostly 2 and 3 byte runes.
+		benchBytes(b, indexSizes, bmIndexRuneCaseUnicode(unicode.Cyrillic, 'Ꙁ'))
+	})
+	b.Run("Han", func(b *testing.B) {
+		// Han consists only of 3 and 4 byte runes.
+		benchBytes(b, indexSizes, bmIndexRuneCaseUnicode(unicode.Han, '𠀿'))
+	})
 }
 
 // Torture test IndexRune. This is useful for calculating the cutover

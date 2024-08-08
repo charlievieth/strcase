@@ -4,7 +4,6 @@
 package strcase
 
 import (
-	"runtime"
 	"strings"
 	"unicode/utf8"
 
@@ -982,24 +981,19 @@ func indexRune(s string, r rune) (int, int) {
 	}
 }
 
-func cutoverIndexRune(n int) int {
-	// TODO: Merge this with cutover() which is identical.
-	if runtime.GOARCH != "arm64" {
-		return (n + 16) / 8
-	}
-	return 4 + n>>4
-}
-
+// TODO: consider creating a version of this function for when we've already
+// decoded the rune and know that it is valid and not-ASCII.
+//
 // indexRuneCase is a *case-sensitive* version of strings.IndexRune that is
 // generally faster for Unicode characters since it searches for the rune's
 // second byte, which is generally more unique, instead of the first byte,
 // like strings.IndexRune.
 func indexRuneCase(s string, r rune) int {
-	// TODO: consider searching for the first byte if it is not one of:
-	// 240, 243, or 244 (which are the first byte of ~78% of multi-byte
-	// Unicode characters).
-	//
-	// TODO: remove check for invalid runes, if possible
+	// TODO:
+	//   * remove if my PR is ever merged
+	//   * consider searching for the first byte if it is not one of:
+	//     240, 243, or 244 (which are the first byte of ~78% of multi-byte
+	//     Unicode characters).
 	switch {
 	case 0 <= r && r < utf8.RuneSelf:
 		return strings.IndexByte(s, byte(r))
@@ -1015,59 +1009,47 @@ func indexRuneCase(s string, r rune) int {
 	default:
 		var n int
 		var c0, c1, c2, c3 byte
-		// Inlined version of utf8.EncodeRune
-		{
-			const (
-				tx       = 0b10000000
-				t2       = 0b11000000
-				t3       = 0b11100000
-				t4       = 0b11110000
-				maskx    = 0b00111111
-				rune2Max = 1<<11 - 1
-				rune3Max = 1<<16 - 1
-			)
-			switch i := uint32(r); {
-			case i <= rune2Max:
-				c0 = t2 | byte(r>>6)
-				c1 = tx | byte(r)&maskx
-				n = 2
-			// NB: removed the invalid rune check since that is
-			// performed above.
-			case i <= rune3Max:
-				c0 = t3 | byte(r>>12)
-				c1 = tx | byte(r>>6)&maskx
-				c2 = tx | byte(r)&maskx
-				n = 3
-			default:
-				c0 = t4 | byte(r>>18)
-				c1 = tx | byte(r>>12)&maskx
-				c2 = tx | byte(r>>6)&maskx
-				c3 = tx | byte(r)&maskx
-				n = 4
-			}
+		// Inlined version of utf8.EncodeRune. This is one of our hottest
+		// functions and EncodeRune or string(r) add significant overhead
+		// when the string being searched is small.
+		const (
+			tx       = 0b10000000
+			t2       = 0b11000000
+			t3       = 0b11100000
+			t4       = 0b11110000
+			maskx    = 0b00111111
+			rune2Max = 1<<11 - 1
+			rune3Max = 1<<16 - 1
+		)
+		switch i := uint32(r); {
+		case i <= rune2Max:
+			c0 = t2 | byte(r>>6)
+			c1 = tx | byte(r)&maskx
+			n = 2
+		// NB: removed the invalid rune check since that is
+		// performed above.
+		case i <= rune3Max:
+			c0 = t3 | byte(r>>12)
+			c1 = tx | byte(r>>6)&maskx
+			c2 = tx | byte(r)&maskx
+			n = 3
+		default:
+			c0 = t4 | byte(r>>18)
+			c1 = tx | byte(r>>12)&maskx
+			c2 = tx | byte(r>>6)&maskx
+			c3 = tx | byte(r)&maskx
+			n = 4
 		}
-		if n >= len(s) {
-			// WARN: test if this is faster
-			// my guess is that it actually makes things slower
-			if n == len(s) && string(r) == s {
-				return 0
-			}
-			return -1
-		}
-		// NOTE: searching for the last byte was not always faster (so maybe
-		// not worth investigating in the future).
-		//
-		// Search for r using the second byte of its UTF-8 encoded form
+		// Search for r using the last byte of its UTF-8 encoded form
 		// since it is more unique than the first byte. This 4-5x faster
 		// when all the text is Unicode.
+		var fails, i int
 		switch n {
 		case 2:
-			fails := 0
-			i := 1
-			t := len(s)
-			for i < t {
+			i = 1
+			for i < len(s) {
 				if s[i] != c1 {
-					o := strings.IndexByte(s[i+1:t], c1)
+					o := strings.IndexByte(s[i+1:], c1)
 					if o < 0 {
 						return -1
 					}
@@ -1078,57 +1060,85 @@ func indexRuneCase(s string, r rune) int {
 				}
 				fails++
 				i++
-				if fails > cutoverIndexRune(i) {
-					if j := strings.Index(s[i:], string(r)); j != -1 {
-						return i + j
+				// Switch to bytealg.IndexString, if implemented, when the needle
+				// is small and IndexByte produces too many false positives.
+				if bytealg.NativeIndex && fails > bytealg.Cutover(i) ||
+					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)-1) {
+					if bytealg.NativeIndex {
+						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
+							return i + j
+						}
+					} else {
+						// Elided on platforms with a native IndexString.
+						// This is faster than calling strings.Index or
+						// using Rabin-Karp.
+						for ; i < len(s); i++ {
+							if s[i] == c1 && s[i-1] == c0 {
+								return i - 1
+							}
+						}
 					}
 					return -1
 				}
 			}
 		case 3:
-			fails := 0
-			i := 1
-			t := len(s) - 1
-			for i < t {
-				if s[i] != c1 {
-					o := strings.IndexByte(s[i+1:t], c1)
+			i = 2
+			for i < len(s) {
+				if s[i] != c2 {
+					o := strings.IndexByte(s[i+1:], c2)
 					if o < 0 {
 						return -1
 					}
 					i += o + 1
 				}
-				if s[i-1] == c0 && s[i+1] == c2 {
-					return i - 1
+				if s[i-2] == c0 && s[i-1] == c1 {
+					return i - 2
 				}
 				fails++
 				i++
-				if fails > cutoverIndexRune(i) {
-					if j := strings.Index(s[i:], string(r)); j != -1 {
-						return i + j
+				if bytealg.NativeIndex && fails > bytealg.Cutover(i) ||
+					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)-2) {
+					if bytealg.NativeIndex {
+						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
+							return i + j
+						}
+					} else {
+						for ; i < len(s); i++ {
+							if s[i] == c2 && s[i-1] == c1 && s[i-2] == c0 {
+								return i - 2
+							}
+						}
 					}
 					return -1
 				}
 			}
 		case 4:
-			fails := 0
-			i := 1
-			t := len(s) - 2
-			for i < t {
-				if s[i] != c1 {
-					o := strings.IndexByte(s[i+1:t], c1)
+			i = 3
+			for i < len(s) {
+				if s[i] != c3 {
+					o := strings.IndexByte(s[i+1:], c3)
 					if o < 0 {
 						return -1
 					}
 					i += o + 1
 				}
-				if s[i-1] == c0 && s[i+1] == c2 && s[i+2] == c3 {
-					return i - 1
+				if s[i-3] == c0 && s[i-2] == c1 && s[i-1] == c2 {
+					return i - 3
 				}
 				fails++
 				i++
-				if fails > cutoverIndexRune(i) {
-					if j := strings.Index(s[i:], string(r)); j != -1 {
-						return i + j
+				if bytealg.NativeIndex && fails > bytealg.Cutover(i) ||
+					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)-3) {
+					if bytealg.NativeIndex {
+						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
+							return i + j
+						}
+					} else {
+						for ; i < len(s); i++ {
+							if s[i] == c3 && s[i-1] == c2 && s[i-2] == c1 && s[i-3] == c0 {
+								return i - 3
+							}
+						}
 					}
 					return -1
 				}
