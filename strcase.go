@@ -841,30 +841,6 @@ func indexByte(s string, c byte) (int, int) {
 		}
 		s = s[:n] // Limit search space
 	}
-
-	// IndexNonASCII is fast very on amd64 and arm64 and runs in O(n) time
-	// compared to IndexRune which can get tripped up if the text contains
-	// many of the same bytes as the rune being searched for.
-	if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
-		o := IndexNonASCII(s)
-		if n == 0 || o < 0 {
-			// Short-circuit: c is the first byte or the text is all ASCII.
-			return n, 1
-		}
-		s = s[o:] // Limit search space to the start of non-ASCII runes.
-		if 0 < n && n < sz {
-			return n, 1 // Matched c before a possible rune 'r'
-		}
-		// Search for Unicode characters that map to ASCII byte 'c'
-		if k := indexRuneCase(s, r); n == -1 || (k != -1 && k < n) {
-			if k != -1 {
-				k += o
-			}
-			return k, sz
-		}
-		return n, 1
-	}
-	// Non amd64/arm64 code (should be elided)
 	if o := indexRuneCase(s, r); n == -1 || (o != -1 && o < n) {
 		return o, sz
 	}
