@@ -675,8 +675,8 @@ func indexUnicode(s, substr string) int {
 func nonLetterASCII(s string) bool {
 	for i := 0; i < len(s); i++ {
 		// NB: this is faster than using a lookup table
-		c := int(s[i] | ' ') // simplify check for alpha
-		if c >= utf8.RuneSelf || 'a' <= c && c <= 'z' {
+		c := s[i] | ' ' // simplify check for alpha
+		if c&utf8.RuneSelf != 0 || 'a' <= c && c <= 'z' {
 			return false
 		}
 	}

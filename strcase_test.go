@@ -1453,6 +1453,24 @@ func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
 	}
 }
 
+func TestNonLetterASCII(t *testing.T) {
+	tests := []struct {
+		s    string
+		want bool
+	}{
+		{"", true},
+		{"1234", true},
+		{"1a", false},
+		{"1A", false},
+	}
+	for _, test := range tests {
+		got := nonLetterASCII(test.s)
+		if got != test.want {
+			t.Errorf("nonLetterASCII(%q) = %t; want: %t", test.s, got, test.want)
+		}
+	}
+}
+
 const benchmarkString = "some_text=some☺value"
 
 // WARN: dev only
