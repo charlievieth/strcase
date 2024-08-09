@@ -552,8 +552,103 @@ func bruteForceIndexUnicode(s, substr string) int {
 	}
 }
 
-// TODO: inline in Index
-func indexUnicode(s, substr string) int {
+// nonLetterASCII checks if the first 32 bytes of s consist only of
+// non-letter ASCII characters. This is used to quickly check if we
+// can use strings.Index.
+func nonLetterASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		// NB: this is faster than using a lookup table
+		c := s[i] | ' ' // simplify check for alpha
+		if c&utf8.RuneSelf != 0 || 'a' <= c && c <= 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+// TODO: check substr for any folds - this should almost always be faster
+// than our current search - especially since we end up having to scan it
+// multiple times. Maybe: check first rune (and maybe second), then check
+// if substr has any folds.
+//
+// That said this library is meant for dealing with text and this might
+// only with languages that don't have any/few folds.
+//
+// One thing we could do is use the longest prefix that does not have any
+// folds and use the fast string search for that.
+
+// Index returns the index of the first instance of substr in s, or -1 if
+// substr is not present in s.
+func Index(s, substr string) int {
+	n := len(substr)
+	var r rune
+	var size int
+	if n > 0 {
+		if substr[0] < utf8.RuneSelf {
+			r, size = rune(substr[0]), 1
+		} else {
+			r, size = utf8.DecodeRuneInString(substr)
+		}
+	}
+	switch {
+	case n == 0:
+		return 0
+	case n == 1:
+		return IndexByte(s, byte(r))
+	case n == size:
+		return IndexRune(s, r)
+	case n >= len(s):
+		if n > len(s)*3 {
+			return -1
+		}
+		// Match here is possible due to upper/lower case runes
+		// having different encoded sizes.
+		//
+		// Fast check to see if s contains the first character of substr.
+		i := IndexRune(s, r)
+		if i < 0 {
+			return -1
+		}
+		// Reduce the search space
+		s = s[i:]
+		// Kelvin K is three times the size of ASCII [Kk] so we need
+		// to check for it to see if the longer needle (substr) could
+		// possibly match the shorter haystack (s).
+		if n > len(s)*2 && !containsKelvin(substr) {
+			return -1
+		}
+		// NB: until disproven this is sufficiently fast (and maybe fastest)
+		if o := bruteForceIndexUnicode(s, substr); o != -1 {
+			return o + i
+		}
+		return -1
+	case n <= maxLen: // WARN: 32 is for arm64 (see: bytealg.MaxLen)
+		// WARN:
+		//  * this does not take non-folding runes into account
+		//  * figure out when this negatively impacts performance
+		//  * consider skipping if s is small relative to substr
+		//  * check if s contains the first char of substr first ???
+		//  * check after the maxBruteForce check ???
+		//
+		// Fast path if the sub-string is all non-alpha ASCII chars
+		//
+		// NB: This only works because len(substr) <= 32
+		//
+		// TODO:
+		//  * Are we just gaming benchmarks here and need a quicker
+		//    cutover to Rabin-Karp?
+		//  * We should skip this check if s is small
+		//
+		if len(substr) <= 32 && nonLetterASCII(substr) {
+			return strings.Index(s, substr)
+		}
+		// TODO: tune this
+		if len(s) <= maxBruteForce {
+			return bruteForceIndexUnicode(s, substr)
+		}
+		// fallthrough
+	}
+
 	var u0, u1 rune
 	var sz0, sz1 int
 	if substr[0] < utf8.RuneSelf {
@@ -667,80 +762,6 @@ func indexUnicode(s, substr string) int {
 		}
 	}
 	return -1
-}
-
-// nonLetterASCII checks if the first 32 bytes of s consist only of
-// non-letter ASCII characters. This is used to quickly check if we
-// can use strings.Index.
-func nonLetterASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		// NB: this is faster than using a lookup table
-		c := s[i] | ' ' // simplify check for alpha
-		if c&utf8.RuneSelf != 0 || 'a' <= c && c <= 'z' {
-			return false
-		}
-	}
-	return true
-}
-
-// Index returns the index of the first instance of substr in s, or -1 if
-// substr is not present in s.
-func Index(s, substr string) int {
-	n := len(substr)
-	var r rune
-	var size int
-	if n > 0 {
-		if substr[0] < utf8.RuneSelf {
-			r, size = rune(substr[0]), 1
-		} else {
-			r, size = utf8.DecodeRuneInString(substr)
-		}
-	}
-	switch {
-	case n == 0:
-		return 0
-	case n == 1:
-		return IndexByte(s, byte(r))
-	case n == size:
-		return IndexRune(s, r)
-	case n >= len(s):
-		if n > len(s)*3 {
-			return -1
-		}
-		// Match here is possible due to upper/lower case runes
-		// having different encoded sizes.
-		//
-		// Fast check to see if s contains the first character of substr.
-		i := IndexRune(s, r)
-		if i < 0 {
-			return -1
-		}
-		// Reduce the search space
-		s = s[i:]
-		// Kelvin K is three times the size of ASCII [Kk] so we need
-		// to check for it to see if the longer needle (substr) could
-		// possibly match the shorter haystack (s).
-		if n > len(s)*2 && !containsKelvin(substr) {
-			return -1
-		}
-		// NB: until disproven this is sufficiently fast (and maybe fastest)
-		if o := bruteForceIndexUnicode(s, substr); o != -1 {
-			return o + i
-		}
-		return -1
-	case n <= maxLen: // WARN: 32 is for arm64 (see: bytealg.MaxLen)
-		// WARN: fast path if the sub-string is all non-alpha ASCII chars
-		// FIXME: tune the cutoff here
-		if nonLetterASCII(substr) {
-			return strings.Index(s, substr)
-		}
-		// TODO: tune this
-		if len(s) <= maxBruteForce {
-			return bruteForceIndexUnicode(s, substr)
-		}
-		// fallthrough
-	}
-	return indexUnicode(s, substr)
 }
 
 // LastIndex returns the index of the last instance of substr in s, or -1 if
