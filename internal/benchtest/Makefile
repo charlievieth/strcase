@@ -3,13 +3,15 @@ MAKEFILE_DIR  := $(dir $(MAKEFILE_PATH))
 PATH          := $(MAKEFILE_DIR)/bin:$(PATH)
 
 COUNT          ?= 1   # Number of benchmark iterations (`-count` flag)
-TIMEOUT        ?= 60m # Benchmark timeout (`-timeout` flag)
+TIMEOUT        ?= 4h  # Benchmark timeout (`-timeout` flag)
+BENCHTIME      ?= 1s  # Benchmark run time (`-benchtime` flag)
 
 GO             ?= go
 GOBIN          ?= $(MAKEFILE_DIR)/bin
-GO_TEST_FLAGS  ?= -timeout=$(TIMEOUT) -count=$(COUNT)
+GO_TEST_FLAGS  ?= -timeout=$(TIMEOUT) -count=$(COUNT) -benchtime=$(BENCHTIME)
 GO_TEST        ?= $(GO) test $(GO_TEST_FLAGS)
-TIMESTAMP      ?= $(shell date +%s)
+TIMESTAMP      := $(shell date +%s)
+TEE            ?= false # Tee benchmark results to a file
 
 BENCHSTAT_PKG  ?= golang.org/x/perf/cmd/benchstat@latest
 BENCHCMP_PKG   ?= golang.org/x/tools/cmd/benchcmp@latest
@@ -47,21 +49,32 @@ stdlib-case: GO_TEST_FLAGS += -stdlib-case
 #
 .PHONY: bench strcase stdlib stdlib-case
 bench strcase stdlib stdlib-case:
-	@$(GO_TEST) -bench .
+	@if $(TEE); then                                       \
+		$(GO_TEST) -bench . | tee "$(@).$(TIMESTAMP).txt"; \
+	else                                                   \
+		$(GO_TEST) -bench .;                               \
+	fi;
+
+.PHONY: benchstat
+benchstat:
+	@benchstat -confidence=0 stdlib.$(TIMESTAMP).txt strcase.$(TIMESTAMP).txt | \
+		tee result.$(TIMESTAMP).txt
 
 # release creates the "release" benchmarks which compare the
 # performance of strcase against the stdlib's strings package
 #
-# TODO: rename
-# WARN: very very slow
+# WARN: this is very very slow
 .PHONY: release
 release: COUNT = 6
+release: TEE = true
 release: bin/benchcmp commit_hash git_diff
-	@:                                                           \
-	$(MAKE) --quiet strcase | tee strcase.$(TIMESTAMP).txt &&    \
-	$(MAKE) --quiet stdlib  | tee stdlib.$(TIMESTAMP).txt &&     \
-	benchstat stdlib.$(TIMESTAMP).txt strcase.$(TIMESTAMP).txt | \
-		tee result.$(TIMESTAMP).txt
+release: strcase # The following targets need to be ran sequentially
+release: stdlib
+release: benchstat
+
+# Since the release target compares the results of the strcase and stdlib
+# targets it cannot be ran in parallel.
+.NOTPARALLEL: release
 
 .PHONY: commit_hash
 commit_hash:
@@ -74,9 +87,9 @@ git_diff:
 # test is a a no-op and is only here to make `checkmake` happy
 .PHONY: test
 test:
-	@echo 'test: is a no-op'
+	@$(GO) test
 
 .PHONY: clean
 clean:
-	@[[ ! -d $(GOBIN) ] || rm -r $(GOBIN)
-	@$(GO) clean
+	@[[ ! -d $(GOBIN) ]] || rm -r $(GOBIN);
+	@$(GO) clean;
