@@ -19,8 +19,14 @@ var benchLower = flag.Bool("stdlib-case", false,
 	"Convert case with strings.ToUpper before using the stdlib's strings package")
 
 func benchIndexRune(b *testing.B, s string, r rune) {
-	if strings.IndexRune(s, r) != strcase.IndexRune(s, r) {
+	n := strings.IndexRune(s, r)
+	if n != strcase.IndexRune(s, r) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
+	if n >= 0 {
+		b.SetBytes(int64(n + utf8.RuneLen(r)))
+	} else {
+		b.SetBytes(int64(len(s)))
 	}
 	switch {
 	case *benchStdLib:
@@ -72,8 +78,14 @@ func benchIndex(b *testing.B, s, substr string) {
 }
 
 func benchIndexByte(b *testing.B, s string, c byte) {
-	if strings.IndexByte(s, c) != strcase.IndexByte(s, c) {
+	n := strings.IndexByte(s, c)
+	if n != strcase.IndexByte(s, c) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
+	if n >= 0 {
+		b.SetBytes(int64(n + 1))
+	} else {
+		b.SetBytes(int64(len(s)))
 	}
 	switch {
 	case *benchStdLib:
@@ -92,8 +104,14 @@ func benchIndexByte(b *testing.B, s string, c byte) {
 }
 
 func benchLastIndex(b *testing.B, s, substr string) {
-	if strings.LastIndex(s, substr) != strcase.LastIndex(s, substr) {
+	n := strings.LastIndex(s, substr)
+	if n != strcase.LastIndex(s, substr) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
+	if n >= 0 {
+		b.SetBytes(int64(len(s) - n))
+	} else {
+		b.SetBytes(int64(len(s)))
 	}
 	switch {
 	case *benchStdLib:
@@ -112,8 +130,14 @@ func benchLastIndex(b *testing.B, s, substr string) {
 }
 
 func benchEqualFold(b *testing.B, s1, s2 string) {
-	if strings.EqualFold(s1, s2) != strcase.EqualFold(s1, s2) {
+	ok := strings.EqualFold(s1, s2)
+	if !ok || ok != strcase.EqualFold(s1, s2) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
+	}
+	if len(s1) > len(s2) {
+		b.SetBytes(int64(len(s1)))
+	} else {
+		b.SetBytes(int64(len(s2)))
 	}
 	switch {
 	case *benchStdLib:
@@ -133,6 +157,7 @@ func benchCount(b *testing.B, s, substr string) {
 	if strings.Count(s, substr) != strcase.Count(s, substr) {
 		b.Fatal("Invalid benchmark: strings/strcase results are not equal")
 	}
+	b.SetBytes(int64(len(s)))
 	switch {
 	case *benchStdLib:
 		for i := 0; i < b.N; i++ {
