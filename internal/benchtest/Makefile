@@ -16,8 +16,25 @@ TEE            ?= false # Tee benchmark results to a file
 BENCHSTAT_PKG  ?= golang.org/x/perf/cmd/benchstat@latest
 BENCHCMP_PKG   ?= golang.org/x/tools/cmd/benchcmp@latest
 
+# By default, we exclude IndexNonASCII in the benchmark comparison since
+# it distorts the overall delta since on amd64 and arm64 it is significantly
+# faster than the naive approach.
+BENCHSTAT_FILTER     ?= -.name:/IndexNonASCII/
+BENCHSTAT_CONFIDENCE ?= 0
+BENCHSTAT_ARGS       ?=
+ifneq (,$(BENCHSTAT_CONFIDENCE))
+    BENCHSTAT_ARGS += -confidence=$(BENCHSTAT_CONFIDENCE)
+endif
+ifneq (,$(BENCHSTAT_FILTER))
+    BENCHSTAT_ARGS += -filter='$(BENCHSTAT_FILTER)'
+endif
+
 .PHONY: all
 all: bench
+
+.PHONY: xtest
+xtest:
+	benchstat $(BENCHSTAT_ARGS)  stdlib.1723232239.txt strcase.1723232239.txt
 
 # install benchstat tool
 bin/benchstat:
@@ -57,13 +74,17 @@ bench strcase stdlib stdlib-case:
 
 .PHONY: benchstat
 benchstat:
-	@benchstat -confidence=0 stdlib.$(TIMESTAMP).txt strcase.$(TIMESTAMP).txt | \
+	@benchstat $(BENCHSTAT_ARGS) stdlib.$(TIMESTAMP).txt strcase.$(TIMESTAMP).txt | \
 		tee result.$(TIMESTAMP).txt
 
 # release creates the "release" benchmarks which compare the
 # performance of strcase against the stdlib's strings package
 #
 # WARN: this is very very slow
+#
+# TODO: don't include IndexNonASCII in benchmarks since it distorts
+# the overall delta (since on amd64 and arm64 it is significantly
+# faster than the naive approach).
 .PHONY: release
 release: COUNT = 6
 release: TEE = true
