@@ -27,13 +27,12 @@ xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
 GOLANGCI               ?= golangci-lint
-GOLANGCI_VERSION       ?= v1.59.1
+GOLANGCI_VERSION       ?= v1.60.1
 GOLANGCI_SORT          ?= --sort-results
 GOLANGCI_COLOR         ?= --color=always
-GOLANGCI_SKIP          ?= --skip-dirs='/(gen|phash)($$|/)'
-GOLANGCI_EXTRA_LINTERS ?= --enable=misspell,goimports,gofmt,gocheckcompilerdirectives
+GOLANGCI_CONFIG        ?= --config=$(MAKEFILE_DIR)/.golangci.yaml
 GOLANGCI_EXTRA_FLAGS   ?=
-GOLANGCI_FLAGS         ?= $(GOLANGCI_SORT) $(GOLANGCI_COLOR) $(GOLANGCI_SKIP) $(GOLANGCI_EXTRA_LINTERS) $(GOLANGCI_EXTRA_FLAGS)
+GOLANGCI_FLAGS         ?= $(GOLANGCI_CONFIG) $(GOLANGCI_SORT) $(GOLANGCI_COLOR) $(GOLANGCI_EXTRA_FLAGS)
 
 # All files related to code generation
 GEN_FILES = $(shell find "$(MAKEFILE_DIR)/internal/gen/" \

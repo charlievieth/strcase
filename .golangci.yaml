@@ -1,9 +1,5 @@
 ---
 run:
-  skip-dirs:
-    - internal/ucd
-    - internal/gen
-    - internal/phash
 linters:
   enable:
     - gofmt
@@ -15,10 +11,4 @@ linters:
     - gocheckcompilerdirectives
 output:
   sort-results: true
-issues:
-  exclude-rules:
-    - path: internal/bytealg/index_amd64.go
-      text: "constant visible only to assembly"
-      linters:
-        - unused
   fix: false
