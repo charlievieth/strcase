@@ -35,6 +35,10 @@ GOLANGCI_EXTRA_LINTERS ?= --enable=misspell,goimports,gofmt,gocheckcompilerdirec
 GOLANGCI_EXTRA_FLAGS   ?=
 GOLANGCI_FLAGS         ?= $(GOLANGCI_SORT) $(GOLANGCI_COLOR) $(GOLANGCI_SKIP) $(GOLANGCI_EXTRA_LINTERS) $(GOLANGCI_EXTRA_FLAGS)
 
+# All files related to code generation
+GEN_FILES = $(shell find "$(MAKEFILE_DIR)/internal/gen/" \
+	-name 'vendor' -prune -o \( -name '*.go' -o -name 'go.*' \) -print)
+
 # Windows exe extension
 GEN_TARGET       = $(GOBIN)/gen
 GENTABLES_TARGET = $(GOBIN)/gentables
@@ -76,7 +80,7 @@ bin/gen: $(MAKEFILE_DIR)/gen.go
 	@GOBIN=$(GOBIN) $(GO) install -tags=gen gen.go
 
 # Build gentables
-bin/gentables: $(MAKEFILE_DIR)/internal/gen/gentables/main.go
+bin/gentables: $(GEN_FILES)
 	@mkdir -p $(GOBIN)
 	@cd $(MAKEFILE_DIR)/internal/gen/gentables && \
 		GOBIN=$(GOBIN) $(GO) build -o $(GENTABLES_TARGET)

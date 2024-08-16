@@ -7,7 +7,9 @@ import (
 	"flag"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"syscall"
 	"testing"
@@ -15,7 +17,6 @@ import (
 
 	"github.com/charlievieth/strcase/internal/gen/util"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
 	"golang.org/x/term"
 	"golang.org/x/text/unicode/rangetable"
 )
@@ -34,7 +35,8 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	initTables(root)
+
+	initTables(root, filepath.Join("../../tables", tablesFileName(unicode.Version)))
 	os.Exit(m.Run())
 }
 

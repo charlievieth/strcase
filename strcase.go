@@ -8,53 +8,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/charlievieth/strcase/internal/bytealg"
+	"github.com/charlievieth/strcase/internal/tables"
 )
 
-// TODO: tune these and move to bytealg package
+const UnicodeVersion = tables.UnicodeVersion
+
 const maxBruteForce = 16 // substring length
 const maxLen = 32        // subject length
-
-// A foldPair stores Unicode case folding pairs
-type foldPair struct {
-	From uint32
-	To   uint32
-}
-
-// TODO: rename to "foldCase"
-//
-// caseFold returns the Unicode simple case-fold for r, if one exists, or r
-// unmodified, if one does not exist.
-func caseFold(r rune) rune {
-	// TODO: check if r is ASCII here?
-	u := uint32(r)
-	h := (u * _CaseFoldsSeed) >> _CaseFoldsShift
-	p := _CaseFolds[h]
-	if p.From == u {
-		r = rune(p.To)
-	}
-	return r
-}
-
-// TODO: rename
-func foldMap(r rune) *[4]uint16 {
-	u := uint32(r)
-	h := (u * _FoldMapSeed) >> _FoldMapShift
-	p := &_FoldMap[h]
-	if uint32(p[0]) == u {
-		return p
-	}
-	return nil
-}
-
-func foldMapExcludingUpperLower(r rune) [2]rune {
-	u := uint32(r)
-	h := (u * _FoldMapSeed) >> _FoldMapShift
-	p := &_FoldMapExcludingUpperLower[h]
-	if uint32(p.r) == u {
-		return [2]rune{rune(p.a[0]), rune(p.a[1])}
-	}
-	return [2]rune{}
-}
 
 func clamp(n int) int {
 	if n < 0 {
@@ -102,13 +62,13 @@ hasUnicode:
 			tr, t = rune(_lower[t[0]]), t[1:]
 		} else {
 			r, size := utf8.DecodeRuneInString(t)
-			tr, t = caseFold(r), t[size:]
+			tr, t = tables.CaseFold(r), t[size:]
 		}
 		// Easy case.
-		if sr == tr || caseFold(sr) == tr {
+		if sr == tr || tables.CaseFold(sr) == tr {
 			continue
 		}
-		return clamp(int(caseFold(sr)) - int(tr))
+		return clamp(int(tables.CaseFold(sr)) - int(tr))
 	}
 	if len(t) == 0 {
 		return 0
@@ -209,7 +169,7 @@ hasUnicode:
 			r, size := utf8.DecodeRuneInString(s)
 			sr, s = r, s[size:]
 		}
-		if tr == sr || caseFold(tr) == caseFold(sr) {
+		if tr == sr || tables.CaseFold(tr) == tables.CaseFold(sr) {
 			continue
 		}
 		return false, len(s) == 0
@@ -257,9 +217,9 @@ hasUnicode:
 			sr, s = rune(_lower[s[0]]), s[1:]
 		} else {
 			r, size := utf8.DecodeRuneInString(s)
-			sr, s = caseFold(r), s[size:]
+			sr, s = tables.CaseFold(r), s[size:]
 		}
-		if tr == sr || caseFold(tr) == sr {
+		if tr == sr || tables.CaseFold(tr) == sr {
 			continue
 		}
 		return ss
@@ -321,7 +281,7 @@ hasUnicode:
 			r, size := utf8.DecodeLastRuneInString(t)
 			tr, t = r, t[:len(t)-size]
 		}
-		if sr == tr || caseFold(sr) == caseFold(tr) {
+		if sr == tr || tables.CaseFold(sr) == tables.CaseFold(tr) {
 			continue
 		}
 		return false, len(s) == 0, 0
@@ -339,29 +299,6 @@ func TrimSuffix(s, suffix string) string {
 	return s
 }
 
-// toUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
-func toUpperLower(r rune) (upper, lower rune, foundMapping bool) {
-	if r <= utf8.RuneSelf {
-		if 'A' <= r && r <= 'Z' {
-			return r, r + ('a' - 'A'), true
-		}
-		if 'a' <= r && r <= 'z' {
-			return r - ('a' - 'A'), r, true
-		}
-		return r, r, false
-	}
-	// Hash rune r and see if it's in the _UpperLower table.
-	u := uint32(r)
-	h := (u | u<<24) * _UpperLowerSeed
-	p := &_UpperLower[h>>_UpperLowerShift]
-	if p[0] == u || p[1] == u {
-		return rune(p[0]), rune(p[1]), true
-	}
-	// Handle Unicode characters that do not equal
-	// their upper and lower case forms.
-	return toUpperLowerSpecial(r)
-}
-
 // bruteForceIndexUnicode performs a brute-force search for substr in s.
 func bruteForceIndexUnicode(s, substr string) int {
 	var u0, u1 rune
@@ -376,8 +313,8 @@ func bruteForceIndexUnicode(s, substr string) int {
 	} else {
 		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
 	}
-	folds0 := foldMapExcludingUpperLower(u0)
-	folds1 := foldMapExcludingUpperLower(u1)
+	folds0 := tables.FoldMapExcludingUpperLower(u0)
+	folds1 := tables.FoldMapExcludingUpperLower(u1)
 	hasFolds0 := folds0[0] != 0
 	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
@@ -385,12 +322,12 @@ func bruteForceIndexUnicode(s, substr string) int {
 	// Ugly hack
 	var l0, l1 rune
 	if u0 != 'İ' {
-		u0, l0, _ = toUpperLower(u0)
+		u0, l0, _ = tables.ToUpperLower(u0)
 	} else {
 		l0 = 'İ'
 	}
 	if u1 != 'İ' {
-		u1, l1, _ = toUpperLower(u1)
+		u1, l1, _ = tables.ToUpperLower(u1)
 	} else {
 		l1 = 'İ'
 	}
@@ -663,8 +600,8 @@ func Index(s, substr string) int {
 	}
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
-	folds0 := foldMapExcludingUpperLower(u0)
-	folds1 := foldMapExcludingUpperLower(u1)
+	folds0 := tables.FoldMapExcludingUpperLower(u0)
+	folds1 := tables.FoldMapExcludingUpperLower(u1)
 	hasFolds0 := folds0[0] != 0
 	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
@@ -672,12 +609,12 @@ func Index(s, substr string) int {
 	// Ugly hack
 	var l0, l1 rune
 	if u0 != 'İ' {
-		u0, l0, _ = toUpperLower(u0)
+		u0, l0, _ = tables.ToUpperLower(u0)
 	} else {
 		l0 = 'İ'
 	}
 	if u1 != 'İ' {
-		u1, l1, _ = toUpperLower(u1)
+		u1, l1, _ = tables.ToUpperLower(u1)
 	} else {
 		l1 = 'İ'
 	}
@@ -946,7 +883,7 @@ func indexRune(s string, r rune) (int, int) {
 		return -1, 1
 	default:
 		// TODO: use a function for len(folds)
-		if folds := foldMap(r); folds != nil {
+		if folds := tables.FoldMap(r); folds != nil {
 			size := utf8.RuneLen(r)
 			n := indexRuneCase(s, r)
 			if n == 0 {
@@ -971,7 +908,7 @@ func indexRune(s string, r rune) (int, int) {
 				}
 			}
 			return n, size
-		} else if u, l, ok := toUpperLower(r); ok {
+		} else if u, l, ok := tables.ToUpperLower(r); ok {
 			return indexRune2(s, l, u)
 		}
 		return indexRuneCase(s, r), utf8.RuneLen(r)
@@ -1059,9 +996,11 @@ func indexRuneCase(s string, r rune) int {
 				i++
 				// Switch to bytealg.IndexString, if implemented, when the needle
 				// is small and IndexByte produces too many false positives.
-				if bytealg.NativeIndex && fails > bytealg.Cutover(i) ||
-					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)-1) {
+				if (bytealg.NativeIndex && fails > bytealg.Cutover(i) && i < len(s)) ||
+					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)) {
 					if bytealg.NativeIndex {
+						// NB: Impossible to match in the middle of the two byte
+						// rune so we don't need to search from: s[i-:].
 						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
 							return i + j
 						}
@@ -1093,11 +1032,12 @@ func indexRuneCase(s string, r rune) int {
 				}
 				fails++
 				i++
-				if bytealg.NativeIndex && fails > bytealg.Cutover(i) ||
-					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)-2) {
+				if (bytealg.NativeIndex && fails > bytealg.Cutover(i) && i < len(s)) ||
+					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)) {
 					if bytealg.NativeIndex {
-						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
-							return i + j
+						// We might be in the middle of a rune so search: s[i-2:]
+						if j := bytealg.IndexString(s[i-2:], string(r)); j != -1 {
+							return i + j - 2
 						}
 					} else {
 						for ; i < len(s); i++ {
@@ -1124,11 +1064,12 @@ func indexRuneCase(s string, r rune) int {
 				}
 				fails++
 				i++
-				if bytealg.NativeIndex && fails > bytealg.Cutover(i) ||
-					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)-3) {
+				if (bytealg.NativeIndex && fails > bytealg.Cutover(i) && i < len(s)) ||
+					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)) {
 					if bytealg.NativeIndex {
-						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
-							return i + j
+						// We might be in the middle of a rune so search: s[i-3:]
+						if j := bytealg.IndexString(s[i-3:], string(r)); j != -1 {
+							return i + j - 3
 						}
 					} else {
 						for ; i < len(s); i++ {
@@ -1196,7 +1137,7 @@ func lastIndexRune(s string, r rune) int {
 	case !utf8.ValidRune(r):
 		return -1
 	default:
-		if folds := foldMap(r); folds != nil {
+		if folds := tables.FoldMap(r); folds != nil {
 			for i := len(s); i > 0; {
 				var sr rune
 				if sr = rune(s[i-1]); sr < utf8.RuneSelf {
@@ -1213,7 +1154,7 @@ func lastIndexRune(s string, r rune) int {
 				}
 			}
 		} else {
-			u, l, _ := toUpperLower(r)
+			u, l, _ := tables.ToUpperLower(r)
 			for i := len(s); i > 0; {
 				var sr rune
 				if sr = rune(s[i-1]); sr < utf8.RuneSelf {
@@ -1245,7 +1186,7 @@ func hashStrUnicode(sep string) (uint32, uint32, int) {
 		if r < utf8.RuneSelf {
 			r = rune(_lower[r])
 		} else {
-			r = caseFold(r)
+			r = tables.CaseFold(r)
 		}
 		hash = hash*primeRK + uint32(r)
 		n++
@@ -1273,7 +1214,7 @@ func hashStrRevUnicode(sep string) (uint32, uint32, int) {
 			r, size = rune(_lower[sep[i-1]]), 1
 		} else {
 			r, size = utf8.DecodeLastRuneInString(sep[:i])
-			r = caseFold(r)
+			r = tables.CaseFold(r)
 		}
 		hash = hash*primeRK + uint32(r)
 		i -= size
@@ -1303,7 +1244,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 			r, size = rune(_lower[s[i-1]]), 1
 		} else {
 			r, size = utf8.DecodeLastRuneInString(s[:i])
-			r = caseFold(r)
+			r = tables.CaseFold(r)
 		}
 		h = h*primeRK + uint32(r)
 		i -= size
@@ -1326,7 +1267,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 			r0, n0 = rune(_lower[s[i-1]]), 1
 		} else {
 			r0, n0 = utf8.DecodeLastRuneInString(s[:i])
-			r0 = caseFold(r0)
+			r0 = tables.CaseFold(r0)
 		}
 		var r1 rune
 		var n1 int
@@ -1334,7 +1275,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 			r1, n1 = rune(_lower[s[j-1]]), 1
 		} else {
 			r1, n1 = utf8.DecodeLastRuneInString(s[:j])
-			r1 = caseFold(r1)
+			r1 = tables.CaseFold(r1)
 		}
 		h *= primeRK
 		h += uint32(r0)
@@ -1360,7 +1301,7 @@ func indexRabinKarpUnicode(s, substr string) int {
 		if r < utf8.RuneSelf {
 			r = rune(_lower[r])
 		} else {
-			r = caseFold(r)
+			r = tables.CaseFold(r)
 		}
 		h = h*primeRK + uint32(r)
 		n--
@@ -1381,13 +1322,13 @@ func indexRabinKarpUnicode(s, substr string) int {
 			s0, n0 = rune(_lower[s[j]]), 1
 		} else {
 			s0, n0 = utf8.DecodeRuneInString(s[j:])
-			s0 = caseFold(s0)
+			s0 = tables.CaseFold(s0)
 		}
 		if s[i] < utf8.RuneSelf {
 			s1, n1 = rune(_lower[s[i]]), 1
 		} else {
 			s1, n1 = utf8.DecodeRuneInString(s[i:])
-			s1 = caseFold(s1)
+			s1 = tables.CaseFold(s1)
 		}
 		h += uint32(s0)
 		h -= pow * uint32(s1)

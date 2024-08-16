@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"golang.org/x/text/unicode/rangetable"
+	"github.com/charlievieth/strcase/internal/tables"
 )
 
 func TestUnicodeVersion(t *testing.T) {
@@ -267,12 +267,18 @@ var unicodeIndexTests = []IndexTest{
 	{"İ", "i", -1},
 	{"aİ", "ai", -1},
 	{"aİ", "ai", -1},
+
+	// Test the cutover to to bytealg.IndexString when it is triggered in
+	// the middle of rune that contains consecutive runs of equal bytes.
+	{"aaaaaKKKK\U000bc104a", "\U000bc104a", 17}, // cutover: (n + 16) / 8
+	{"aaaaaKKKK鄄a", "鄄a", 17},
+	{"aaKKKKKa\U000bc104a", "\U000bc104a", 18}, // cutover: 4 + n>>4
+	{"aaKKKKKa鄄a", "鄄a", 18},
+
 	// Test cases found by fuzzing
 	{"\x00iK", "iK", 1},
 	{"İKKKK\x00iK", "iK", 15},
 	{"İKKKKiK", "iK", 14},
-
-	// Tests discovered with fuzzing
 	{"4=K ", "=\u212a", 1},
 	{"I", "\u0131", -1},
 
@@ -306,6 +312,16 @@ var unicodeIndexTests = []IndexTest{
 		s:   "\U0007279d\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd",
 		sep: "\ufffd\ufffd\ufffd\ufffd\ufffd",
 		out: 4,
+	},
+	{
+		s:   ">Ā\U000c4c1bKKKK\x00YUв\U000bc104q9",
+		sep: "\U000bc104q9",
+		out: 24,
+	},
+	{
+		s:   "\U000bc104q9",
+		sep: "\U000bc104q9",
+		out: 0,
 	},
 }
 
@@ -418,7 +434,7 @@ func runIndexTests(t *testing.T, f func(s, sep string) int, funcName string, tes
 			}
 			var foldable bool
 			for _, r := range test.sep {
-				foldable = foldMap(r) != nil
+				foldable = tables.FoldMap(r) != nil
 				if foldable {
 					break
 				}
@@ -718,6 +734,13 @@ var indexRuneTests = []IndexRuneTest{
 	{strings.Repeat("ᲅ", 128), 'ꙅ', -1},
 	{strings.Repeat("𥺻", 128) + "𥻻", '𥻻', len("𥺻") * 128}, // 4 bytes per-rune
 	{strings.Repeat("𥺻", 128), '𥻻', -1},
+
+	// Test the cutover to to bytealg.IndexString when it is triggered in
+	// the middle of rune that contains consecutive runs of equal bytes.
+	{"aaaaaKKKK\U000bc104", '\U000bc104', 17}, // cutover: (n + 16) / 8
+	{"aaaaaKKKK鄄", '鄄', 17},
+	{"aaKKKKKa\U000bc104", '\U000bc104', 18}, // cutover: 4 + n>>4
+	{"aaKKKKKa鄄", '鄄', 18},
 }
 
 func TestIndexRune(t *testing.T) {
@@ -1125,20 +1148,22 @@ func TestTrimSuffix(t *testing.T) {
 
 func TestToUpperLower(t *testing.T) {
 	fails := 0
-	rangetable.Visit(unicodeCategories, func(r rune) {
-		l := unicode.ToLower(r)
-		u := unicode.ToUpper(r)
-		ok := l != u
-		uu, ll, found := toUpperLower(r)
-		if l != ll || u != uu || ok != found {
-			t.Errorf("toUpperLower(%c) = %c, %c, %t want: %c, %c, %t",
-				r, ll, uu, found, l, u, ok)
-			fails++
-		}
-		if fails >= 50 {
-			t.Fatal("Too many errors:", fails)
-		}
-	})
+	for _, rt := range unicode.Categories {
+		visitTable(rt, func(r rune) {
+			l := unicode.ToLower(r)
+			u := unicode.ToUpper(r)
+			ok := l != u
+			uu, ll, found := tables.ToUpperLower(r)
+			if l != ll || u != uu || ok != found {
+				t.Errorf("ToUpperLower(%c) = %c, %c, %t want: %c, %c, %t",
+					r, ll, uu, found, l, u, ok)
+				fails++
+			}
+			if fails >= 50 {
+				t.Fatal("Too many errors:", fails)
+			}
+		})
+	}
 }
 
 var CountTests = []struct {
@@ -1304,43 +1329,20 @@ func BenchmarkCompare(b *testing.B) {
 func TestCaseFold(t *testing.T) {
 	t.Run("Limits", func(t *testing.T) {
 		for r := unicode.MaxRune; r < unicode.MaxRune+10; r++ {
-			x := caseFold(r)
+			x := tables.CaseFold(r)
 			if x != r {
 				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", r, x, r)
 			}
 		}
 		for r := rune(0); r < ' '; r++ {
-			x := caseFold(r)
+			x := tables.CaseFold(r)
 			if x != r {
 				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", r, x, r)
 			}
 		}
-		if r := caseFold(utf8.RuneError); r != utf8.RuneError {
+		if r := tables.CaseFold(utf8.RuneError); r != utf8.RuneError {
 			t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", utf8.RuneError, r, utf8.RuneError)
 		}
-	})
-	t.Run("ValidFolds", func(t *testing.T) {
-		for _, p := range _CaseFolds {
-			if r := caseFold(rune(p.From)); r != rune(p.To) {
-				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", rune(p.From), r, rune(p.To))
-			}
-		}
-	})
-	t.Run("UnicodeCases", func(t *testing.T) {
-		folds := make(map[rune]rune)
-		for _, p := range _CaseFolds {
-			if p.From != 0 {
-				folds[rune(p.From)] = rune(p.To)
-			}
-		}
-		rangetable.Visit(unicodeCategories, func(r rune) {
-			if rr, ok := folds[r]; ok {
-				r = rr
-			}
-			if got := caseFold(r); got != r {
-				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", r, got, r)
-			}
-		})
 	})
 }
 
@@ -2284,26 +2286,18 @@ func loadCaseFoldBenchmarkAll() {
 	if caseFoldBenchmarkAll != nil {
 		return
 	}
-	n := 0
-	for _, p := range _CaseFolds {
-		if p.From != 0 {
-			n++
-		}
-	}
-	a := make([]rune, n)
-	i := 0
-	for _, p := range _CaseFolds {
-		if p.From != 0 {
-			a[i] = rune(p.From)
-			i++
+	a := make([]rune, 0, len(foldableRunes))
+	for _, r := range foldableRunes {
+		if tables.CaseFold(r) != r {
+			a = append(a, r)
 		}
 	}
 	// Make sure the slice is consistently sorted before
 	// randomizing order. This is relevant because the
 	// order of slice elements may change.
-	sort.Slice(a, func(i, j int) bool {
-		return a[i] < a[j]
-	})
+	if !sort.IsSorted(byRune(a)) {
+		sort.Sort(byRune(a))
+	}
 	rr := rand.New(rand.NewSource(12345))
 	rr.Shuffle(len(a), func(i, j int) {
 		a[i], a[j] = a[j], a[i]
@@ -2313,7 +2307,7 @@ func loadCaseFoldBenchmarkAll() {
 
 func BenchmarkCaseFold(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = caseFold(caseFoldBenchmarkRunes[i%len(caseFoldBenchmarkRunes)])
+		_ = tables.CaseFold(caseFoldBenchmarkRunes[i%len(caseFoldBenchmarkRunes)])
 	}
 }
 
@@ -2321,7 +2315,7 @@ func BenchmarkCaseFoldAll(b *testing.B) {
 	loadCaseFoldBenchmarkAll()
 	for i := 0; i < b.N; i++ {
 		for j := i; j < len(caseFoldBenchmarkAll) && j < b.N; j++ {
-			_ = caseFold(caseFoldBenchmarkAll[j])
+			_ = tables.CaseFold(caseFoldBenchmarkAll[j])
 		}
 	}
 }
@@ -2347,42 +2341,9 @@ var toUpperLowerBenchmarkRunes = [16]rune{
 	0x0386,
 }
 
-var toUpperLowerBenchmarkAll []rune
-
-// WARN: this is not deterministic
-func loadToUpperLowerBenchmarkAll() {
-	if toUpperLowerBenchmarkAll != nil {
-		return
-	}
-	a := make([]rune, len(_UpperLower))
-	for i, p := range _UpperLower {
-		a[i] = rune(p[0])
-	}
-	// Make sure the slice is consistently sorted before
-	// randomizing order. This is relevant because the
-	// order of slice elements may change.
-	sort.Slice(a, func(i, j int) bool {
-		return a[i] < a[j]
-	})
-	rr := rand.New(rand.NewSource(12345))
-	rr.Shuffle(len(a), func(i, j int) {
-		a[i], a[j] = a[j], a[i]
-	})
-	toUpperLowerBenchmarkAll = a[:256]
-}
-
 func BenchmarkToUpperLower(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, _, _ = toUpperLower(toUpperLowerBenchmarkRunes[i%len(toUpperLowerBenchmarkRunes)])
-	}
-}
-
-func BenchmarkToUpperLowerAll(b *testing.B) {
-	loadToUpperLowerBenchmarkAll()
-	for i := 0; i < b.N; i++ {
-		for _, r := range toUpperLowerBenchmarkAll {
-			_, _, _ = toUpperLower(r)
-		}
+		_, _, _ = tables.ToUpperLower(toUpperLowerBenchmarkRunes[i%len(toUpperLowerBenchmarkRunes)])
 	}
 }
 

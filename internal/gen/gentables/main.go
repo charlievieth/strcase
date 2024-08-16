@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,8 +33,6 @@ import (
 	"unicode"
 
 	"github.com/schollz/progressbar/v3"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	"golang.org/x/term"
 	"golang.org/x/text/unicode/rangetable"
 
@@ -702,7 +701,7 @@ func genCaseFolds(w *bytes.Buffer, firstValidHash bool) {
 	}
 
 	conf := HashConfig{
-		TableName:      "_CaseFolds",
+		TableName:      "CaseFolds",
 		TableSize:      caseFoldSize,
 		HashShift:      caseFoldShift,
 		FirstValidHash: firstValidHash,
@@ -776,7 +775,7 @@ func genFoldTable(w *bytes.Buffer, firstValidHash bool) {
 	}
 
 	conf := HashConfig{
-		TableName:      "_FoldMap",
+		TableName:      "FoldMap",
 		TableSize:      foldMapSize,
 		HashShift:      foldMapShift,
 		FirstValidHash: firstValidHash,
@@ -805,7 +804,7 @@ func genFoldTable(w *bytes.Buffer, firstValidHash bool) {
 	fmt.Fprintf(w, "const _FoldMapSeed = 0x%04X\n", seed)
 	fmt.Fprintf(w, "const _FoldMapShift = %d\n", foldMapShift)
 	fmt.Fprint(w, "\n")
-	fmt.Fprintln(w, "// _FoldMap stores the Unicode case-folds for characters "+
+	fmt.Fprintln(w, "// FoldMap stores the Unicode case-folds for characters "+
 		"that have two or more folds.")
 	fmt.Fprintf(w, "var _FoldMap = [%d][4]uint16{\n", foldMapSize)
 	for _, ff := range folds {
@@ -921,7 +920,7 @@ func genUpperLowerTable(w *bytes.Buffer, firstValidHash bool) {
 	keys = slices.Compact(keys)
 
 	conf := HashConfig{
-		TableName:      "_UpperLower",
+		TableName:      "UpperLower",
 		TableSize:      upperLowerTableSize,
 		HashShift:      upperLowerTableShift,
 		ShiftHash:      true,
@@ -965,13 +964,95 @@ func writeInitGuard(w *bytes.Buffer) {
 
 func init() {
 	// This is essentially a compile time assertion that can only fail if a
-	// future Go release updates the version of Unicode it supports.
+	// future Go release updates the version of Unicode it supports. This
+	// check is elided if the Unicode versions match.
 	//
-	// TLDR: https://github.com/charlievieth/strcase/issues
+	// TLDR if you see this panic file an issue:
+	// https://github.com/charlievieth/strcase/issues
+	//
 	if UnicodeVersion != unicode.Version {
 		panic("strcase.UnicodeVersion \"" + UnicodeVersion +
 			"\" != unicode.Version \"" + unicode.Version + "\"")
 	}
+}
+
+`
+	w.WriteString(s)
+}
+
+func writeTypes(w *bytes.Buffer) {
+	const s = `
+
+// A foldPair stores Unicode case folding pairs
+type foldPair struct {
+	From uint32
+	To   uint32
+}
+
+`
+	w.WriteString(s)
+}
+
+func writeFunctions(w *bytes.Buffer) {
+	const s = `
+
+// TODO: rename to "foldCase"
+//
+// CaseFold returns the Unicode simple case-fold for r, if one exists, or r
+// unmodified, if one does not exist.
+func CaseFold(r rune) rune {
+	// TODO: check if r is ASCII here?
+	u := uint32(r)
+	h := (u * _CaseFoldsSeed) >> _CaseFoldsShift
+	p := _CaseFolds[h]
+	if p.From == u {
+		r = rune(p.To)
+	}
+	return r
+}
+
+// TODO: rename
+func FoldMap(r rune) *[4]uint16 {
+	u := uint32(r)
+	h := (u * _FoldMapSeed) >> _FoldMapShift
+	p := &_FoldMap[h]
+	if uint32(p[0]) == u {
+		return p
+	}
+	return nil
+}
+
+func FoldMapExcludingUpperLower(r rune) [2]rune {
+	u := uint32(r)
+	h := (u * _FoldMapSeed) >> _FoldMapShift
+	p := &_FoldMapExcludingUpperLower[h]
+	if uint32(p.r) == u {
+		return [2]rune{rune(p.a[0]), rune(p.a[1])}
+	}
+	return [2]rune{}
+}
+
+// ToUpperLower combines unicode.ToUpper and unicode.ToLower in one function.
+func ToUpperLower(r rune) (upper, lower rune, foundMapping bool) {
+	if r <= 0x80 {
+		if 'A' <= r && r <= 'Z' {
+			return r, r + ('a' - 'A'), true
+		}
+		if 'a' <= r && r <= 'z' {
+			return r - ('a' - 'A'), r, true
+		}
+		return r, r, false
+	}
+	// Hash rune r and see if it's in the _UpperLower table.
+	u := uint32(r)
+	h := (u | u<<24) * _UpperLowerSeed
+	p := &_UpperLower[h>>_UpperLowerShift]
+	if p[0] == u || p[1] == u {
+		return rune(p[0]), rune(p[1]), true
+	}
+	// Handle Unicode characters that do not equal
+	// their upper and lower case forms.
+	return toUpperLowerSpecial(r)
 }
 
 `
@@ -1005,7 +1086,8 @@ func testBuild(tablesFile string, data []byte, skipTests bool) {
 
 	overlayData, err := json.Marshal(overlayJSON{
 		Replace: map[string]string{
-			filepath.Base(tablesFile): tables,
+			// filepath.Base(tablesFile): tables,
+			tablesFile: tables,
 		},
 	})
 	if err != nil {
@@ -1091,7 +1173,7 @@ func writeGo(w *bytes.Buffer, tablesFile, buildTags string) {
 		log.Panic(err)
 	}
 	w.Reset()
-	if _, err := gen.WriteGo(w, "strcase", buildTags, src); err != nil {
+	if _, err := gen.WriteGo(w, "tables", buildTags, src); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -1121,11 +1203,10 @@ var tableInfo = TableInfo{
 	TableHashes: map[string]uint32{},
 }
 
-func readTableInfo(tablesFile string) (map[string]TableInfo, error) {
+func readTableInfo(root, tablesFile string) (map[string]TableInfo, error) {
 	m := make(map[string]TableInfo)
 	// The ".tables.json" file is adjacent to the generated tables file.
-	dir := filepath.Dir(tablesFile)
-	data, err := os.ReadFile(filepath.Join(dir, ".tables.json"))
+	data, err := os.ReadFile(filepath.Join(root, ".tables.json"))
 	if err != nil {
 		return m, err
 	}
@@ -1138,8 +1219,8 @@ func readTableInfo(tablesFile string) (map[string]TableInfo, error) {
 // TODO: change this to use the Unicode version instead of the file name
 //
 // Note: loadTableInfo may be an absolute path.
-func loadTableInfo(tablesFile string) {
-	m, err := readTableInfo(tablesFile)
+func loadTableInfo(root, tablesFile string) {
+	m, err := readTableInfo(root, tablesFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return
@@ -1157,8 +1238,8 @@ func loadTableInfo(tablesFile string) {
 	}
 }
 
-func updateTableInfoFile(tablesFile, fileHash, foldHash string) {
-	dir, base := filepath.Split(tablesFile)
+func updateTableInfoFile(root, tablesFile, fileHash, foldHash string) {
+	base := filepath.Base(tablesFile)
 
 	tableInfo.Filename = base
 	tableInfo.UnicodeVersion = gen.UnicodeVersion()
@@ -1166,7 +1247,7 @@ func updateTableInfoFile(tablesFile, fileHash, foldHash string) {
 	tableInfo.CaseFoldHash = foldHash
 	tableInfo.GenGoHash = fileHash
 
-	m, err := readTableInfo(tablesFile)
+	m, err := readTableInfo(root, tablesFile)
 	if err != nil && !os.IsNotExist(err) {
 		log.Panic(err)
 	}
@@ -1176,7 +1257,7 @@ func updateTableInfoFile(tablesFile, fileHash, foldHash string) {
 	if err != nil {
 		log.Panic(err)
 	}
-	writeFile(filepath.Join(dir, ".tables.json"), data)
+	writeFile(filepath.Join(root, ".tables.json"), data)
 }
 
 func fileExists(name string) bool {
@@ -1527,8 +1608,8 @@ func loadCatFold(m map[string]map[rune]bool) map[string]*unicode.RangeTable {
 }
 
 // TODO: move to the top
-func initTables(tablesFile string) {
-	loadTableInfo(tablesFile)
+func initTables(root, tablesFile string) {
+	loadTableInfo(root, tablesFile)
 	loadChars()
 	loadCaseFolds()                               // download Unicode tables
 	foldCategories, foldScripts := loadCasefold() // TODO: this is slow (~200ms)
@@ -1631,6 +1712,7 @@ func realMain() int {
 	}
 
 	flag.Usage = func() {
+		flag.CommandLine.SetOutput(os.Stdout) // Write help to STDOUT
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [OPTION]...\n",
 			filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
@@ -1658,7 +1740,10 @@ func realMain() int {
 	firstValidHash := flag.Bool("first-valid-hash", false,
 		"use the first valid hash instead of performing an exhaustive search (testing only, much faster)")
 
-	outputDir := flag.String("dir", root, "write generated tables to this directory")
+	outputDir := flag.String("dir", filepath.Join(root, "internal", "tables"),
+		"write generated tables to this directory")
+	// outputDir := flag.String("dir", filepath.Join(root),
+	// 	"write generated tables to this directory")
 
 	flag.Parse()
 
@@ -1669,8 +1754,11 @@ func realMain() int {
 
 	// Validate Unicode version flag
 
+	var supportedVersions []string
+	for v := range buildTags {
+		supportedVersions = append(supportedVersions, v)
+	}
 	if _, ok := buildTags[gen.UnicodeVersion()]; !ok {
-		supportedVersions := maps.Keys(buildTags)
 		slices.Sort(supportedVersions)
 		log.Printf("The selected Unicode version %q is unsupported. Either the version\n"+
 			"is incorrect or this code needs to updated to handle a new version of Go.\n"+
@@ -1750,7 +1838,6 @@ func realMain() int {
 		}()
 	}
 
-	// WARN: remove if not used
 	if !*updateGenHash && *outputDir != "." {
 		if err := os.MkdirAll(*outputDir, 0755); err != nil {
 			log.Println("error:", err)
@@ -1766,7 +1853,7 @@ func realMain() int {
 
 	// loadTableInfo() // WARN
 	// loadCaseFolds() // download Unicode tables // WARN
-	initTables(tablesFile)
+	initTables(root, tablesFile)
 	// log.Panic("HASH:", os.Args[0])
 	// WARN: need to make sure we hash this file and not the binary.
 	fileHash := hashGenFiles() // hash gentables source files
@@ -1858,6 +1945,8 @@ func realMain() int {
 		gen.WriteUnicodeVersion(&w)
 
 		writeInitGuard(&w)
+		writeTypes(&w)
+		writeFunctions(&w)
 
 		genCaseFolds(&w, *firstValidHash)
 		genUpperLowerTable(&w, *firstValidHash)
@@ -1889,7 +1978,7 @@ func realMain() int {
 		writeFile(tablesFile, w.Bytes())
 	}
 
-	updateTableInfoFile(tablesFile, fileHash, foldHash)
+	updateTableInfoFile(root, tablesFile, fileHash, foldHash)
 	log.Printf("Successfully generated tables:\n"+
 		"    unicode_version: %q\n"+
 		"    cldr_version:    %q\n"+

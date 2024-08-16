@@ -20,7 +20,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"golang.org/x/text/unicode/rangetable"
+	"github.com/charlievieth/strcase/internal/tables"
 )
 
 // TODO: use generated tables
@@ -95,45 +95,83 @@ var multiwidthRunes = [...]rune{
 	0xA7C5, // 'Ʂ'
 }
 
-// Excludes categories: Cm Cc, and Other.
-var unicodeCategories = rangetable.Merge([]*unicode.RangeTable{
-	unicode.Cf,     // Cf is the set of Unicode characters in category Cf (Other, format).
-	unicode.Co,     // Co is the set of Unicode characters in category Co (Other, private use).
-	unicode.Cs,     // Cs is the set of Unicode characters in category Cs (Other, surrogate).
-	unicode.Digit,  // Digit is the set of Unicode characters with the "decimal digit" property.
-	unicode.Letter, // Letter/L is the set of Unicode letters, category L.
-	unicode.Mark,   // Mark/M is the set of Unicode mark characters, category M.
-	unicode.Number, // Number/N is the set of Unicode number characters, category N.
-	unicode.Punct,  // Punct/P is the set of Unicode punctuation characters, category P.
-	unicode.Space,  // Space/Z is the set of Unicode space characters, category Z.
-	unicode.Symbol, // Symbol/S is the set of Unicode symbol characters, category S.
-	unicode.Title,  // Title is the set of Unicode title case letters.
-	unicode.Upper,  // Upper is the set of Unicode upper case letters.
-	unicode.Zl,     // Zl is the set of Unicode characters in category Zl (Separator, line).
-	unicode.Zp,     // Zp is the set of Unicode characters in category Zp (Separator paragraph).
-	unicode.Zs,     // Zs is the set of Unicode characters in category Zs (Separator, space).
-}...)
-
 // TODO: generate these
 var foldableRunes = generateFoldableRunes()
 
+// Backport of slices.Compact
+func compact(s []rune) []rune {
+	if len(s) < 2 {
+		return s
+	}
+	for k := 1; k < len(s); k++ {
+		if s[k] == s[k-1] {
+			s2 := s[k:]
+			for k2 := 1; k2 < len(s2); k2++ {
+				if s2[k2] != s2[k2-1] {
+					s[k] = s2[k2]
+					k++
+				}
+			}
+			return s[:k]
+		}
+	}
+	return s
+}
+
+type byRune []rune
+
+func (b byRune) Len() int           { return len(b) }
+func (b byRune) Less(i, j int) bool { return b[i] < b[j] }
+func (b byRune) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+
+// visitTable visits all runes in the given RangeTable in order, calling fn for each.
+func visitTable(rt *unicode.RangeTable, fn func(rune)) {
+	for _, r16 := range rt.R16 {
+		for r := rune(r16.Lo); r <= rune(r16.Hi); r += rune(r16.Stride) {
+			fn(r)
+		}
+	}
+	for _, r32 := range rt.R32 {
+		for r := rune(r32.Lo); r <= rune(r32.Hi); r += rune(r32.Stride) {
+			fn(r)
+		}
+	}
+}
+
+// TODO: generate using only the necessary categories
 func generateFoldableRunes() []rune {
-	n := 0
-	for _, p := range _CaseFolds {
-		if p.From != 0 {
-			n++
-		}
+	// CEV: Curated list of categories that should include all foldable
+	// Unicode points. We used to check all Unicode categories but that
+	// took around 15-20ms.
+	foldable := make([]rune, 0, 4096)
+	for _, rt := range []*unicode.RangeTable{
+		unicode.Upper,
+		unicode.Lower,
+		unicode.Title,
+		unicode.Mark,
+		unicode.Number,
+		unicode.Symbol,
+	} {
+		visitTable(rt, func(r rune) {
+			if rr := unicode.SimpleFold(r); rr != r {
+				for rr != r {
+					foldable = append(foldable, rr)
+					rr = unicode.SimpleFold(rr)
+				}
+				return // no point checking Upper/Lower
+			}
+			// This is slow and currently just adds 'İ' and 'ı' the former
+			// we don't fold, but keep it in case more odd characters are
+			// added in the future.
+			if rr := unicode.ToLower(r); r != rr {
+				foldable = append(foldable, r, rr)
+			} else if rr := unicode.ToUpper(r); r != rr {
+				foldable = append(foldable, r, rr)
+			}
+		})
 	}
-	a := make([]rune, 0, n*2)
-	for _, p := range _CaseFolds {
-		if p.From != 0 {
-			a = append(a, rune(p.From), rune(p.To))
-		}
-	}
-	sort.Slice(a, func(i, j int) bool {
-		return a[i] < a[j]
-	})
-	return a
+	sort.Sort(byRune(foldable))
+	return compact(foldable)
 }
 
 func randASCII(rr *rand.Rand) byte {
@@ -343,7 +381,7 @@ func randCaseRune(rr *rand.Rand, r rune, ascii bool) rune {
 			r = runes[rr.Intn(i)]
 		}
 	case ff < 0.7:
-		if u, l, ok := toUpperLower(r); ok {
+		if u, l, ok := tables.ToUpperLower(r); ok {
 			if r != u {
 				r = u
 			} else if r != l {
@@ -533,13 +571,24 @@ func runRandomTest(t *testing.T, fn func(t testing.TB, rr *rand.Rand)) {
 
 // indexRunesReference is a slow, but accurate case-insensitive version of strings.Index
 func indexRunesReference(s, sep []rune) int {
+	// TODO: The allocations here count for a lot of the test time so
+	// try to do this without allocating (aka compare the rune slices).
+	if len(s) < len(sep) {
+		return -1
+	}
+	if len(s) == len(sep) {
+		if strings.EqualFold(string(s), string(sep)) {
+			return 0
+		}
+		return -1
+	}
 	rs := append([]rune(nil), s...)
 	rsep := append([]rune(nil), sep...)
 	for i := 0; i < len(rs); i++ {
-		rs[i] = caseFold(rs[i])
+		rs[i] = tables.CaseFold(rs[i])
 	}
 	for i := 0; i < len(rsep); i++ {
-		rsep[i] = caseFold(rsep[i])
+		rsep[i] = tables.CaseFold(rsep[i])
 	}
 	ss := string(rs)
 	i := strings.Index(ss, string(rsep))
@@ -577,10 +626,10 @@ func lastIndexRunesReference(s, sep []rune) int {
 		rs := append([]rune(nil), s...)
 		rsep := append([]rune(nil), sep...)
 		for i := 0; i < len(rs); i++ {
-			rs[i] = caseFold(rs[i])
+			rs[i] = tables.CaseFold(rs[i])
 		}
 		for i := 0; i < len(rsep); i++ {
-			rsep[i] = caseFold(rsep[i])
+			rsep[i] = tables.CaseFold(rsep[i])
 		}
 		ss := string(rs)
 		i := strings.LastIndex(ss, string(rsep))
@@ -795,7 +844,7 @@ func generateIndexRuneArgs(t testing.TB, rr *rand.Rand) (string, rune, int) {
 			return -1
 		default:
 			for i, rr := range s {
-				if rr == r || caseFold(rr) == caseFold(r) {
+				if rr == r || tables.CaseFold(rr) == tables.CaseFold(r) {
 					return len(string(s[:i]))
 				}
 			}
@@ -855,8 +904,8 @@ func hasPrefixRunes(s, prefix []rune) (bool, bool) {
 	}
 	var i int
 	for i = 0; i < len(prefix); i++ {
-		sr := caseFold(s[i])
-		pr := caseFold(prefix[i])
+		sr := tables.CaseFold(s[i])
+		pr := tables.CaseFold(prefix[i])
 		if !utf8.ValidRune(sr) {
 			sr = utf8.RuneError
 		}
@@ -985,8 +1034,8 @@ func TestHasSuffixFuzz(t *testing.T) {
 func generateCompareArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, string, int) {
 	compareRunes := func(s, t []rune) int {
 		for i := 0; i < len(s) && i < len(t); i++ {
-			sr := caseFold(s[i])
-			tr := caseFold(t[i])
+			sr := tables.CaseFold(s[i])
+			tr := tables.CaseFold(t[i])
 			// Convert invalid runes to RuneError since that
 			// is what utf8.DecodeRuneInString does.
 			if !utf8.ValidRune(sr) {

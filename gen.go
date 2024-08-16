@@ -15,7 +15,9 @@ import (
 	"sync"
 )
 
-var modRe = regexp.MustCompile(`(?m)^module[ ]+github\.com\/charlievieth\/strcase$`)
+const Package = "github.com/charlievieth/strcase"
+
+var modRe = regexp.MustCompile(`(?m)^module[ ]+` + regexp.QuoteMeta(Package) + `$`)
 
 func isStrcaseModule(name string) (bool, error) {
 	data, err := os.ReadFile(name)
@@ -25,40 +27,7 @@ func isStrcaseModule(name string) (bool, error) {
 	return modRe.Match(data), nil
 }
 
-// sync.OnceValue from go.1.21 copied here for backwards compatibility.
-//
-// onceValue returns a function that invokes f only once and returns the value
-// returned by f. The returned function may be called concurrently.
-//
-// If f panics, the returned function will panic with the same value on every call.
-func onceValue[T any](f func() T) func() T {
-	var (
-		once   sync.Once
-		valid  bool
-		p      any
-		result T
-	)
-	g := func() {
-		defer func() {
-			p = recover()
-			if !valid {
-				panic(p)
-			}
-		}()
-		result = f()
-		valid = true
-	}
-	return func() T {
-		once.Do(g)
-		if !valid {
-			panic(p)
-		}
-		return result
-	}
-}
-
 func findModfile(child string) (string, error) {
-	const pkg = "github.com/charlievieth/strcase"
 	if !filepath.IsAbs(child) {
 		return child, errors.New("directory must be absolute: " + child)
 	}
@@ -86,25 +55,32 @@ func findModfile(child string) (string, error) {
 	}
 	if first != nil {
 		return child, fmt.Errorf("util: error finding go.mod for package %q "+
-			"in directory: %q: %w", pkg, child, first)
+			"in directory: %q: %w", Package, child, first)
 	}
 	return child, fmt.Errorf("util: failed to find go.mod for package %q "+
-		"in directory: %q", pkg, child)
+		"in directory: %q", Package, child)
 }
 
-var projectRoot = onceValue(func() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Panic(err)
+var projectRoot = func() func() string {
+	var root string
+	var once sync.Once
+	return func() string {
+		once.Do(func() {
+			wd, err := os.Getwd()
+			if err != nil {
+				log.Fatal(err)
+			}
+			dir, err := findModfile(wd)
+			if err != nil {
+				log.Fatal(err)
+			}
+			root = dir
+		})
+		return root
 	}
-	root, err := findModfile(wd)
-	if err != nil {
-		log.Panic(err)
-	}
-	return root
-})
+}()
 
-var buildGen = onceValue(func() string {
+func buildGen() string {
 	root := projectRoot()
 
 	// Create "bin" directory
@@ -122,8 +98,6 @@ var buildGen = onceValue(func() string {
 		exe += ".exe"
 	}
 
-	// TODO: we should not need to rely on make here
-	//
 	// Try make first since it's better at avoiding unnecessary builds.
 	if mk, err := exec.LookPath("make"); err == nil {
 		cmd := exec.Command(mk, "bin/gentables")
@@ -137,12 +111,11 @@ var buildGen = onceValue(func() string {
 	cmd.Dir = gendir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	log.Printf("CMD: %q", cmd.Args)
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("error running command %q: %v", cmd.Args, err)
 	}
 	return exe
-})
+}
 
 func genCmd(args ...string) int {
 	root := projectRoot()
@@ -172,11 +145,8 @@ func usage() {
 }
 
 func realMain(args []string) int {
-	if len(args) == 0 {
-		usage()
-	}
 	var exitcode int
-	// TODO: supporting Unicode version 12.0.0 is annoying since arm64 support
+	// Supporting Unicode version 12.0.0 is annoying since arm64 support
 	// is lacking on Go 1.15 and below.
 	for _, version := range []string{"13.0.0", "15.0.0"} {
 		code := genCmd(append([]string{"-unicode", version}, args...)...)
