@@ -75,7 +75,7 @@ func GenTablesRoot() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(root, "internal/gen/gentables")
+	dir := filepath.Join(root, "internal/gen")
 	if _, err := os.Stat(dir); err != nil {
 		return "", err
 	}
