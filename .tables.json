@@ -4,7 +4,7 @@
         "unicode_version": "13.0.0",
         "cldr_version": "32",
         "case_fold_hash": "3ab0454d1a85064a4c401b9a0c7162bd08a306ebd0dc34065b25701e6d38dba9",
-        "gen_go_hash": "0e74fd698016d084926a0c293328f35875fdf4bb9972929f337c7fd2fd096d77",
+        "gen_go_hash": "beee432035efa9bbccfd506b1d5c2a6a1199b68206870779403bb5a6950a0ec4",
         "table_hashes": {
             "CaseFolds": 2422855,
             "FoldMap": 2521300993,
@@ -19,7 +19,7 @@
         "unicode_version": "15.0.0",
         "cldr_version": "32",
         "case_fold_hash": "26ed8b8eee3e8fb11d5bc828b898e9b714fed8d34dea08089dde133d0b10fb04",
-        "gen_go_hash": "0e74fd698016d084926a0c293328f35875fdf4bb9972929f337c7fd2fd096d77",
+        "gen_go_hash": "beee432035efa9bbccfd506b1d5c2a6a1199b68206870779403bb5a6950a0ec4",
         "table_hashes": {
             "CaseFolds": 4292873350,
             "FoldMap": 2521300993,

@@ -132,7 +132,7 @@ var buildTags = map[string]struct{ version, buildTags, filename string }{
 // tablesFileName is the names of the file to generate and is based off
 // of the Go version this program is ran with.
 //
-// WARN: this must be called after command line flags are parsed
+// NB: this must be called after command line flags are parsed
 func tablesFileName(dirname string) string {
 	// gen.UnicodeVersion is set by the "-unicode" flag
 	if name := buildTags[gen.UnicodeVersion()].filename; name != "" {
@@ -1257,12 +1257,6 @@ func fileExists(name string) bool {
 	return err == nil
 }
 
-// WARN: move this
-var useCachedSeeds = flag.Bool("cache", false,
-	"used cached seeds instead of regenerating (for testing only)")
-
-// WARN WARN WARN: move this
-
 var category = map[string]bool{
 	// Nd Lu etc.
 	// We use one-character names to identify merged categories
@@ -1693,6 +1687,9 @@ func hashGenFiles() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+var useCachedSeeds = flag.Bool("cache", false,
+	"used cached seeds instead of regenerating (for testing only)")
+
 func realMain() int {
 	initLogs() // Other packages configure logs on init so do it again here
 
@@ -1799,7 +1796,6 @@ func realMain() int {
 	}
 
 	initTables(root, tablesFile)
-	// WARN: need to make sure we hash this file and not the binary.
 	fileHash := hashGenFiles() // hash gentables source files
 	foldHash := hashCaseFolds()
 
@@ -1876,12 +1872,8 @@ func realMain() int {
 		return 1
 	}
 
-	// WARN: we actually need a process runner for this
-	// TODO: here is where we need to download Go versions
-
-	// TODO: can't test or build if the Unicode version does not match
+	// NB: can't test or build if the Unicode version does not match
 	// the version used by the Go binary running this.
-
 	if !*updateGenHash {
 		var w bytes.Buffer
 
