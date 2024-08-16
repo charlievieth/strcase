@@ -576,8 +576,8 @@ func Index(s, substr string) int {
 		//    cutover to Rabin-Karp?
 		//  * We should skip this check if s is small
 		//
-		if len(substr) <= 32 && nonLetterASCII(substr) {
-			return strings.Index(s, substr)
+		if bytealg.NativeIndex && n <= 32 && nonLetterASCII(substr) {
+			return bytealg.IndexString(s, substr)
 		}
 		// TODO: tune this
 		if len(s) <= maxBruteForce {
