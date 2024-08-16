@@ -145,6 +145,13 @@ func usage() {
 }
 
 func realMain(args []string) int {
+	if len(args) > 0 {
+		switch args[0] {
+		case "-h", "-help", "--help":
+			usage()
+			return 0
+		}
+	}
 	var exitcode int
 	// Supporting Unicode version 12.0.0 is annoying since arm64 support
 	// is lacking on Go 1.15 and below.
