@@ -651,61 +651,6 @@ func intn(rr *rand.Rand, n int) int {
 	return rr.Intn(n)
 }
 
-// WARN: dev only
-func generateBruteForceIndexArgs(t testing.TB, rr *rand.Rand) (_s, _sep string, out int) {
-
-	match := rr.Float64() < 0.5
-
-	for lim := 32; lim > 0; lim-- {
-		ns := rr.Intn(10) + 2
-		s := randRunes(rr, ns, false)
-		nsep := intn(rr, len(s)-2) + 2
-		o := intn(rr, len(s)-nsep)
-		for i := 0; i < 4; i++ {
-			sep := s[o : o+nsep]
-			if match {
-				sep = randCaseRunes(rr, sep, false)
-			} else {
-				sep = replaceOneRune(rr, sep, false)
-			}
-			out := indexRunesReference(s, sep)
-			if (match && out >= 0) || (!match && out == -1) {
-				return string(s), string(sep), out
-			}
-		}
-	}
-
-	panic("Failed to generate valid Index args")
-}
-
-// WARN: dev only
-func TestBruteForceIndexUnicodeFuzz(t *testing.T) {
-	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
-		s, sep, out := generateBruteForceIndexArgs(t, rr)
-		got := bruteForceIndexUnicode(s, sep)
-		if got != out {
-			t.Errorf("bruteForceIndexUnicode\n"+
-				"S:    %q\n"+
-				"Sep:  %q\n"+
-				"Got:  %d\n"+
-				"Want: %d\n"+
-				"\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
-				"Lower:\n"+
-				"S:    %s\n"+
-				"Sep:  %s\n"+
-				"\n",
-				s, sep, got, out,
-				strconv.QuoteToASCII(s),
-				strconv.QuoteToASCII(sep),
-				strconv.QuoteToASCII(strings.ToLower(s)),
-				strconv.QuoteToASCII(strings.ToLower(sep)),
-			)
-		}
-	})
-}
-
 func generateIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _sep string, out int) {
 	const maxLength = 42
 
