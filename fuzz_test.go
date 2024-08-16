@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -731,10 +732,29 @@ func generateIndexArgs(t testing.TB, rr *rand.Rand, ascii bool) (_s, _sep string
 	panic("Failed to generate valid Index args")
 }
 
+// Very slow, but accurate.
+func indexRegex(s, sep string) int {
+	a := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(sep)).FindStringIndex(s)
+	if len(a) == 2 {
+		return a[0]
+	}
+	return -1
+}
+
 func TestIndexFuzz(t *testing.T) {
 	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
 		s, sep, out := generateIndexArgs(t, rr, false)
 		got := Index(s, sep)
+		if got != out {
+			// Make sure that our calculated index is correct using the
+			// a slow but accurate regex.
+			j := indexRegex(s, sep)
+			if j != out {
+				t.Errorf("Invalid generated test: s: %q sep: %q want: %d actual: %d",
+					s, sep, out, j)
+				return
+			}
+		}
 		if got != out {
 			t.Errorf("Index\n"+
 				"S:    %q\n"+
@@ -877,6 +897,15 @@ func TestIndexRuneFuzz(t *testing.T) {
 	runRandomTest(t, func(t testing.TB, rr *rand.Rand) {
 		s, r, want := generateIndexRuneArgs(t, rr)
 		got := IndexRune(s, r)
+		if got != want {
+			j := indexRegex(s, string(r))
+			if j != got {
+				// WARN: double check the logic here
+				t.Errorf("Invalid generated test: s: %q sep: %q got: %d want: %d actual: %d",
+					s, string(r), got, want, j)
+				return
+			}
+		}
 		if got != want {
 			t.Errorf("IndexRune\n"+
 				"S:    %q\n"+
