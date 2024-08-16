@@ -1,3 +1,6 @@
+// Copyright 2023 Charlie Vieth. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package tables
 
 // NB: this table is not generated but probably should be
