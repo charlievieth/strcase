@@ -25,7 +25,7 @@ func TestProjectRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !os.SameFile(fi1, fi2) {
-		t.Fatalf("projectRoot() = %q; want: %q", root, want)
+		t.Fatalf("ProjectRoot() = %q; want: %q", root, want)
 	}
 }
 
@@ -34,7 +34,7 @@ func TestGenTablesRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(wd, "../gentables")
+	want := filepath.Dir(wd)
 	fi1, err := os.Stat(want)
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +48,6 @@ func TestGenTablesRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	if want != root || !os.SameFile(fi1, fi2) {
-		t.Fatalf("projectRoot() = %q; want: %q", root, want)
+		t.Fatalf("GenTablesRoot() = %q; want: %q", root, want)
 	}
 }
