@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"io/fs"
 	"log"
 	"math"
 	"os"
@@ -1129,12 +1130,6 @@ func writeFile(name string, data []byte) {
 		os.Remove(tmp)
 		log.Panic(err)
 	}
-	// if err := f.Close(); err != nil {
-	// 	exit(err)
-	// }
-	// if err := os.WriteFile(tmp, data, 0644); err != nil {
-	// 	exit(err)
-	// }
 	if _, err := f.Write(data); err != nil {
 		exit(err)
 	}
@@ -1178,16 +1173,13 @@ func writeGo(w *bytes.Buffer, tablesFile, buildTags string) {
 	}
 }
 
-// TODO: where did this come from and rename
-func prefix() string {
-	h := sha256.New()
-	b := make([]byte, 8)
+func hashCaseFolds() string {
+	b := make([]byte, 0, 4096)
 	for _, p := range caseFolds {
-		binary.LittleEndian.PutUint32(b[0:4], p.From)
-		binary.LittleEndian.PutUint32(b[4:8], p.To)
-		h.Write(b)
+		b = binary.LittleEndian.AppendUint32(b, p.From)
+		b = binary.LittleEndian.AppendUint32(b, p.To)
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return fmt.Sprintf("%x", sha256.Sum256(b))
 }
 
 type TableInfo struct {
@@ -1661,16 +1653,17 @@ func listSourceFiles(dir string) []string {
 		}
 		return false
 	}
-	des, err := os.ReadDir(dir)
-	if err != nil {
-		log.Fatal(err)
-	}
 	var a []string
-	for _, d := range des {
-		if match(d.Name()) {
-			a = append(a, filepath.Join(dir, d.Name()))
+	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		name := d.Name()
+		if d.IsDir() && (name == "vendor" || name[0] == '.') {
+			return fs.SkipDir
 		}
-	}
+		if match(name) {
+			a = append(a, path)
+		}
+		return nil
+	})
 	slices.Sort(a)
 	return a
 }
@@ -1699,9 +1692,6 @@ func hashGenFiles() string {
 
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
-
-// TODO: use this
-// var colorizeOutput bool
 
 func realMain() int {
 	initLogs() // Other packages configure logs on init so do it again here
@@ -1766,49 +1756,6 @@ func realMain() int {
 		return 1
 	}
 
-	// if os.Getenv(GenCookieKey) != GenCookieValue {
-	// 	sigs := []os.Signal{
-	// 		syscall.SIGABRT,
-	// 		syscall.SIGINT,
-	// 		syscall.SIGQUIT,
-	// 		syscall.SIGSTOP,
-	// 		syscall.SIGTERM,
-	// 		syscall.SIGTSTP,
-	// 		syscall.SIGWINCH,
-	// 	}
-	// 	// FOO
-	// 	ch := make(chan os.Signal)
-	// 	signal.Notify(ch, sigs...)
-	// 	cmd := exec.Command(os.Args[0], os.Args[1:]...)
-	// 	cmd.Stdin = os.Stdin
-	// 	cmd.Stdout = os.Stdout
-	// 	cmd.Stderr = os.Stderr
-	// 	cmd.Env = append(cmd.Environ(), GenCookieKey+"="+GenCookieValue)
-	// 	if err := cmd.Start(); err != nil {
-	// 		log.Panic(err)
-	// 	}
-	// 	go func() {
-	// 		for sig := range ch {
-	// 			if cmd.Process != nil {
-	// 				cmd.Process.Signal(sig)
-	// 			}
-	// 			switch sig {
-	// 			case syscall.SIGABRT, syscall.SIGINT, syscall.SIGQUIT,
-	// 				syscall.SIGSTOP, syscall.SIGTERM, syscall.SIGTSTP:
-	// 				signal.Stop(ch)
-	// 			}
-	// 		}
-	// 	}()
-	// 	if err := cmd.Wait(); err != nil {
-	// 		var ee *exec.ExitError
-	// 		if errors.As(err, &ee) {
-	// 			return ee.ExitCode()
-	// 		}
-	// 		return 1
-	// 	}
-	// 	return 0
-	// }
-
 	tablesFile := tablesFileName(*outputDir)
 	// Use the Unicode version as the log prefix since we invoke this program
 	// multiple times with different versions.
@@ -1851,13 +1798,10 @@ func realMain() int {
 		return 1
 	}
 
-	// loadTableInfo() // WARN
-	// loadCaseFolds() // download Unicode tables // WARN
 	initTables(root, tablesFile)
-	// log.Panic("HASH:", os.Args[0])
 	// WARN: need to make sure we hash this file and not the binary.
 	fileHash := hashGenFiles() // hash gentables source files
-	foldHash := prefix()
+	foldHash := hashCaseFolds()
 
 	chop := func(s string, n int) string {
 		if len(s) >= n {

@@ -4,7 +4,7 @@
         "unicode_version": "13.0.0",
         "cldr_version": "32",
         "case_fold_hash": "3ab0454d1a85064a4c401b9a0c7162bd08a306ebd0dc34065b25701e6d38dba9",
-        "gen_go_hash": "a6288a09d0a5f6f8af4e1ab5c8ac836b87d9d6a4b146ab7b6be7af8f3f569507",
+        "gen_go_hash": "0e74fd698016d084926a0c293328f35875fdf4bb9972929f337c7fd2fd096d77",
         "table_hashes": {
             "CaseFolds": 2422855,
             "FoldMap": 2521300993,
