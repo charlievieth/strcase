@@ -297,34 +297,6 @@ func appendRandRunes(rs []rune, rr *rand.Rand, n int, ascii bool) []rune {
 
 func randRunes(rr *rand.Rand, n int, ascii bool) []rune {
 	return appendRandRunes(nil, rr, n, ascii)
-	// rs := make([]rune, n)
-	// if *invalidRunes {
-	// 	for i := range rs {
-	// 		rs[i] = rune(rr.Int31())
-	// 	}
-	// 	return rs
-	// }
-	// if ascii {
-	// 	for i := range rs {
-	// 		rs[i] = rune(randASCII(rr))
-	// 	}
-	// 	return rs
-	// }
-	// hard := len(rs)
-	// if rr.Float64() < 0.05 {
-	// 	hard = intn(rr, len(rs)-4)
-	// }
-	// for i := 0; i < len(rs); i++ {
-	// 	if i == hard {
-	// 		j := i + 4
-	// 		for ; i < j && i < len(rs); i++ {
-	// 			rs[i] = '\u212a'
-	// 		}
-	// 		continue
-	// 	}
-	// 	rs[i] = randRune(rr)
-	// }
-	// return rs
 }
 
 func TestEqualFoldFuzz(t *testing.T) {
