@@ -495,6 +495,32 @@ func TestIndex(t *testing.T) {
 	runIndexTests(t, Index, "Index", tests, false)
 }
 
+// Test our use of bytealg.IndexString
+func TestIndexNumeric(t *testing.T) {
+	ns := strings.Repeat("1234", 128/4)
+	hs := strings.Repeat(" ", 256)
+	tests := make([]IndexTest, 0, 1024)
+	// Test the boundaries around the bytealg.MaxBruteForce cutover
+	for _, i := range []int{1, 4, 8, 15, 16, 17, 31, 32, 33, 63, 64, 65, 128} {
+		for j := 0; j <= len(hs); j += 3 {
+			sep := ns[:i]
+			tests = append(tests, IndexTest{
+				s:   hs[:j] + sep,
+				sep: sep,
+				out: j,
+			})
+			if len(sep) > 1 {
+				tests = append(tests, IndexTest{
+					s:   hs[:j] + sep[:len(sep)-1] + " ",
+					sep: sep,
+					out: -1,
+				})
+			}
+		}
+	}
+	runIndexTests(t, Index, "Index", tests, false)
+}
+
 // Extensively test the handling of Kelvin K since it is three times the size
 // of ASCII [Kk] it requires special handling.
 func TestIndexKelvin(t *testing.T) {
