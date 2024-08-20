@@ -11,9 +11,6 @@ import _ "unsafe"
 // of Index and IndexString. Otherwise, bytes.Index and strings.Index are used.
 const NativeIndex = false
 
-//go:linkname MaxLen internal/bytealg.MaxLen
-var MaxLen int
-
 //go:linkname MaxBruteForce internal/bytealg.MaxBruteForce
 var MaxBruteForce int
 

@@ -16,11 +16,6 @@ const NativeIndex = true
 
 // TODO: remove if not used.
 //
-//go:linkname MaxLen internal/bytealg.MaxLen
-var MaxLen int
-
-// TODO: remove if not used.
-//
 //go:linkname MaxBruteForce internal/bytealg.MaxBruteForce
 var MaxBruteForce int
 
