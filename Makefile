@@ -1,19 +1,17 @@
 # vim: ts=4 sw=4
 
-include common.mk
-
 # Run tests and linters. If this passes then CI tests
 # should also pass.
 .PHONY: all
-all: install test vet golangci-lint testgenerate
+all: install test testgenerate testgenpkg vet golangci-lint
+
+include common.mk
 
 # Install pre-commit hooks and download modules
 .PHONY: install
 install: pre-commit
 	@$(GO) mod download
 	@$(GO) install
-
-# TODO: I don't think we need/want override here
 
 # Run verbose tests
 testverbose: override GO_TEST_FLAGS += -v
