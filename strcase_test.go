@@ -379,12 +379,10 @@ func benchBytesUnicode(b *testing.B, sizes []int, f func(b *testing.B, n int, s 
 			if len(bmbuf) < n {
 				bmbuf = make([]byte, n)
 			}
-			p := bmbuf
-			for len(p) > 0 {
-				i := copy(p, s)
-				p = p[i:]
+			for i := 0; i < n; {
+				i += copy(bmbuf[i:], s)
 			}
-			copy(bmbuf[len(bmbuf)-len("𐀤"):], "𐀤")
+			copy(bmbuf[n-len("𐀤"):], "𐀤")
 			b.SetBytes(int64(n))
 			f(b, n, string(bmbuf))
 		})
@@ -393,11 +391,17 @@ func benchBytesUnicode(b *testing.B, sizes []int, f func(b *testing.B, n int, s 
 
 func bmIndexRune(index func(string, rune) int) func(b *testing.B, n int, s string) {
 	return func(b *testing.B, n int, s string) {
+		// Sanity check since I got this wrong in the past
+		want := strings.IndexRune(s, '𐀤')
+		got := index(s, '𐀤')
+		if want != got {
+			b.Fatalf("bad index %d want: %d", got, want)
+		}
+		if got != n-4 {
+			b.Fatalf("bad index %d want: %d", got, n-4)
+		}
 		for i := 0; i < b.N; i++ {
-			j := index(s, '𐀤')
-			if j != n-4 {
-				b.Fatal("bad index", j)
-			}
+			_ = index(s, '𐀤')
 		}
 	}
 }
