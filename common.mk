@@ -8,9 +8,11 @@ MAKEFILE_DIR  := $(abspath $(dir $(MAKEFILE_PATH)))
 # Test options
 GO             ?= go
 GOBIN           = $(MAKEFILE_DIR)/bin
-GO_COVER_MODE  ?= count
-GO_COVER_FLAGS ?= -cover -covermode=$(GO_COVER_MODE)
 GO_TEST_FLAGS  ?= -shuffle=on
+GO_COVER_MODE  ?= count
+ifneq ($(GO_COVER_MODE),)
+	GO_COVER_FLAGS = -covermode=$(GO_COVER_MODE)
+endif
 GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS)
 GO_GOGC        ?= 800
 RICHGO         ?= richgo
@@ -26,7 +28,6 @@ GREP_COMMENTS  ?= --line-number --extended-regexp --recursive \
 xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
-GOLANGCI               ?= golangci-lint
 GOLANGCI_VERSION       ?= v1.60.1
 GOLANGCI_SORT          ?= --sort-results
 GOLANGCI_COLOR         ?= --color=always
@@ -51,9 +52,9 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # Color support.
-red = $(shell { tput setaf 1 || tput AF 1; } 2>/dev/null)
-yellow = $(shell { tput setaf 3 || tput AF 3; } 2>/dev/null)
-cyan = $(shell { tput setaf 6 || tput AF 6; } 2>/dev/null)
+red        = $(shell { tput setaf 1 || tput AF 1; } 2>/dev/null)
+yellow     = $(shell { tput setaf 3 || tput AF 3; } 2>/dev/null)
+cyan       = $(shell { tput setaf 6 || tput AF 6; } 2>/dev/null)
 term-reset = $(shell { tput sgr0 || tput me; } 2>/dev/null)
 
 # Install richgo
