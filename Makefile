@@ -55,6 +55,11 @@ testgenerate: bin/gen
 		$(GEN_TARGET) -dry-run -skip-tests;                   \
 	fi;
 
+# Test that the benchmarks pass
+.PHONY: testbenchmarks
+testbenchmarks:
+	@$(MAKEFILE_DIR)/scripts/test-benchmarks.bash
+
 # Run all tests (slow)
 .PHONY: testall
 testall: exhaustive testskipped testgenerate testgenpkg
