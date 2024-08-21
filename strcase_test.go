@@ -1124,7 +1124,7 @@ func BenchmarkLastIndexAnyUTF8(b *testing.B) {
 func BenchmarkCount(b *testing.B) {
 	bench := func(name, s, sep string) {
 		b.Run(name, func(b *testing.B) {
-			i := strings.Count(s, sep)
+			i := strings.Count(strings.ToLower(s), strings.ToLower(sep))
 			j := Count(s, sep)
 			if i != j {
 				b.Fatalf("Count(%q, %q) = %d; want: %d", s, sep, j, i)
@@ -1135,7 +1135,10 @@ func BenchmarkCount(b *testing.B) {
 			}
 		})
 	}
-	bench("ASCII", strings.Repeat("    ab", 64), "ab")
+	bench("ASCII_Torture", strings.Repeat("ab", 64), "ab")
+	bench("ASCII_Short", strings.Repeat("    ab", 64), "ab")
+	bench("ASCII_Long", strings.Repeat(
+		"    abcdefghijklmnopqrstuvwxyz", 64), "abcdefghijklmnopqrstuvwxyz")
 	bench("Unicode", strings.Repeat("你好世界", 128), "你好世界")
 	// Make sure we lazily process substr.
 	bench("NoMatch", strings.Repeat("你", 8), strings.Repeat("好", 256))
