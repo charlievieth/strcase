@@ -1176,7 +1176,7 @@ func TrimSuffix(t *testing.T, fn TrimFunc) {
 	}
 }
 
-var CountTests = []struct {
+var countTests = []struct {
 	s, sep string
 	num    int
 }{
@@ -1196,10 +1196,14 @@ var CountTests = []struct {
 	{"a\u212a", "a\u212a", 1},
 	{"a\u212aa\u212a", "a\u212a", 2},
 	{"sſS", "s", 3},
+	{strings.Repeat("\u212a", 8), "kk", 4},
+	{strings.Repeat("k", 8), "\u212a\u212a", 4},
+	{strings.Repeat("\u212a", 32), "kk", 16},
+	{strings.Repeat("k", 32), "\u212a\u212a", 16},
 }
 
 func Count(t *testing.T, fn IndexFunc) {
-	for _, tt := range CountTests {
+	for _, tt := range countTests {
 		if num := fn(tt.s, tt.sep); num != tt.num {
 			t.Errorf("Count(%q, %q) = %d, want %d", tt.s, tt.sep, num, tt.num)
 		}
