@@ -1,18 +1,14 @@
-// Copyright 2023 Charlie Vieth. All rights reserved.
-// Use of this source code is governed by the MIT license.
-
-package strcase
+package bytcase
 
 import (
-	"strings"
+	"bytes"
 	"unicode/utf8"
 
 	"github.com/charlievieth/strcase/internal/bytealg"
 	"github.com/charlievieth/strcase/internal/tables"
 )
 
-const UnicodeVersion = tables.UnicodeVersion
-
+// TODO: use the values from the bytealg package and tune
 const maxBruteForce = 16 // substring length
 const maxLen = 32        // subject length
 
@@ -29,7 +25,7 @@ func clamp(n int) int {
 // Compare returns an integer comparing two strings lexicographically
 // ignoring case.
 // The result will be 0 if a == b, -1 if a < b, and +1 if a > b.
-func Compare(s, t string) int {
+func Compare(s, t []byte) int {
 	// TODO: move next to hasPrefixUnicode
 	i := 0
 	for ; i < len(s) && i < len(t); i++ {
@@ -51,17 +47,23 @@ func Compare(s, t string) int {
 hasUnicode:
 	s = s[i:]
 	t = t[i:]
-	for _, sr := range s {
+	for len(s) != 0 {
 		// If t is exhausted the strings are not equal.
 		if len(t) == 0 {
 			return 1
 		}
 		// Extract first rune from second string.
-		var tr rune
+		var sr, tr rune
+		if s[0] < utf8.RuneSelf {
+			sr, s = rune(_lower[s[0]]), s[1:]
+		} else {
+			r, size := utf8.DecodeRune(s)
+			sr, s = tables.CaseFold(r), s[size:]
+		}
 		if t[0] < utf8.RuneSelf {
 			tr, t = rune(_lower[t[0]]), t[1:]
 		} else {
-			r, size := utf8.DecodeRuneInString(t)
+			r, size := utf8.DecodeRune(t)
 			tr, t = tables.CaseFold(r), t[size:]
 		}
 		// Easy case.
@@ -82,7 +84,7 @@ hasUnicode:
 //
 // EqualFold is included for symmetry with the strings package and because
 // our implementation is usually 2x faster than [strings.EqualFold].
-func EqualFold(s, t string) bool {
+func EqualFold(s, t []byte) bool {
 	return Compare(s, t) == 0
 }
 
@@ -112,15 +114,16 @@ var _lower = [256]byte{
 	248, 249, 250, 251, 252, 253, 254, 255,
 }
 
+// TODO: strings.IndexRune might be faster here since the first byte is
+// more unique
+//
 // containsKelvin returns true if string s contains rune 'K' (Kelvin).
-func containsKelvin(s string) bool {
-	// TODO: it might be faster to check with IndexNonASCII first
-	// then with Count.
+func containsKelvin(s []byte) bool {
 	return len(s) > 0 && indexRuneCase(s, '\u212A') != -1
 }
 
 // HasPrefix tests whether the string s begins with prefix ignoring case.
-func HasPrefix(s, prefix string) bool {
+func HasPrefix(s, prefix []byte) bool {
 	ok, _ := hasPrefixUnicode(s, prefix)
 	return ok
 }
@@ -128,8 +131,21 @@ func HasPrefix(s, prefix string) bool {
 // hasPrefixUnicode returns if string s begins with prefix (ignoring case) and
 // if all of s was consumed matching prefix (either before a match could be found
 // or is prefix consumes all of s).
-func hasPrefixUnicode(s, prefix string) (bool, bool) {
+func hasPrefixUnicode(s, prefix []byte) (bool, bool) {
 	// TODO: return an enum instead of two bools
+
+	// TODO:
+	//
+	// * Make sure we aren't checking for Kelvin multiple times (I think
+	//   reporting that we've exhausted the string may help this)
+	//
+	// * Check if a portion of the prefix matches before doing this !!!
+	//
+	// * For the below Kelvin check would'nt all the chars have to
+	//   be ASCII and all the other ones Kelvin K ??
+	//
+	// * Can we just search for [kK] instead in the [:N] space of "s" ???
+	//
 
 	// The max difference in encoded lengths between cases is 2 bytes for
 	// [kK] (1 byte) and Kelvin 'K' (3 bytes).
@@ -156,17 +172,23 @@ func hasPrefixUnicode(s, prefix string) (bool, bool) {
 
 hasUnicode:
 	s = s[i:]
-	prefix = prefix[i:]
-	for _, tr := range prefix {
+	t := prefix[i:]
+	for len(t) > 0 {
 		// If s is exhausted the strings are not equal.
 		if len(s) == 0 {
 			return false, true
 		}
-		var sr rune
+		var sr, tr rune
+		if t[0] < utf8.RuneSelf {
+			tr, t = rune(_lower[t[0]]), t[1:]
+		} else {
+			r, size := utf8.DecodeRune(t)
+			tr, t = r, t[size:]
+		}
 		if s[0] < utf8.RuneSelf {
 			sr, s = rune(_lower[s[0]]), s[1:]
 		} else {
-			r, size := utf8.DecodeRuneInString(s)
+			r, size := utf8.DecodeRune(s)
 			sr, s = r, s[size:]
 		}
 		if tr == sr || tables.CaseFold(tr) == tables.CaseFold(sr) {
@@ -179,7 +201,9 @@ hasUnicode:
 
 // TrimPrefix returns s without the provided leading prefix string.
 // If s doesn't start with prefix, s is returned unchanged.
-func TrimPrefix(s, prefix string) string {
+func TrimPrefix(s, prefix []byte) []byte {
+	// TODO: is there a reason we don't use hasPrefixUnicode ???
+
 	// The max difference in encoded lengths between cases is 2 bytes for
 	// [kK] (1 byte) and Kelvin 'K' (3 bytes).
 	n := len(s)
@@ -205,18 +229,24 @@ func TrimPrefix(s, prefix string) string {
 hasUnicode:
 	ss := s
 	s = s[i:]
-	prefix = prefix[i:]
-	for _, tr := range prefix {
+	t := prefix[i:]
+	for len(t) > 0 {
 		// If s is exhausted the strings are not equal.
 		if len(s) == 0 {
 			return ss
 		}
 
-		var sr rune
+		var sr, tr rune
+		if t[0] < utf8.RuneSelf {
+			tr, t = rune(_lower[t[0]]), t[1:]
+		} else {
+			r, size := utf8.DecodeRune(t)
+			tr, t = tables.CaseFold(r), t[size:]
+		}
 		if s[0] < utf8.RuneSelf {
 			sr, s = rune(_lower[s[0]]), s[1:]
 		} else {
-			r, size := utf8.DecodeRuneInString(s)
+			r, size := utf8.DecodeRune(s)
 			sr, s = tables.CaseFold(r), s[size:]
 		}
 		if tr == sr || tables.CaseFold(tr) == sr {
@@ -227,15 +257,15 @@ hasUnicode:
 	return s
 }
 
-// HasSuffix tests whether the string s ends with suffix.
-func HasSuffix(s, suffix string) bool {
+// HasSuffix reports whether the byte slice s ends with suffix.
+func HasSuffix(s, suffix []byte) bool {
 	ok, _ := hasSuffixUnicode(s, suffix)
 	return ok
 }
 
 // hasSuffixUnicode returns if string s ends with suffix and the starting index
 // of the suffix in s (so that we can trim it).
-func hasSuffixUnicode(s, suffix string) (bool, int) {
+func hasSuffixUnicode(s, suffix []byte) (bool, int) {
 	// TODO: if s and suffix have similar lengths it might be faster
 	// to trim the left side of s then use HasPrefix since that saves
 	// us from have to use utf8.DecodeLastRuneInString which is slow.
@@ -275,13 +305,13 @@ hasUnicode:
 		if n := len(s) - 1; s[n] < utf8.RuneSelf {
 			sr, s = rune(_lower[s[n]]), s[:n]
 		} else {
-			r, size := utf8.DecodeLastRuneInString(s)
+			r, size := utf8.DecodeLastRune(s)
 			sr, s = r, s[:len(s)-size]
 		}
 		if n := len(t) - 1; t[n] < utf8.RuneSelf {
 			tr, t = rune(_lower[t[n]]), t[:n]
 		} else {
-			r, size := utf8.DecodeLastRuneInString(t)
+			r, size := utf8.DecodeLastRune(t)
 			tr, t = r, t[:len(t)-size]
 		}
 		if sr == tr || tables.CaseFold(sr) == tables.CaseFold(tr) {
@@ -295,7 +325,7 @@ hasUnicode:
 
 // TrimSuffix returns s without the provided trailing suffix string.
 // If s doesn't end with suffix, s is returned unchanged.
-func TrimSuffix(s, suffix string) string {
+func TrimSuffix(s, suffix []byte) []byte {
 	if match, i := hasSuffixUnicode(s, suffix); match {
 		return s[:i]
 	}
@@ -303,18 +333,18 @@ func TrimSuffix(s, suffix string) string {
 }
 
 // bruteForceIndexUnicode performs a brute-force search for substr in s.
-func bruteForceIndexUnicode(s, substr string) int {
+func bruteForceIndexUnicode(s, substr []byte) int {
 	var u0, u1 rune
 	var sz0, sz1 int
 	if substr[0] < utf8.RuneSelf {
 		u0, sz0 = rune(substr[0]), 1
 	} else {
-		u0, sz0 = utf8.DecodeRuneInString(substr)
+		u0, sz0 = utf8.DecodeRune(substr)
 	}
 	if substr[sz0] < utf8.RuneSelf {
 		u1, sz1 = rune(substr[sz0]), 1
 	} else {
-		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
+		u1, sz1 = utf8.DecodeRune(substr[sz0:])
 	}
 	folds0 := tables.FoldMapExcludingUpperLower(u0)
 	folds1 := tables.FoldMapExcludingUpperLower(u1)
@@ -342,8 +372,11 @@ func bruteForceIndexUnicode(s, substr string) int {
 	}
 	switch {
 	case !hasFolds0 && u0 == l0 && !hasFolds1 && u1 == l1:
+		// TODO: do this for all cases since this is only used
+		// when the needle is longer than the haystack ???
+		//
 		// Fast check for the first rune.
-		i := strings.Index(s, substr[:sz0+sz1])
+		i := bytes.Index(s, substr[:sz0+sz1])
 		if i < 0 {
 			return -1
 		}
@@ -353,7 +386,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 			if s[i] < utf8.RuneSelf {
 				r0, n0 = rune(s[i]), 1
 			} else {
-				r0, n0 = utf8.DecodeRuneInString(s[i:])
+				r0, n0 = utf8.DecodeRune(s[i:])
 			}
 			if r0 != u0 {
 				i += n0
@@ -368,7 +401,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 			if s[i+n0] < utf8.RuneSelf {
 				r1, n1 = rune(s[i+n0]), 1
 			} else {
-				r1, n1 = utf8.DecodeRuneInString(s[i+n0:])
+				r1, n1 = utf8.DecodeRune(s[i+n0:])
 			}
 			if r1 != u1 {
 				i += n0
@@ -400,7 +433,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 			if s[i] < utf8.RuneSelf {
 				r0, n0 = rune(s[i]), 1
 			} else {
-				r0, n0 = utf8.DecodeRuneInString(s[i:])
+				r0, n0 = utf8.DecodeRune(s[i:])
 			}
 			if r0 != u0 && r0 != l0 {
 				i += n0
@@ -415,7 +448,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 			if s[i+n0] < utf8.RuneSelf {
 				r1, n1 = rune(s[i+n0]), 1
 			} else {
-				r1, n1 = utf8.DecodeRuneInString(s[i+n0:])
+				r1, n1 = utf8.DecodeRune(s[i+n0:])
 			}
 			if r1 != u1 && r1 != l1 {
 				i += n0
@@ -447,7 +480,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 			if s[i] < utf8.RuneSelf {
 				r0, n0 = rune(s[i]), 1
 			} else {
-				r0, n0 = utf8.DecodeRuneInString(s[i:])
+				r0, n0 = utf8.DecodeRune(s[i:])
 			}
 			if r0 != u0 && r0 != l0 {
 				if !hasFolds0 || (r0 != folds0[0] && r0 != folds0[1]) {
@@ -464,7 +497,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 			if s[i+n0] < utf8.RuneSelf {
 				r1, n1 = rune(s[i+n0]), 1
 			} else {
-				r1, n1 = utf8.DecodeRuneInString(s[i+n0:])
+				r1, n1 = utf8.DecodeRune(s[i+n0:])
 			}
 			if r1 != u1 && r1 != l1 {
 				if !hasFolds1 || (r1 != folds1[0] && r1 != folds1[1]) {
@@ -495,7 +528,7 @@ func bruteForceIndexUnicode(s, substr string) int {
 // nonLetterASCII checks if the first 32 bytes of s consist only of
 // non-letter ASCII characters. This is used to quickly check if we
 // can use strings.Index.
-func nonLetterASCII(s string) bool {
+func nonLetterASCII(s []byte) bool {
 	for i := 0; i < len(s); i++ {
 		// NB: this is faster than using a lookup table
 		c := s[i] | ' ' // simplify check for alpha
@@ -519,7 +552,7 @@ func nonLetterASCII(s string) bool {
 
 // Index returns the index of the first instance of substr in s, or -1 if
 // substr is not present in s.
-func Index(s, substr string) int {
+func Index(s, substr []byte) int {
 	n := len(substr)
 	var r rune
 	var size int
@@ -527,7 +560,7 @@ func Index(s, substr string) int {
 		if substr[0] < utf8.RuneSelf {
 			r, size = rune(substr[0]), 1
 		} else {
-			r, size = utf8.DecodeRuneInString(substr)
+			r, size = utf8.DecodeRune(substr)
 		}
 	}
 	switch {
@@ -580,7 +613,7 @@ func Index(s, substr string) int {
 		//  * We should skip this check if s is small
 		//
 		if bytealg.NativeIndex && n <= 32 && nonLetterASCII(substr) {
-			return bytealg.IndexString(s, substr)
+			return bytealg.Index(s, substr)
 		}
 		// TODO: tune this
 		if len(s) <= maxBruteForce {
@@ -594,12 +627,12 @@ func Index(s, substr string) int {
 	if substr[0] < utf8.RuneSelf {
 		u0, sz0 = rune(substr[0]), 1
 	} else {
-		u0, sz0 = utf8.DecodeRuneInString(substr)
+		u0, sz0 = utf8.DecodeRune(substr)
 	}
 	if substr[sz0] < utf8.RuneSelf {
 		u1, sz1 = rune(substr[sz0]), 1
 	} else {
-		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
+		u1, sz1 = utf8.DecodeRune(substr[sz0:])
 	}
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
@@ -608,6 +641,10 @@ func Index(s, substr string) int {
 	hasFolds0 := folds0[0] != 0
 	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
+
+	// TODO: we can possibly get rid of the ToUpperLower function
+	// and table since it's not always on the critical path and it
+	// adds a a lot to the size of this package
 
 	// Ugly hack
 	var l0, l1 rune
@@ -634,7 +671,7 @@ func Index(s, substr string) int {
 		if s[i] < utf8.RuneSelf {
 			r0, n0 = rune(s[i]), 1
 		} else {
-			r0, n0 = utf8.DecodeRuneInString(s[i:])
+			r0, n0 = utf8.DecodeRune(s[i:])
 		}
 
 		if r0 != u0 && r0 != l0 && (!hasFolds0 || (r0 != folds0[0] && r0 != folds0[1])) {
@@ -662,7 +699,7 @@ func Index(s, substr string) int {
 		if s[i+n0] < utf8.RuneSelf {
 			r1, n1 = rune(s[i+n0]), 1
 		} else {
-			r1, n1 = utf8.DecodeRuneInString(s[i+n0:])
+			r1, n1 = utf8.DecodeRune(s[i+n0:])
 		}
 
 		if r1 == u1 || r1 == l1 || (hasFolds1 && (r1 == folds1[0] || r1 == folds1[1])) {
@@ -706,7 +743,7 @@ func Index(s, substr string) int {
 
 // LastIndex returns the index of the last instance of substr in s, or -1 if
 // substr is not present in s.
-func LastIndex(s, substr string) int {
+func LastIndex(s, substr []byte) int {
 	n := len(substr)
 	var u rune
 	var size int
@@ -714,7 +751,7 @@ func LastIndex(s, substr string) int {
 		if substr[n-1] < utf8.RuneSelf {
 			u, size = rune(substr[n-1]), 1
 		} else {
-			u, size = utf8.DecodeRuneInString(substr)
+			u, size = utf8.DecodeRune(substr)
 		}
 	}
 	switch {
@@ -738,14 +775,16 @@ func LastIndex(s, substr string) int {
 
 // IndexByte returns the index of the first instance of c (ignoring case) in s,
 // or -1 if c is not present in s. Matching is case-insensitive and Unicode
-// simple folding is used which means that bytes 'K' and 'k' match Kelvin 'K'
-// bytes 'S' and 's' match 'ſ'. Therefore, string s may be scanned twice when
-// c is [KkSs] (because the optimized assembly ASCII only).
+// simple folding is used which means that ASCII bytes 'K' and 'k' match Kelvin
+// 'K', and ASCII bytes 'S' and 's' match 'ſ' (Latin small letter long S).
+// Therefore, s may be scanned twice when c is [KkSs]
+// (because the optimized assembly is ASCII only).
 //
-// On amd64 and arm64 this is only ~20-25% slower than strings.IndexByte for
-// small strings (<4M) and ~6% slower for larger strings.
-// The slowdown for small strings is due to some additional initial overhead.
-func IndexByte(s string, c byte) int {
+// On amd64 and arm64 this is only ~20-25% slower than bytes.IndexByte for
+// small haystacks (<4M) and ~6% slower for larger haystacks.
+// The slowdown for small haystacks is due to some additional function call
+// overheard.
+func IndexByte(s []byte, c byte) int {
 	// TODO: the below quick check is only to improve benchmark performance for
 	// small strings (where the overhead of this function and IndexByteString
 	// not being inlined becomes noticeable ~1ns).
@@ -760,26 +799,26 @@ func IndexByte(s string, c byte) int {
 		i, _ := indexByte(s, c)
 		return i
 	default:
-		return bytealg.IndexByteString(s, c)
+		return bytealg.IndexByte(s, c)
 	}
 }
 
 // IndexByte returns the index of the first instance of c (ignoring case) in s,
 // or -1 if c is not present in s. Case matching is ASCII only, unlike
 // [IndexByte] which is Unicode aware.
-func IndexByteASCII(s string, c byte) int {
-	return bytealg.IndexByteString(s, c)
+func IndexByteASCII(s []byte, c byte) int {
+	return bytealg.IndexByte(s, c)
 }
 
 // indexByte returns the index of the first instance of c in s, or -1 if c is
 // not present in s and the size (in bytes) of the character matched (this is
 // needed to handle matching [Kk] and [Ss] to multibyte characters 'K' and 'ſ').
-func indexByte(s string, c byte) (int, int) {
+func indexByte(s []byte, c byte) (int, int) {
 	if len(s) == 0 {
 		return -1, 1
 	}
 
-	n := bytealg.IndexByteString(s, c)
+	n := bytealg.IndexByte(s, c)
 
 	// Special case for Unicode characters that map to ASCII.
 	var r rune
@@ -810,12 +849,12 @@ func indexByte(s string, c byte) (int, int) {
 
 // LastIndexByte returns the index of the last instance of c in s, or -1
 // if c is not present in s.
-func LastIndexByte(s string, c byte) int {
+func LastIndexByte(s []byte, c byte) int {
 	if len(s) == 0 {
 		return -1
 	}
 	if !isAlpha(c) {
-		return strings.LastIndexByte(s, c)
+		return bytes.LastIndexByte(s, c)
 	}
 
 	// Special case for Unicode characters that map to ASCII.
@@ -844,7 +883,7 @@ func LastIndexByte(s string, c byte) int {
 				return i
 			}
 		} else {
-			sr, size := utf8.DecodeLastRuneInString(s[:i])
+			sr, size := utf8.DecodeLastRune(s[:i])
 			i -= size
 			if sr == r {
 				return i
@@ -858,7 +897,7 @@ func LastIndexByte(s string, c byte) int {
 // r, or -1 if rune is not present in s.
 // If r is utf8.RuneError, it returns the first instance of any
 // invalid UTF-8 byte sequence.
-func IndexRune(s string, r rune) int {
+func IndexRune(s []byte, r rune) int {
 	// TODO: This is faster than strings.IndexRune when r is not ASCII
 	// so make a PR to go/strings.
 
@@ -869,17 +908,22 @@ func IndexRune(s string, r rune) int {
 
 // indexRune returns the index of the first instance of the Unicode code point
 // r and the size of the rune that matched.
-func indexRune(s string, r rune) (int, int) {
+//
+// TODO: use AVX to check for multiple runes at once
+// https://sneller.ai/blog/accelerating-ilike-using-avx-512/
+func indexRune(s []byte, r rune) (int, int) {
 	// TODO: handle invalid runes
 	switch {
 	case 0 <= r && r < utf8.RuneSelf:
 		// TODO: Check if we can use bytealg.IndexByteString directly.
 		return indexByte(s, byte(r))
 	case r == utf8.RuneError:
-		for i, r := range s {
-			if r == utf8.RuneError {
-				return i, utf8.RuneLen(r)
+		for i := 0; i < len(s); {
+			r1, n := utf8.DecodeRune(s[i:])
+			if r1 == utf8.RuneError {
+				return i, utf8.RuneLen(r1)
 			}
+			i += n
 		}
 		return -1, 1
 	case !utf8.ValidRune(r):
@@ -925,7 +969,7 @@ func indexRune(s string, r rune) (int, int) {
 // generally faster for Unicode characters since it searches for the rune's
 // second byte, which is generally more unique, instead of the first byte,
 // like strings.IndexRune.
-func indexRuneCase(s string, r rune) int {
+func indexRuneCase(s []byte, r rune) int {
 	// TODO:
 	//   * remove if my PR is ever merged
 	//   * consider searching for the first byte if it is not one of:
@@ -933,50 +977,21 @@ func indexRuneCase(s string, r rune) int {
 	//     Unicode characters).
 	switch {
 	case 0 <= r && r < utf8.RuneSelf:
-		return strings.IndexByte(s, byte(r))
+		return bytes.IndexByte(s, byte(r))
 	case r == utf8.RuneError:
-		for i, r := range s {
-			if r == utf8.RuneError {
+		for i := 0; i < len(s); {
+			r1, n := utf8.DecodeRune(s[i:])
+			if r1 == utf8.RuneError {
 				return i
 			}
+			i += n
 		}
 		return -1
 	case !utf8.ValidRune(r):
 		return -1
 	default:
-		var n int
-		var c0, c1, c2, c3 byte
-		// Inlined version of utf8.EncodeRune. This is one of our hottest
-		// functions and EncodeRune or string(r) add significant overhead
-		// when the string being searched is small.
-		const (
-			tx       = 0b10000000
-			t2       = 0b11000000
-			t3       = 0b11100000
-			t4       = 0b11110000
-			maskx    = 0b00111111
-			rune2Max = 1<<11 - 1
-			rune3Max = 1<<16 - 1
-		)
-		switch i := uint32(r); {
-		case i <= rune2Max:
-			c0 = t2 | byte(r>>6)
-			c1 = tx | byte(r)&maskx
-			n = 2
-		// NB: removed the invalid rune check since that is
-		// performed above.
-		case i <= rune3Max:
-			c0 = t3 | byte(r>>12)
-			c1 = tx | byte(r>>6)&maskx
-			c2 = tx | byte(r)&maskx
-			n = 3
-		default:
-			c0 = t4 | byte(r>>18)
-			c1 = tx | byte(r>>12)&maskx
-			c2 = tx | byte(r>>6)&maskx
-			c3 = tx | byte(r)&maskx
-			n = 4
-		}
+		var b [utf8.UTFMax]byte
+		n := utf8.EncodeRune(b[:], r)
 		// Search for r using the last byte of its UTF-8 encoded form
 		// since it is more unique than the first byte. This 4-5x faster
 		// when all the text is Unicode.
@@ -985,14 +1000,14 @@ func indexRuneCase(s string, r rune) int {
 		case 2:
 			i = 1
 			for i < len(s) {
-				if s[i] != c1 {
-					o := strings.IndexByte(s[i+1:], c1)
+				if s[i] != b[1] {
+					o := bytes.IndexByte(s[i+1:], b[1])
 					if o < 0 {
 						return -1
 					}
 					i += o + 1
 				}
-				if s[i-1] == c0 {
+				if s[i-1] == b[0] {
 					return i - 1
 				}
 				fails++
@@ -1004,7 +1019,7 @@ func indexRuneCase(s string, r rune) int {
 					if bytealg.NativeIndex {
 						// NB: Impossible to match in the middle of the two byte
 						// rune so we don't need to search from: s[i-:].
-						if j := bytealg.IndexString(s[i:], string(r)); j != -1 {
+						if j := bytealg.Index(s[i:], b[:n]); j != -1 {
 							return i + j
 						}
 					} else {
@@ -1012,7 +1027,7 @@ func indexRuneCase(s string, r rune) int {
 						// This is faster than calling strings.Index or
 						// using Rabin-Karp.
 						for ; i < len(s); i++ {
-							if s[i] == c1 && s[i-1] == c0 {
+							if s[i] == b[1] && s[i-1] == b[0] {
 								return i - 1
 							}
 						}
@@ -1023,14 +1038,14 @@ func indexRuneCase(s string, r rune) int {
 		case 3:
 			i = 2
 			for i < len(s) {
-				if s[i] != c2 {
-					o := strings.IndexByte(s[i+1:], c2)
+				if s[i] != b[2] {
+					o := bytes.IndexByte(s[i+1:], b[2])
 					if o < 0 {
 						return -1
 					}
 					i += o + 1
 				}
-				if s[i-2] == c0 && s[i-1] == c1 {
+				if s[i-2] == b[0] && s[i-1] == b[1] {
 					return i - 2
 				}
 				fails++
@@ -1039,12 +1054,12 @@ func indexRuneCase(s string, r rune) int {
 					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)) {
 					if bytealg.NativeIndex {
 						// We might be in the middle of a rune so search: s[i-2:]
-						if j := bytealg.IndexString(s[i-2:], string(r)); j != -1 {
+						if j := bytealg.Index(s[i-2:], b[:n]); j != -1 {
 							return i + j - 2
 						}
 					} else {
 						for ; i < len(s); i++ {
-							if s[i] == c2 && s[i-1] == c1 && s[i-2] == c0 {
+							if s[i] == b[2] && s[i-1] == b[1] && s[i-2] == b[0] {
 								return i - 2
 							}
 						}
@@ -1055,14 +1070,14 @@ func indexRuneCase(s string, r rune) int {
 		case 4:
 			i = 3
 			for i < len(s) {
-				if s[i] != c3 {
-					o := strings.IndexByte(s[i+1:], c3)
+				if s[i] != b[3] {
+					o := bytes.IndexByte(s[i+1:], b[3])
 					if o < 0 {
 						return -1
 					}
 					i += o + 1
 				}
-				if s[i-3] == c0 && s[i-2] == c1 && s[i-1] == c2 {
+				if s[i-3] == b[0] && s[i-2] == b[1] && s[i-1] == b[2] {
 					return i - 3
 				}
 				fails++
@@ -1071,12 +1086,12 @@ func indexRuneCase(s string, r rune) int {
 					(!bytealg.NativeIndex && fails >= 4+i>>4 && i < len(s)) {
 					if bytealg.NativeIndex {
 						// We might be in the middle of a rune so search: s[i-3:]
-						if j := bytealg.IndexString(s[i-3:], string(r)); j != -1 {
+						if j := bytealg.Index(s[i-3:], b[:n]); j != -1 {
 							return i + j - 3
 						}
 					} else {
 						for ; i < len(s); i++ {
-							if s[i] == c3 && s[i-1] == c2 && s[i-2] == c1 && s[i-3] == c0 {
+							if s[i] == b[3] && s[i-1] == b[2] && s[i-2] == b[1] && s[i-3] == b[0] {
 								return i - 3
 							}
 						}
@@ -1089,9 +1104,11 @@ func indexRuneCase(s string, r rune) int {
 	}
 }
 
+// TODO: search for both of the last bytes at the same time (update IndexByte)
+//
 // indexRune2 returns the index of the first instance of the Unicode code point
 // lower or upper. The search is *case-sensitive*.
-func indexRune2(s string, lower, upper rune) (int, int) {
+func indexRune2(s []byte, lower, upper rune) (int, int) {
 	// TODO:
 	//   - do we need this now that we don't search for the first byte?
 	//   - check if any of the rune bytes are equal and search by that
@@ -1126,11 +1143,11 @@ func indexRune2(s string, lower, upper rune) (int, int) {
 // code point r, or -1 if rune is not present in s.
 // If r is utf8.RuneError, it returns the last instance of any
 // invalid UTF-8 byte sequence.
-func lastIndexRune(s string, r rune) int {
+func lastIndexRune(s []byte, r rune) int {
 	switch {
 	case r == utf8.RuneError:
 		for i := len(s); i > 0; {
-			sr, size := utf8.DecodeLastRuneInString(s[:i])
+			sr, size := utf8.DecodeLastRune(s[:i])
 			i -= size
 			if sr == utf8.RuneError {
 				return i
@@ -1147,7 +1164,7 @@ func lastIndexRune(s string, r rune) int {
 					i--
 				} else {
 					var size int
-					sr, size = utf8.DecodeLastRuneInString(s[:i])
+					sr, size = utf8.DecodeLastRune(s[:i])
 					i -= size
 				}
 				for j := 0; j < len(folds) && folds[j] != 0; j++ {
@@ -1158,34 +1175,17 @@ func lastIndexRune(s string, r rune) int {
 			}
 		} else {
 			u, l, _ := tables.ToUpperLower(r)
-			if u == l {
-				rs := string(r)
-				last := len(rs) - 1
-			loop:
-				for i := len(s) - 1; i >= last; i-- {
-					// Step backwards comparing bytes.
-					if s[i] == rs[last] {
-						for j := 1; j < len(rs); j++ {
-							if s[i-j] != rs[last-j] {
-								continue loop
-							}
-						}
-						return i - last
-					}
+			for i := len(s); i > 0; {
+				var sr rune
+				if sr = rune(s[i-1]); sr < utf8.RuneSelf {
+					i--
+				} else {
+					var size int
+					sr, size = utf8.DecodeLastRune(s[:i])
+					i -= size
 				}
-			} else {
-				for i := len(s); i > 0; {
-					var sr rune
-					if sr = rune(s[i-1]); sr < utf8.RuneSelf {
-						i--
-					} else {
-						var size int
-						sr, size = utf8.DecodeLastRuneInString(s[:i])
-						i -= size
-					}
-					if sr == u || sr == l {
-						return i
-					}
+				if sr == u || sr == l {
+					return i
 				}
 			}
 		}
@@ -1199,14 +1199,16 @@ const primeRK = 16777619
 // hashStrUnicode returns the hash and the appropriate multiplicative
 // factor for use in Rabin-Karp algorithm, and the number of runes
 // in sep.
-func hashStrUnicode(sep string) (uint32, uint32, int) {
+func hashStrUnicode(sep []byte) (uint32, uint32, int) {
 	hash := uint32(0)
 	n := 0
-	for _, r := range sep {
-		if r < utf8.RuneSelf {
-			r = rune(_lower[r])
+	for len(sep) > 0 {
+		var r rune
+		if sep[0] < utf8.RuneSelf {
+			r, sep = rune(_lower[sep[0]]), sep[1:]
 		} else {
-			r = tables.CaseFold(r)
+			rr, sz := utf8.DecodeRune(sep)
+			r, sep = tables.CaseFold(rr), sep[sz:]
 		}
 		hash = hash*primeRK + uint32(r)
 		n++
@@ -1224,7 +1226,7 @@ func hashStrUnicode(sep string) (uint32, uint32, int) {
 // hashStrRevUnicode returns the hash of the reverse of sep and the
 // appropriate multiplicative factor for use in Rabin-Karp algorithm,
 // and the number of runes in sep.
-func hashStrRevUnicode(sep string) (uint32, uint32, int) {
+func hashStrRevUnicode(sep []byte) (uint32, uint32, int) {
 	hash := uint32(0)
 	n := 0
 	for i := len(sep); i > 0; {
@@ -1233,7 +1235,7 @@ func hashStrRevUnicode(sep string) (uint32, uint32, int) {
 		if sep[i-1] < utf8.RuneSelf {
 			r, size = rune(_lower[sep[i-1]]), 1
 		} else {
-			r, size = utf8.DecodeLastRuneInString(sep[:i])
+			r, size = utf8.DecodeLastRune(sep[:i])
 			r = tables.CaseFold(r)
 		}
 		hash = hash*primeRK + uint32(r)
@@ -1252,7 +1254,7 @@ func hashStrRevUnicode(sep string) (uint32, uint32, int) {
 
 // indexRabinKarpRevUnicode uses the Rabin-Karp search algorithm to return the
 // index of the last occurrence of substr in s, or -1 if not present.
-func indexRabinKarpRevUnicode(s, substr string) int {
+func indexRabinKarpRevUnicode(s, substr []byte) int {
 	// Reverse Rabin-Karp search
 	hashss, pow, n := hashStrRevUnicode(substr)
 	var h uint32
@@ -1263,7 +1265,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 		if s[i-1] < utf8.RuneSelf {
 			r, size = rune(_lower[s[i-1]]), 1
 		} else {
-			r, size = utf8.DecodeLastRuneInString(s[:i])
+			r, size = utf8.DecodeLastRune(s[:i])
 			r = tables.CaseFold(r)
 		}
 		h = h*primeRK + uint32(r)
@@ -1286,7 +1288,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 		if s[i-1] < utf8.RuneSelf {
 			r0, n0 = rune(_lower[s[i-1]]), 1
 		} else {
-			r0, n0 = utf8.DecodeLastRuneInString(s[:i])
+			r0, n0 = utf8.DecodeLastRune(s[:i])
 			r0 = tables.CaseFold(r0)
 		}
 		var r1 rune
@@ -1294,7 +1296,7 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 		if s[j-1] < utf8.RuneSelf {
 			r1, n1 = rune(_lower[s[j-1]]), 1
 		} else {
-			r1, n1 = utf8.DecodeLastRuneInString(s[:j])
+			r1, n1 = utf8.DecodeLastRune(s[:j])
 			r1 = tables.CaseFold(r1)
 		}
 		h *= primeRK
@@ -1311,22 +1313,26 @@ func indexRabinKarpRevUnicode(s, substr string) int {
 
 // indexRabinKarpUnicode uses the Rabin-Karp search algorithm to return the
 // index of the first occurrence of substr in s, or -1 if not present.
-func indexRabinKarpUnicode(s, substr string) int {
+func indexRabinKarpUnicode(s, substr []byte) int {
 	// Rabin-Karp search
 	hashss, pow, n := hashStrUnicode(substr)
 	var h uint32
 	sz := 0 // byte size of 'n' runes
-	for i, r := range s {
-		orig := r
-		if r < utf8.RuneSelf {
-			r = rune(_lower[r])
+	for i := 0; i < len(s); {
+		var r rune
+		var size int
+		if s[i] < utf8.RuneSelf {
+			r, size = rune(_lower[s[i]]), 1
 		} else {
+			r, size = utf8.DecodeRune(s[i:])
 			r = tables.CaseFold(r)
 		}
 		h = h*primeRK + uint32(r)
+		i += size
 		n--
 		if n == 0 {
-			sz = i + utf8.RuneLen(orig)
+			// WARN WARN WARN WARN
+			sz = i // TODO: clean this up
 			break
 		}
 	}
@@ -1341,13 +1347,13 @@ func indexRabinKarpUnicode(s, substr string) int {
 		if s[j] < utf8.RuneSelf {
 			s0, n0 = rune(_lower[s[j]]), 1
 		} else {
-			s0, n0 = utf8.DecodeRuneInString(s[j:])
+			s0, n0 = utf8.DecodeRune(s[j:])
 			s0 = tables.CaseFold(s0)
 		}
 		if s[i] < utf8.RuneSelf {
 			s1, n1 = rune(_lower[s[i]]), 1
 		} else {
-			s1, n1 = utf8.DecodeRuneInString(s[i:])
+			s1, n1 = utf8.DecodeRune(s[i:])
 			s1 = tables.CaseFold(s1)
 		}
 		h += uint32(s0)
@@ -1361,7 +1367,7 @@ func indexRabinKarpUnicode(s, substr string) int {
 	return -1
 }
 
-func countRune(s string, r rune) (n int) {
+func countRune(s []byte, r rune) (n int) {
 	sz := utf8.RuneLen(r)
 	for {
 		i := indexRuneCase(s, r)
@@ -1374,16 +1380,16 @@ func countRune(s string, r rune) (n int) {
 }
 
 // Count counts the number of non-overlapping instances of substr in s.
-// If substr is an empty string, Count returns 1 + the number of Unicode
+// If substr is an empty slice, Count returns 1 + the number of Unicode
 // code points in s.
-func Count(s, substr string) int {
+func Count(s, substr []byte) int {
 	// special case
 	if len(substr) == 0 {
-		return utf8.RuneCountInString(s) + 1
+		return utf8.RuneCount(s) + 1
 	}
 	if len(substr) == 1 {
 		c := substr[0]
-		n := bytealg.CountString(s, c)
+		n := bytealg.Count(s, c)
 		switch c {
 		case 'K', 'k':
 			n += countRune(s, 'K')
@@ -1401,33 +1407,38 @@ func Count(s, substr string) int {
 		}
 		n++
 		if runeCount < 0 {
-			runeCount = utf8.RuneCountInString(substr)
+			runeCount = utf8.RuneCount(substr)
 		}
 		o := runeCount
 		s = s[i:]
+
+		// TODO: should probably use an index "j"
+
 		// Trim substr prefix from s.
-		for j, r := range s {
-			o--
-			if o == 0 {
-				s = s[j+utf8.RuneLen(r):]
-				break
+		for len(s) > 0 && o > 0 {
+			if s[0] < utf8.RuneSelf {
+				s = s[1:]
+			} else {
+				_, sz := utf8.DecodeRune(s)
+				s = s[sz:]
 			}
+			o--
 		}
 	}
 }
 
 // Contains reports whether substr is within s.
-func Contains(s, substr string) bool {
+func Contains(s, substr []byte) bool {
 	return Index(s, substr) >= 0
 }
 
 // ContainsAny reports whether any Unicode code points in chars are within s.
-func ContainsAny(s, chars string) bool {
+func ContainsAny(s, chars []byte) bool {
 	return IndexAny(s, chars) >= 0
 }
 
 // ContainsRune reports whether the Unicode code point r is within s.
-func ContainsRune(s string, r rune) bool {
+func ContainsRune(s []byte, r rune) bool {
 	return IndexRune(s, r) >= 0
 }
 
@@ -1443,7 +1454,7 @@ type asciiSet [8]uint32
 
 // makeASCIISet creates a set of ASCII characters and reports whether all
 // characters in chars are ASCII.
-func makeASCIISet(s, chars string) (as asciiSet, ok bool) {
+func makeASCIISet(s, chars []byte) (as asciiSet, ok bool) {
 	i := 0
 	for ; i < len(chars); i++ {
 		c := chars[i]
@@ -1493,7 +1504,7 @@ func (as *asciiSet) contains(c byte) bool {
 
 // IndexAny returns the index of the first instance of any Unicode code point
 // from chars in s, or -1 if no Unicode code point from chars is present in s.
-func IndexAny(s, chars string) int {
+func IndexAny(s, chars []byte) int {
 	if len(chars) == 0 {
 		// Avoid scanning all of s.
 		return -1
@@ -1524,10 +1535,19 @@ func IndexAny(s, chars string) int {
 		//
 		// This cutover was empirically found via internal/benchtest.
 		n := -1
-		for _, r := range chars {
-			i := IndexRune(s, r)
-			if i != -1 && (n == -1 || i < n) {
-				n = i
+		for i := 0; i < len(chars); {
+			var r rune
+			if chars[i] < utf8.RuneSelf {
+				r = rune(chars[i])
+				i++
+			} else {
+				var sz int
+				r, sz = utf8.DecodeRune(chars[i:])
+				i += sz
+			}
+			j := IndexRune(s, r)
+			if j != -1 && (n == -1 || j < n) {
+				n = j
 				if n == 0 {
 					break
 				}
@@ -1536,10 +1556,18 @@ func IndexAny(s, chars string) int {
 		}
 		return n
 	}
-	for i, c := range s {
-		if IndexRune(chars, c) >= 0 {
+	for i := 0; i < len(s); {
+		var r rune
+		var sz int
+		if s[i] < utf8.RuneSelf {
+			r, sz = rune(s[i]), 1
+		} else {
+			r, sz = utf8.DecodeRune(s[i:])
+		}
+		if IndexRune(chars, r) >= 0 {
 			return i
 		}
+		i += sz
 	}
 	return -1
 }
@@ -1547,7 +1575,7 @@ func IndexAny(s, chars string) int {
 // LastIndexAny returns the index of the last instance of any Unicode code
 // point from chars in s, or -1 if no Unicode code point from chars is
 // present in s.
-func LastIndexAny(s, chars string) int {
+func LastIndexAny(s, chars []byte) int {
 	if len(chars) == 0 {
 		return -1
 	}
@@ -1576,7 +1604,7 @@ func LastIndexAny(s, chars string) int {
 			return LastIndexByte(s, c)
 		}
 		for i := len(s); i > 0; {
-			r, size := utf8.DecodeLastRuneInString(s[:i])
+			r, size := utf8.DecodeLastRune(s[:i])
 			i -= size
 			if r == utf8.RuneError {
 				return i
@@ -1585,7 +1613,7 @@ func LastIndexAny(s, chars string) int {
 		return -1
 	}
 	for i := len(s); i > 0; {
-		r, size := utf8.DecodeLastRuneInString(s[:i])
+		r, size := utf8.DecodeLastRune(s[:i])
 		i -= size
 		if IndexRune(chars, r) >= 0 {
 			return i
@@ -1597,31 +1625,36 @@ func LastIndexAny(s, chars string) int {
 // Cut slices s around the first instance of sep,
 // returning the text before and after sep.
 // The found result reports whether sep appears in s.
-// If sep does not appear in s, cut returns s, "", false.
-func Cut(s, sep string) (before, after string, found bool) {
+// If sep does not appear in s, cut returns s, nil, false.
+//
+// Cut returns slices of the original slice s, not copies.
+func Cut(s, sep []byte) (before, after []byte, found bool) {
 	// TODO: both Cut and Count would benefit from Index returning the
 	// number of bytes consumed from sep - consider adding this.
 	if i := Index(s, sep); i >= 0 {
 		after = s[i:]
+		// WARN: make sure this works with invalid runes
 		// trim sep from s
-		for range sep {
+		for n := utf8.RuneCount(sep); n > 0 && len(after) > 0; n-- {
 			if after[0] < utf8.RuneSelf {
 				after = after[1:]
 			} else {
-				_, n := utf8.DecodeRuneInString(after)
+				_, n := utf8.DecodeRune(after)
 				after = after[n:]
 			}
 		}
 		return s[:i], after, true
 	}
-	return s, "", false
+	return s, nil, false
 }
 
-// CutPrefix returns s without the provided leading prefix string
+// CutPrefix returns s without the provided leading prefix byte slice
 // and reports whether it found the prefix.
 // If s doesn't start with prefix, CutPrefix returns s, false.
-// If prefix is the empty string, CutPrefix returns s, true.
-func CutPrefix(s, prefix string) (after string, found bool) {
+// If prefix is the empty byte slice, CutPrefix returns s, true.
+//
+// CutPrefix returns slices of the original slice s, not copies.
+func CutPrefix(s, prefix []byte) (after []byte, found bool) {
 	if len(prefix) == 0 {
 		return s, true
 	}
@@ -1635,7 +1668,7 @@ func CutPrefix(s, prefix string) (after string, found bool) {
 // and reports whether it found the suffix.
 // If s doesn't end with suffix, CutSuffix returns s, false.
 // If suffix is the empty string, CutSuffix returns s, true.
-func CutSuffix(s, suffix string) (before string, found bool) {
+func CutSuffix(s, suffix []byte) (before []byte, found bool) {
 	if len(suffix) == 0 {
 		return s, true
 	}
@@ -1654,11 +1687,11 @@ func CutSuffix(s, suffix string) (before string, found bool) {
 //
 // IndexNonASCII is up to 17 times faster on arm64 and 12 times faster on
 // amd64 compared to using a for loop and checking each byte of s.
-func IndexNonASCII(s string) int {
-	return bytealg.IndexNonASCII(s)
+func IndexNonASCII(s []byte) int {
+	return bytealg.IndexByteNonASCII(s)
 }
 
 // ContainsNonASCII returns true if s contains any non-ASCII characters.
-func ContainsNonASCII(s string) bool {
-	return bytealg.IndexNonASCII(s) >= 0
+func ContainsNonASCII(s []byte) bool {
+	return bytealg.IndexByteNonASCII(s) >= 0
 }

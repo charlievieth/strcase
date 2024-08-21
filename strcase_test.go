@@ -80,10 +80,10 @@ func TestCompare(t *testing.T) {
 		return
 	}
 
-	for _, test := range compareTests {
+	for i, test := range compareTests {
 		got := Compare(test.s, test.t)
 		if got != test.out {
-			t.Errorf("Compare(%q, %q) = %d; want: %d", test.s, test.t, got, test.out)
+			t.Errorf("%d: Compare(%q, %q) = %d; want: %d", i, test.s, test.t, got, test.out)
 		}
 	}
 }
@@ -249,6 +249,7 @@ var unicodeIndexTests = []IndexTest{
 	{"abc☻S@", "☻ſ@", 3},
 
 	// Sep longer (in bytes)
+	{"\u212a", "k", 0},
 	{"a\u212a", "a\u212a", 0},
 	{"a\u212a", "a\u212a\u212a", -1},
 
@@ -408,6 +409,7 @@ var lastIndexTests = []IndexTest{
 	{"4=K ", "=\u212a", 1},
 	{"I", "\u0131", -1},
 	{"aßẛ", "ß", 1},
+	{"aßẛ", "a", 0},
 	{"OFf", "İF", -1},
 	{"``Ɽ", "\U000823eb`", -1},
 
@@ -477,22 +479,23 @@ func TestIndexRegex(t *testing.T) {
 		}
 		return -1
 	}
-	tests := filterIndexTests(nil, indexTests, unicodeIndexTests)
-	runIndexTests(t, index, "Regexp", tests, false)
+	runIndexTests(t, index, "Regexp", unicodeIndexTests, false)
 }
 
-func TestIndex(t *testing.T) {
-	tests := filterIndexTests(nil, indexTests, unicodeIndexTests)
-
+// Make sure our reference implementation is correct.
+func TestIndexRunesReference(t *testing.T) {
 	// Test that the Index tests are valid
 	reference := func(s, sep string) int {
 		return indexRunesReference([]rune(s), []rune(sep))
 	}
-	runIndexTests(t, reference, "IndexReference", tests, false)
+	runIndexTests(t, reference, "IndexReference", unicodeIndexTests, false)
+}
+
+func TestIndex(t *testing.T) {
 	if t.Failed() {
 		t.Fatal("Reference Index function failed: tests are invalid")
 	}
-	runIndexTests(t, Index, "Index", tests, false)
+	runIndexTests(t, Index, "Index", unicodeIndexTests, false)
 }
 
 // Test our use of bytealg.IndexString
@@ -767,6 +770,9 @@ var indexRuneTests = []IndexRuneTest{
 	{"aaaaaKKKK鄄", '鄄', 17},
 	{"aaKKKKKa\U000bc104", '\U000bc104', 18}, // cutover: 4 + n>>4
 	{"aaKKKKKa鄄", '鄄', 18},
+
+	// Invalid rune
+	{"abc", utf8.RuneError, -1},
 }
 
 func TestIndexRune(t *testing.T) {
@@ -1136,7 +1142,7 @@ var suffixTests = []SuffixTest{
 func TestHasSuffix(t *testing.T) {
 	// Make sure the tests cases are valid
 	for _, test := range suffixTests {
-		out := hasSuffixRunes([]rune(test.s), []rune(test.suffix))
+		out := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(test.suffix) + "$").MatchString(test.s)
 		if out != test.out {
 			t.Errorf("hasSuffixRunes(%q, %q) = %t; want: %t", test.s, test.suffix, out, test.out)
 		}
@@ -1222,7 +1228,7 @@ func TestCount(t *testing.T) {
 	}
 }
 
-var dots = "1....2....3....4"
+const dots = "1....2....3....4"
 
 var indexAnyTests = []IndexTest{
 	{"", "", -1},
@@ -1741,12 +1747,12 @@ func BenchmarkLastIndexByte(b *testing.B) {
 	if testing.Short() {
 		b.Skip("short test")
 	}
-	const ch = 'S'
-	if got := LastIndexByte(benchmarkString, ch); got != 10 {
-		b.Fatalf("wrong index: expected 10, got=%d", got)
-	}
 	s := "b" + strings.Repeat("a", 128)
 	c := byte('B')
+	if i := LastIndexByte(s, c); i != 0 {
+		b.Fatal("invalid index:", i)
+	}
+	b.SetBytes(int64(len(s)))
 	for i := 0; i < b.N; i++ {
 		LastIndexByte(s, c)
 	}
@@ -2006,9 +2012,31 @@ func BenchmarkIndexHard4(b *testing.B) {
 	benchmarkIndexHard(b, "<pre><b>hello</b><strong>world</strong></pre>")
 }
 
+// TODO: these benchmarks are not very useful
 func BenchmarkLastIndexHard1(b *testing.B) { benchmarkLastIndexHard(b, "<>") }
 func BenchmarkLastIndexHard2(b *testing.B) { benchmarkLastIndexHard(b, "</pre>") }
 func BenchmarkLastIndexHard3(b *testing.B) { benchmarkLastIndexHard(b, "<b>hello world</b>") }
+
+func BenchmarkLastIndexRuneUnicode(b *testing.B) {
+	bench := func(b *testing.B, name string, rt *unicode.RangeTable) {
+		b.Run(name, func(b *testing.B) {
+			var rs []rune
+			visitTable(rt, func(r rune) {
+				if len(rs) < 1024 {
+					rs = append(rs, r)
+				}
+			})
+			s := string(rs)
+			r := rs[0]
+			b.SetBytes(int64(len(s)))
+			for i := 0; i < b.N; i++ {
+				lastIndexRune(s, r)
+			}
+		})
+	}
+	bench(b, "Han", unicode.Han)           // no folds
+	bench(b, "Cyrillic", unicode.Cyrillic) // folds
+}
 
 var (
 	benchInputTorture  = strings.Repeat("ABC", 1<<10) + "123" + strings.Repeat("ABC", 1<<10)
@@ -2283,6 +2311,26 @@ func BenchmarkLastIndexAnyUTF8(b *testing.B) {
 			})
 		}
 	}
+}
+
+func BenchmarkCount(b *testing.B) {
+	bench := func(name, s, sep string) {
+		b.Run(name, func(b *testing.B) {
+			i := strings.Count(s, sep)
+			j := Count(s, sep)
+			if i != j {
+				b.Fatalf("Count(%q, %q) = %d; want: %d", s, sep, j, i)
+			}
+			b.SetBytes(int64(len(s)))
+			for i := 0; i < b.N; i++ {
+				Count(s, sep)
+			}
+		})
+	}
+	bench("ASCII", strings.Repeat("    ab", 64), "ab")
+	bench("Unicode", strings.Repeat("你好世界", 128), "你好世界")
+	// Make sure we lazily process substr.
+	bench("NoMatch", strings.Repeat("你", 8), strings.Repeat("好", 256))
 }
 
 // Micro-benchmarks for caseFold
