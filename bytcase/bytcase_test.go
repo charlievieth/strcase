@@ -7,6 +7,10 @@ import (
 	"github.com/charlievieth/strcase/internal/test"
 )
 
+func TestUnicodeVersion(t *testing.T) {
+	test.UnicodeVersion(t, UnicodeVersion)
+}
+
 func TestCompare(t *testing.T) {
 	test.Compare(t, test.ByteIndexFunc(Compare))
 }

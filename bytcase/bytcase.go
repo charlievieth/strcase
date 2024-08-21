@@ -8,6 +8,8 @@ import (
 	"github.com/charlievieth/strcase/internal/tables"
 )
 
+const UnicodeVersion = tables.UnicodeVersion
+
 // TODO: use the values from the bytealg package and tune
 const maxBruteForce = 16 // substring length
 const maxLen = 32        // subject length
@@ -1317,22 +1319,20 @@ func indexRabinKarpUnicode(s, substr []byte) int {
 	// Rabin-Karp search
 	hashss, pow, n := hashStrUnicode(substr)
 	var h uint32
-	sz := 0 // byte size of 'n' runes
-	for i := 0; i < len(s); {
+	j := 0
+	for j < len(s) {
 		var r rune
 		var size int
-		if s[i] < utf8.RuneSelf {
-			r, size = rune(_lower[s[i]]), 1
+		if s[j] < utf8.RuneSelf {
+			r, size = rune(_lower[s[j]]), 1
 		} else {
-			r, size = utf8.DecodeRune(s[i:])
+			r, size = utf8.DecodeRune(s[j:])
 			r = tables.CaseFold(r)
 		}
 		h = h*primeRK + uint32(r)
-		i += size
+		j += size
 		n--
 		if n == 0 {
-			// WARN WARN WARN WARN
-			sz = i // TODO: clean this up
 			break
 		}
 	}
@@ -1340,7 +1340,7 @@ func indexRabinKarpUnicode(s, substr []byte) int {
 		return 0
 	}
 	i := 0 // start of rolling hash
-	for j := sz; j < len(s); {
+	for j < len(s) {
 		h *= primeRK
 		var s0, s1 rune
 		var n0, n1 int
@@ -1411,19 +1411,18 @@ func Count(s, substr []byte) int {
 		}
 		o := runeCount
 		s = s[i:]
-
-		// TODO: should probably use an index "j"
-
 		// Trim substr prefix from s.
-		for len(s) > 0 && o > 0 {
-			if s[0] < utf8.RuneSelf {
-				s = s[1:]
+		j := 0
+		for j < len(s) && o > 0 {
+			if s[j] < utf8.RuneSelf {
+				j++
 			} else {
-				_, sz := utf8.DecodeRune(s)
-				s = s[sz:]
+				_, sz := utf8.DecodeRune(s[j:])
+				j += sz
 			}
 			o--
 		}
+		s = s[j:]
 	}
 }
 
