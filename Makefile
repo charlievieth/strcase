@@ -3,7 +3,7 @@
 # Run tests and linters. If this passes then CI tests
 # should also pass.
 .PHONY: all
-all: install test testgenerate testgenpkg vet golangci-lint
+all: install test testbenchmarks testgenerate testgenpkg vet golangci-lint
 
 include common.mk
 
@@ -55,10 +55,10 @@ testgenerate: bin/gen
 		$(GEN_TARGET) -dry-run -skip-tests;                   \
 	fi;
 
-# Test that the benchmarks pass
+# Make sure the benchmarks pass (we run them with a short benchtime)
 .PHONY: testbenchmarks
 testbenchmarks:
-	@$(MAKEFILE_DIR)/scripts/test-benchmarks.bash
+	@cd $(MAKEFILE_DIR) && ./scripts/test-benchmarks.bash
 
 # Run all tests (slow)
 .PHONY: testall
@@ -69,6 +69,7 @@ testall: exhaustive testskipped testgenerate testgenpkg
 .ci: GO = $(RICHGO_TARGET)
 .ci: export RICHGO_FORCE_COLOR=1
 .ci: testverbose
+.ci: testbenchmarks
 
 # Run and colorize verbose tests for CI
 .PHONY: ci
