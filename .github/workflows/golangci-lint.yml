@@ -26,3 +26,9 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+      - name: golangci-lint gen package
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ./internal/gen
+          args: --config=${{ github.workspace }}/.golangci.yaml

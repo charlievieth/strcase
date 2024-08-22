@@ -42,12 +42,6 @@ jobs:
       - name: Test Skipped
         run: make testskipped
 
-      - name: Test Generate
-        run: make testgenerate
-
-      - name: Test Gen Package
-        run: make testgenpkg
-
       - name: Test Benchmarks
         run: make testbenchmarks
 

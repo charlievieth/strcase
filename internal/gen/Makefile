@@ -11,8 +11,6 @@ all: test lint
 # Common variables
 include $(MAKEFILE_DIR)/../../common.mk
 
-GEN_GOLANGCI_FLAGS ?= $(GOLANGCI_FLAGS) --skip-dirs='^(gen|ucd)$$'
-
 # # Run tests an
 # Run verbose tests
 testverbose: override GO_TEST_FLAGS += -v
@@ -39,7 +37,7 @@ ci: .ci
 # Run golangci-lint
 .PHONY: golangci-lint
 golangci-lint: bin/golangci-lint
-	@$(GOLANGCI_TARGET) run $(GEN_GOLANGCI_FLAGS)
+	@$(GOLANGCI_TARGET) run
 
 .PHONY: vet
 vet:

@@ -92,6 +92,12 @@ vet-strcase:
 vet-gen:
 	@$(GO) vet -tags gen gen.go
 
+.PHONY: vet-genpkg
+vet-genpkg:
+	@cd $(MAKEFILE_DIR)/internal/gen && $(MAKE) --quiet vet
+
+# NOTE: we don't run vet-genpkg here since it requires Go version 1.20
+# and we run this against Go 1.19 in CI.
 .PHONY: vet
 vet: vet-strcase vet-gen
 
