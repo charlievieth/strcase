@@ -1,0 +1,28 @@
+# Test on 386 to make the logic for platforms that
+# we do not have assembly implementations for works.
+---
+name: Test GOARCH 386
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '>=1.23.x'
+    - name: Test
+      shell: bash
+      run: |
+        export GOARCH=386
+        GOARCH=386 make env
+        GOARCH=386 make test
