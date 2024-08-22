@@ -292,7 +292,6 @@ var indexTests = []indexTest{
 	{"123abc☻", "ABC☻", 3},
 }
 
-// These tests fail with strcasestr.
 var unicodeIndexTests = []indexTest{
 	// Map Kelvin 'K' (U+212A) to lowercase latin 'k'.
 	{"abcK@", "k@", 3},
@@ -326,7 +325,9 @@ var unicodeIndexTests = []indexTest{
 	// "İ" does not fold to "i"
 	{"İ", "i", -1},
 	{"aİ", "ai", -1},
-	{"aİ", "ai", -1},
+	// "İ" does not fold to "ı"
+	{"İ", "ı", -1},
+	{"aİ", "aı", -1},
 
 	// Special Unicode points that are not equal to either their
 	// uppercase or lowercase form.
@@ -388,6 +389,13 @@ var unicodeIndexTests = []indexTest{
 		s:   "\U000bc104q9",
 		sep: "\U000bc104q9",
 		out: 0,
+	},
+	// Make sure we don't fold 'ı' (LATIN SMALL LETTER DOTLESS I)
+	{
+
+		s:   "\u0224Ie\U00010cd4",
+		sep: "\u0224\u0131e\U00010cd4",
+		out: -1,
 	},
 }
 
@@ -538,7 +546,7 @@ func Index(t *testing.T, fn IndexFunc) {
 	if t.Failed() {
 		t.Fatal("Reference Index function failed: tests are invalid")
 	}
-	runIndexTests(t, fn, "Index", unicodeIndexTests, false)
+	runIndexTests(t, fn, "Index", indexTests, false)
 }
 
 func IndexUnicode(t *testing.T, fn IndexFunc) {
@@ -553,7 +561,7 @@ func IndexUnicode(t *testing.T, fn IndexFunc) {
 	}
 	for _, reps := range replacements {
 		t.Run("", func(t *testing.T) {
-			r := func(s string) string {
+			replace := func(s string) string {
 				for _, rr := range reps {
 					o := strings.ReplaceAll(s, rr.old, rr.new)
 					if !utf8.ValidString(o) {
@@ -564,26 +572,20 @@ func IndexUnicode(t *testing.T, fn IndexFunc) {
 				return s
 			}
 
-			tests := append([]indexTest(nil), indexTests...)
-			for i, test := range tests {
-				if test.out > 0 {
-					test.out = len(r(test.s[:test.out]))
+			tests := append(indexTests, unicodeIndexTests...)
+			for _, test := range tests {
+				out := test.out
+				if out > 0 {
+					out = len(replace(test.s[:test.out]))
 				}
-				test.s = r(test.s)
-				test.sep = r(test.sep)
-				tests[i] = test
+				tests = append(tests, indexTest{
+					s:   replace(test.s),
+					sep: replace(test.sep),
+					out: out,
+				})
 			}
 
 			runIndexTests(t, fn, "Index", tests, false)
-
-			// // TODO: can probably remove this
-			// t.Run("RabinKarp", func(t *testing.T) {
-			// 	filter := func(t IndexTest) bool {
-			// 		return len(t.sep) > 0 && len(t.s) > len(t.sep)
-			// 	}
-			// 	rtests := filterIndexTests(filter, tests)
-			// 	runIndexTests(t, indexRabinKarpUnicode, "indexRabinKarpUnicode", rtests, false)
-			// })
 		})
 	}
 }
