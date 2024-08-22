@@ -145,6 +145,12 @@ pre-commit: .git/hooks/pre-commit
 .PHONY: release
 release: exhaustive testinvalid testgenerate lint
 
+# Print information about the version of go being used
+.PHONY: env
+env:
+	@$(GO) env
+
+
 .PHONY: clean
 clean:
 	@rm -f cpu*.out mem*.out
