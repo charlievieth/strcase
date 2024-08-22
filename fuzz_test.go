@@ -948,7 +948,7 @@ func generateHasSuffixArgs(t testing.TB, rr *rand.Rand, ascii bool) (string, str
 		}
 	}
 
-	panic("Failed to generate vaild HasPrefix args")
+	panic("Failed to generate vaild HasSuffix args")
 }
 
 func TestHasSuffixFuzz(t *testing.T) {
