@@ -1648,7 +1648,7 @@ func listSourceFiles(dir string) []string {
 		return false
 	}
 	var a []string
-	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		name := d.Name()
 		if d.IsDir() && (name == "vendor" || name[0] == '.') {
 			return fs.SkipDir
@@ -1658,6 +1658,9 @@ func listSourceFiles(dir string) []string {
 		}
 		return nil
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	slices.Sort(a)
 	return a
 }
