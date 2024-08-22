@@ -3,44 +3,81 @@ name: Test Generate
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
   pull_request:
-    branches: [master]
+    branches: [ master ]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-   steps:
-      - uses: actions/checkout@v4
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+    - uses: actions/cache@v4
+      name: Cache unicode
+      with:
+        path: ${{ github.workspace }}/internal/gen/gentables/DATA
+        key: ${{ runner.os }}-data-${{ hashFiles('${{ github.workspace }}/**/*.txt') }}
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '>=1.23.x'
+    # Test the gen package
+    - name: Test
+      run: make test
+      working-directory: ./internal/gen
+    # Vet the gen package
+    - name: Vet
+      run: make vet
+      working-directory: ./internal/gen
+    # Test that the generated tables are up-to-date
+    - name: Test Generate
+      run: make testgenerate
 
-      - uses: actions/cache@v4
-        name: Cache unicode
-        with:
-          path: ${{ github.workspace }}/internal/gen/gentables/DATA
-          key: ${{ runner.os }}-data-${{ hashFiles('${{ github.workspace }}/**/*.txt') }}
+# ---
+# name: Test Generate
 
-      # Cache richgo and golangci-lint
-      - uses: actions/cache@v4
-        name: Cache bin
-        with:
-          path: ${{ github.workspace }}/bin
-          # The Makefile sets the version of richgo and golangci-lint
-          key: ${{ runner.os }}-bin-${{ hashFiles('${{ github.workspace }}/common.mk') }}
+# on:
+#   push:
+#     branches: [master]
+#   pull_request:
+#     branches: [master]
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '>=1.23.x'
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#    steps:
+#       - uses: actions/checkout@v4
 
-      # Test the gen package
-      - name: Test
-        run: make test
-        working-directory: ./internal/gen
+#       - uses: actions/cache@v4
+#         name: Cache unicode
+#         with:
+#           path: ${{ github.workspace }}/internal/gen/gentables/DATA
+#           key: ${{ runner.os }}-data-${{ hashFiles('${{ github.workspace }}/**/*.txt') }}
 
-      # Vet the gen package
-      - name: Vet
-        run: make vet
-        working-directory: ./internal/gen
+#       # Cache richgo and golangci-lint
+#       - uses: actions/cache@v4
+#         name: Cache bin
+#         with:
+#           path: ${{ github.workspace }}/bin
+#           # The Makefile sets the version of richgo and golangci-lint
+#           key: ${{ runner.os }}-bin-${{ hashFiles('${{ github.workspace }}/common.mk') }}
 
-      # Test that the generated tables are up-to-date
-      - name: Test Generate
-        run: make testgenerate
+#       - uses: actions/setup-go@v5
+#         with:
+#           go-version: '>=1.23.x'
+
+#       # Test the gen package
+#       - name: Test
+#         run: make test
+#         working-directory: ./internal/gen
+
+#       # Vet the gen package
+#       - name: Vet
+#         run: make vet
+#         working-directory: ./internal/gen
+
+#       # Test that the generated tables are up-to-date
+#       - name: Test Generate
+#         run: make testgenerate
