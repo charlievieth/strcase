@@ -356,15 +356,21 @@ func bruteForceIndexUnicode(s, substr []byte) int {
 
 	// Ugly hack
 	var l0, l1 rune
-	if u0 != 'İ' {
-		u0, l0, _ = tables.ToUpperLower(u0)
-	} else {
+	switch u0 {
+	case 'İ':
 		l0 = 'İ'
+	case 'ı':
+		l0 = 'ı'
+	default:
+		u0, l0, _ = tables.ToUpperLower(u0)
 	}
-	if u1 != 'İ' {
-		u1, l1, _ = tables.ToUpperLower(u1)
-	} else {
+	switch u1 {
+	case 'İ':
 		l1 = 'İ'
+	case 'ı':
+		l1 = 'ı'
+	default:
+		u1, l1, _ = tables.ToUpperLower(u1)
 	}
 
 	// Limit search space.
@@ -650,15 +656,21 @@ func Index(s, substr []byte) int {
 
 	// Ugly hack
 	var l0, l1 rune
-	if u0 != 'İ' {
-		u0, l0, _ = tables.ToUpperLower(u0)
-	} else {
+	switch u0 {
+	case 'İ':
 		l0 = 'İ'
+	case 'ı':
+		l0 = 'ı'
+	default:
+		u0, l0, _ = tables.ToUpperLower(u0)
 	}
-	if u1 != 'İ' {
-		u1, l1, _ = tables.ToUpperLower(u1)
-	} else {
+	switch u1 {
+	case 'İ':
 		l1 = 'İ'
+	case 'ı':
+		l1 = 'ı'
+	default:
+		u1, l1, _ = tables.ToUpperLower(u1)
 	}
 
 	fails := 0
