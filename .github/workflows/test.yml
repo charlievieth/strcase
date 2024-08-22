@@ -30,7 +30,7 @@ jobs:
           # The Makefile sets the version of richgo and golangci-lint
           key: ${{ runner.os }}-bin-${{ hashFiles('${{ github.workspace }}/common.mk') }}
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         name: Setup Go ${{ matrix.go-version }}
         with:
           go-version: ${{ matrix.go-version }}
