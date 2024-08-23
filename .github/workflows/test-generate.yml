@@ -24,60 +24,13 @@ jobs:
       with:
         go-version: '>=1.23.x'
     # Test the gen package
-    - name: Test
+    - name: Test Gen
       run: make test
       working-directory: ./internal/gen
     # Vet the gen package
-    - name: Vet
+    - name: Vet Gen
       run: make vet
       working-directory: ./internal/gen
     # Test that the generated tables are up-to-date
     - name: Test Generate
       run: make testgenerate
-
-# ---
-# name: Test Generate
-
-# on:
-#   push:
-#     branches: [master]
-#   pull_request:
-#     branches: [master]
-
-# jobs:
-#   build:
-#     runs-on: ubuntu-latest
-#    steps:
-#       - uses: actions/checkout@v4
-
-#       - uses: actions/cache@v4
-#         name: Cache unicode
-#         with:
-#           path: ${{ github.workspace }}/internal/gen/gentables/DATA
-#           key: ${{ runner.os }}-data-${{ hashFiles('${{ github.workspace }}/**/*.txt') }}
-
-#       # Cache richgo and golangci-lint
-#       - uses: actions/cache@v4
-#         name: Cache bin
-#         with:
-#           path: ${{ github.workspace }}/bin
-#           # The Makefile sets the version of richgo and golangci-lint
-#           key: ${{ runner.os }}-bin-${{ hashFiles('${{ github.workspace }}/common.mk') }}
-
-#       - uses: actions/setup-go@v5
-#         with:
-#           go-version: '>=1.23.x'
-
-#       # Test the gen package
-#       - name: Test
-#         run: make test
-#         working-directory: ./internal/gen
-
-#       # Vet the gen package
-#       - name: Vet
-#         run: make vet
-#         working-directory: ./internal/gen
-
-#       # Test that the generated tables are up-to-date
-#       - name: Test Generate
-#         run: make testgenerate
