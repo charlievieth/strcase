@@ -1103,9 +1103,9 @@ func testBuild(tablesFile string, data []byte, skipTests bool) {
 	}
 
 	cmdDir := filepath.Dir(tablesFile)
-	runCommand(cmdDir, "build", "-overlay="+overlay)
+	runCommand(cmdDir, "build", "-overlay="+overlay, "./...")
 	if !skipTests {
-		runCommand(cmdDir, "test", "-overlay="+overlay)
+		runCommand(cmdDir, "test", "-overlay="+overlay, "./...")
 	}
 
 	os.RemoveAll(dir) // Only remove temp dir if successful
