@@ -27,6 +27,18 @@ func TestIndexUnicode(t *testing.T) {
 	test.IndexUnicode(t, test.ByteIndexFunc(Index))
 }
 
+func TestIndexAllAssigned(t *testing.T) {
+	test.IndexAllAssigned(t,
+		test.TestFunc{Name: "Compare", Index: test.ByteIndexFunc(Compare)},
+		test.TestFunc{Name: "Contains", Contains: test.ByteContainsFunc(Contains)},
+		test.TestFunc{Name: "EqualFold", Contains: test.ByteContainsFunc(EqualFold)},
+		test.TestFunc{Name: "HasPrefix", Contains: test.ByteContainsFunc(HasPrefix)},
+		test.TestFunc{Name: "HasSuffix", Contains: test.ByteContainsFunc(HasSuffix)},
+		test.TestFunc{Name: "Index", Index: test.ByteIndexFunc(Index)},
+		test.TestFunc{Name: "LastIndex", Index: test.ByteIndexFunc(LastIndex)},
+	)
+}
+
 // Test our use of bytealg.IndexString
 func TestIndexNumeric(t *testing.T) {
 	test.IndexNumeric(t, test.ByteIndexFunc(Index))
@@ -213,4 +225,47 @@ func TestCutSuffix(t *testing.T) {
 		b, ok := CutSuffix([]byte(s), []byte(sep))
 		return string(b), ok
 	})
+}
+
+// Ensure that strings.EqualFold does not match 'İ' (U+0130) and ASCII 'i' or 'I'.
+// This is mostly a sanity check.
+func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
+	test.LatinCapitalLetterIWithDotAbove(t, test.ByteIndexFunc(Compare))
+}
+
+func TestNonLetterASCII(t *testing.T) {
+	test.NonLetterASCII(t, func(s string) bool {
+		return nonLetterASCII([]byte(s))
+	})
+}
+
+func TestIndexFuzz(t *testing.T) {
+	test.IndexFuzz(t, test.ByteIndexFunc(Index))
+}
+
+func TestLastIndexFuzz(t *testing.T) {
+	test.LastIndexFuzz(t, test.ByteIndexFunc(LastIndex))
+}
+
+func TestHasPrefixFuzz(t *testing.T) {
+	test.HasPrefixFuzz(t, func(s, prefix string) (bool, bool) {
+		return hasPrefixUnicode([]byte(s), []byte(prefix))
+	})
+}
+
+func TestHasSuffixFuzz(t *testing.T) {
+	test.HasSuffixFuzz(t, test.ByteContainsFunc(HasSuffix))
+}
+
+func TestCompareFuzz(t *testing.T) {
+	test.CompareFuzz(t, test.ByteIndexFunc(Compare))
+}
+
+func TestEqualFoldFuzz(t *testing.T) {
+	test.EqualFoldFuzz(t,
+		test.TestFunc{Name: "Contains", Contains: test.ByteContainsFunc(Contains)},
+		test.TestFunc{Name: "EqualFold", Contains: test.ByteContainsFunc(EqualFold)},
+		test.TestFunc{Name: "HasPrefix", Contains: test.ByteContainsFunc(HasPrefix)},
+		test.TestFunc{Name: "HasSuffix", Contains: test.ByteContainsFunc(HasSuffix)},
+	)
 }

@@ -8,15 +8,16 @@ MAKEFILE_DIR  := $(abspath $(dir $(MAKEFILE_PATH)))
 # Test options
 GO             ?= go
 GOBIN           = $(MAKEFILE_DIR)/bin
+GO_EXTRA_FLAGS ?=
 GO_TEST_FLAGS  ?= -shuffle=on
 GO_COVER_MODE  ?= count
 ifneq ($(GO_COVER_MODE),)
 	GO_COVER_FLAGS = -covermode=$(GO_COVER_MODE)
 endif
-GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS)
+GO_TEST        ?= $(GO) test $(GO_COVER_FLAGS) $(GO_TEST_FLAGS) $(GO_EXTRA_FLAGS)
 GO_GOGC        ?= 800
 RICHGO         ?= richgo
-RICHGO_VERSION ?= v0.3.11
+RICHGO_VERSION ?= v0.3.12
 
 # Options for linting comments
 COMMENTS       ?= 'TODO|WARN|FIXME|CEV'

@@ -23,6 +23,5 @@ jobs:
     - name: Test
       shell: bash
       run: |
-        export GOARCH=386
         GOARCH=386 make env
         GOARCH=386 make test
