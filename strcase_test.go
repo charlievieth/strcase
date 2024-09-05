@@ -39,6 +39,18 @@ func TestIndexUnicode(t *testing.T) {
 	test.IndexUnicode(t, Index)
 }
 
+func TestIndexAllAssigned(t *testing.T) {
+	test.IndexAllAssigned(t,
+		test.TestFunc{Name: "Compare", Index: Compare},
+		test.TestFunc{Name: "Contains", Contains: Contains},
+		test.TestFunc{Name: "EqualFold", Contains: EqualFold},
+		test.TestFunc{Name: "HasPrefix", Contains: HasPrefix},
+		test.TestFunc{Name: "HasSuffix", Contains: HasSuffix},
+		test.TestFunc{Name: "Index", Index: Index},
+		test.TestFunc{Name: "LastIndex", Index: LastIndex},
+	)
+}
+
 // Test our use of bytealg.IndexString
 func TestIndexNumeric(t *testing.T) {
 	test.IndexNumeric(t, Index)
@@ -201,25 +213,53 @@ func TestCutSuffix(t *testing.T) {
 	test.CutSuffix(t, CutSuffix)
 }
 
-func TestToUpperLower(t *testing.T) {
-	fails := 0
-	for _, rt := range unicode.Categories {
-		visitTable(rt, func(r rune) {
-			l := unicode.ToLower(r)
-			u := unicode.ToUpper(r)
-			ok := l != u
-			uu, ll, found := tables.ToUpperLower(r)
-			if l != ll || u != uu || ok != found {
-				t.Errorf("ToUpperLower(%c) = %c, %c, %t want: %c, %c, %t",
-					r, ll, uu, found, l, u, ok)
-				fails++
-			}
-			if fails >= 50 {
-				t.Fatal("Too many errors:", fails)
-			}
-		})
-	}
+// Ensure that strings.EqualFold does not match 'İ' (U+0130) and ASCII 'i' or 'I'.
+// This is mostly a sanity check.
+func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
+	test.LatinCapitalLetterIWithDotAbove(t, Compare)
 }
+
+func TestNonLetterASCII(t *testing.T) {
+	test.NonLetterASCII(t, nonLetterASCII)
+}
+
+////////////////////////////////////////////////////////////
+// Fuzz tests
+
+func TestIndexFuzz(t *testing.T) {
+	test.IndexFuzz(t, Index)
+}
+
+func TestLastIndexFuzz(t *testing.T) {
+	test.LastIndexFuzz(t, LastIndex)
+}
+
+func TestHasPrefixFuzz(t *testing.T) {
+	test.HasPrefixFuzz(t, hasPrefixUnicode)
+}
+
+func TestHasSuffixFuzz(t *testing.T) {
+	test.HasSuffixFuzz(t, HasSuffix)
+}
+
+func TestCompareFuzz(t *testing.T) {
+	test.CompareFuzz(t, Compare)
+}
+
+func TestEqualFoldFuzz(t *testing.T) {
+	test.EqualFoldFuzz(t,
+		test.TestFunc{Name: "Contains", Contains: Contains},
+		test.TestFunc{Name: "EqualFold", Contains: EqualFold},
+		test.TestFunc{Name: "HasPrefix", Contains: HasPrefix},
+		test.TestFunc{Name: "HasSuffix", Contains: HasSuffix},
+	)
+}
+
+////////////////////////////////////////////////////////////
+// Benchmarks
+
+// TODO: update benchmarks to match my Go PR and see if my approach
+// there is faster than ours (use last byte)
 
 func BenchmarkCompare(b *testing.B) {
 	bench := func(b *testing.B, s, t string) {
@@ -264,61 +304,6 @@ func BenchmarkCompare(b *testing.B) {
 	})
 }
 
-func TestCaseFold(t *testing.T) {
-	t.Run("Limits", func(t *testing.T) {
-		for r := unicode.MaxRune; r < unicode.MaxRune+10; r++ {
-			x := tables.CaseFold(r)
-			if x != r {
-				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", r, x, r)
-			}
-		}
-		for r := rune(0); r < ' '; r++ {
-			x := tables.CaseFold(r)
-			if x != r {
-				t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", r, x, r)
-			}
-		}
-		if r := tables.CaseFold(utf8.RuneError); r != utf8.RuneError {
-			t.Errorf("caseFold(0x%04X) = 0x%04X; want: 0x%04X", utf8.RuneError, r, utf8.RuneError)
-		}
-	})
-}
-
-// Ensure that strings.EqualFold does not match 'İ' (U+0130) and ASCII 'i' or 'I'.
-// This is mostly a sanity check.
-func TestLatinCapitalLetterIWithDotAbove(t *testing.T) {
-	if strings.EqualFold("İ", "i") {
-		t.Errorf("strings.EqualFold(%q, %q) = true; want: false", "İ", "i")
-	}
-	if strings.EqualFold("İ", "I") {
-		t.Errorf("strings.EqualFold(%q, %q) = true; want: false", "İ", "I")
-	}
-	if Compare("İ", "i") == 0 {
-		t.Errorf("Compare(%q, %q) = true; want: false", "İ", "i")
-	}
-	if Compare("İ", "I") == 0 {
-		t.Errorf("Compare(%q, %q) = true; want: false", "İ", "I")
-	}
-}
-
-func TestNonLetterASCII(t *testing.T) {
-	tests := []struct {
-		s    string
-		want bool
-	}{
-		{"", true},
-		{"1234", true},
-		{"1a", false},
-		{"1A", false},
-	}
-	for _, test := range tests {
-		got := nonLetterASCII(test.s)
-		if got != test.want {
-			t.Errorf("nonLetterASCII(%q) = %t; want: %t", test.s, got, test.want)
-		}
-	}
-}
-
 const benchmarkString = "some_text=some☺value"
 
 // WARN: dev only
@@ -346,6 +331,7 @@ func BenchmarkIndexRune(b *testing.B) {
 	}
 }
 
+// TODO: remove this benchmark
 func BenchmarkIndexRuneFastPath(b *testing.B) {
 	if got := IndexRune(benchmarkString, 'v'); got != 17 {
 		b.Fatalf("wrong index: expected 17, got=%d", got)
@@ -371,6 +357,7 @@ func valName(x int) string {
 var indexSizes = []int{10, 32, 4 << 10, 4 << 20, 64 << 20}
 
 func benchBytesUnicode(b *testing.B, sizes []int, f func(b *testing.B, n int, s string)) {
+	// WARN: change this to runes with the same last byte
 	// These character all have the same second byte (0x90)
 	const _s = "𐀀𐀁𐀂𐀃𐀄𐀅𐀆𐀇𐀈𐀉𐀊𐀋𐀍𐀎𐀏𐀐𐀑𐀒𐀓𐀔𐀕𐀖𐀗𐀘𐀙𐀚𐀛𐀜𐀝𐀞𐀟𐀠"
 	const s = _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s + _s // 2048
@@ -419,21 +406,16 @@ func benchBytes(b *testing.B, sizes []int, f func(b *testing.B, n int)) {
 }
 
 func bmIndexRuneCaseUnicode(rt *unicode.RangeTable, needle rune) func(b *testing.B, n int) {
-	var rs []rune
-	for _, r16 := range rt.R16 {
-		for r := rune(r16.Lo); r <= rune(r16.Hi); r += rune(r16.Stride) {
-			if r != needle {
-				rs = append(rs, r)
-			}
+	n := 0
+	visitTable(rt, func(_ rune) {
+		n++
+	})
+	rs := make([]rune, 0, n)
+	visitTable(rt, func(r rune) {
+		if r != needle {
+			rs = append(rs, r)
 		}
-	}
-	for _, r32 := range rt.R32 {
-		for r := rune(r32.Lo); r <= rune(r32.Hi); r += rune(r32.Stride) {
-			if r != needle {
-				rs = append(rs, r)
-			}
-		}
-	}
+	})
 	// Shuffle the runes so that they are not in descending order.
 	// The sort is deterministic since this is used for benchmarks,
 	// which need to be repeatable.
@@ -835,6 +817,20 @@ func BenchmarkLastIndexHard1(b *testing.B) { benchmarkLastIndexHard(b, "<>") }
 func BenchmarkLastIndexHard2(b *testing.B) { benchmarkLastIndexHard(b, "</pre>") }
 func BenchmarkLastIndexHard3(b *testing.B) { benchmarkLastIndexHard(b, "<b>hello world</b>") }
 
+// visitTable visits all runes in the given RangeTable in order, calling fn for each.
+func visitTable(rt *unicode.RangeTable, fn func(rune)) {
+	for _, r16 := range rt.R16 {
+		for r := rune(r16.Lo); r <= rune(r16.Hi); r += rune(r16.Stride) {
+			fn(r)
+		}
+	}
+	for _, r32 := range rt.R32 {
+		for r := rune(r32.Lo); r <= rune(r32.Hi); r += rune(r32.Stride) {
+			fn(r)
+		}
+	}
+}
+
 func BenchmarkLastIndexRuneUnicode(b *testing.B) {
 	bench := func(b *testing.B, name string, rt *unicode.RangeTable) {
 		b.Run(name, func(b *testing.B) {
@@ -909,13 +905,14 @@ func BenchmarkIndexNonASCII(b *testing.B) {
 }
 
 func BenchmarkHasPrefixASCII(b *testing.B) {
-	s := strings.Repeat("a", 64)
-	if !HasPrefix(s, s) {
-		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", s)
+	s0 := strings.Repeat("a", 64)
+	s1 := strings.Repeat("A", 64)
+	if !HasPrefix(s0, s1) {
+		b.Fatalf("HasPrefix(%[1]q, %[1]q) = false; want: true", s0, s1)
 	}
-	b.SetBytes(int64(len(s)))
+	b.SetBytes(int64(len(s0)))
 	for i := 0; i < b.N; i++ {
-		HasPrefix(s, s)
+		HasPrefix(s0, s1)
 	}
 }
 
@@ -1171,8 +1168,8 @@ func loadCaseFoldBenchmarkAll() {
 	if caseFoldBenchmarkAll != nil {
 		return
 	}
-	a := make([]rune, 0, len(foldableRunes))
-	for _, r := range foldableRunes {
+	a := make([]rune, 0, len(test.FoldableRunes()))
+	for _, r := range test.FoldableRunes() {
 		if tables.CaseFold(r) != r {
 			a = append(a, r)
 		}
@@ -1180,8 +1177,11 @@ func loadCaseFoldBenchmarkAll() {
 	// Make sure the slice is consistently sorted before
 	// randomizing order. This is relevant because the
 	// order of slice elements may change.
-	if !sort.IsSorted(byRune(a)) {
-		sort.Sort(byRune(a))
+	less := func(i, j int) bool {
+		return a[i] < a[j]
+	}
+	if !sort.SliceIsSorted(a, less) {
+		sort.Slice(a, less)
 	}
 	rr := rand.New(rand.NewSource(12345))
 	rr.Shuffle(len(a), func(i, j int) {

@@ -1,11 +1,14 @@
 package test
 
 import (
+	"math/rand"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -292,6 +295,7 @@ var indexTests = []indexTest{
 	{"123abc☻", "ABC☻", 3},
 }
 
+// TODO: combine with indexTests
 var unicodeIndexTests = []indexTest{
 	// Map Kelvin 'K' (U+212A) to lowercase latin 'k'.
 	{"abcK@", "k@", 3},
@@ -389,6 +393,16 @@ var unicodeIndexTests = []indexTest{
 		s:   "\U000bc104q9",
 		sep: "\U000bc104q9",
 		out: 0,
+	},
+	{
+		s:   "\ufffd\uff42",
+		sep: "\ufffd",
+		out: 0,
+	},
+	{
+		s:   "abc\ufffd\uff42",
+		sep: "\ufffd",
+		out: 3,
 	},
 	// Make sure we don't fold 'ı' (LATIN SMALL LETTER DOTLESS I)
 	{
@@ -547,6 +561,129 @@ func Index(t *testing.T, fn IndexFunc) {
 		t.Fatal("Reference Index function failed: tests are invalid")
 	}
 	runIndexTests(t, fn, "Index", indexTests, false)
+}
+
+type TestFunc struct {
+	Name     string
+	Index    IndexFunc
+	Contains ContainsFunc
+}
+
+// Test against all assigned Unicode code points to make sure nothing changes
+// in new versions. In particular this is to identify code points that require
+// special handling (i.e. 'İ' and 'ı').
+func IndexAllAssigned(t *testing.T, fns ...TestFunc) {
+	if testing.Short() {
+		t.Skip("short test")
+	}
+	dupe := func(rs []rune) []rune {
+		a := make([]rune, len(rs))
+		copy(a, rs)
+		return a
+	}
+
+	all := make([]rune, len(assignedRunes))
+	copy(all, assignedRunes)
+	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rr.Shuffle(len(all), func(i, j int) {
+		all[i], all[j] = all[j], all[i]
+	})
+
+	var (
+		upperStr string
+		lowerStr string
+		foldStr  string
+		allStr   = string(all)
+		upper    = dupe(all)
+		lower    = dupe(all)
+		fold     = dupe(all)
+	)
+
+	conv := func(rs []rune, fn func(rune) rune) string {
+		for i, r := range rs {
+			if r != 'İ' && r != 'ı' {
+				r = fn(r)
+			}
+			rs[i] = r
+		}
+		return string(rs)
+	}
+
+	// This is slow so do it in parallel
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		upperStr = conv(upper, unicode.ToUpper)
+	}()
+	go func() {
+		defer wg.Done()
+		lowerStr = conv(lower, unicode.ToLower)
+	}()
+	go func() {
+		defer wg.Done()
+		for i, r := range fold {
+			fold[i] = unicode.SimpleFold(r)
+		}
+		foldStr = string(fold)
+	}()
+	wg.Wait()
+
+	names := map[string]string{
+		upperStr: "Upper",
+		lowerStr: "Lower",
+		foldStr:  "Fold",
+		allStr:   "All",
+	}
+	tname := func(s1, s2 string) string {
+		n1 := names[s1]
+		n2 := names[s2]
+		if n1 == "" {
+			t.Fatalf("missing name for test string: %q", s1[:8])
+		}
+		if n2 == "" {
+			t.Fatalf("missing name for test string: %q", s2[:8])
+		}
+		return n1 + "_" + n2
+	}
+
+	tests := []indexTest{
+		{allStr, allStr, 0},
+		{upperStr, allStr, 0},
+		{upperStr, upperStr, 0},
+		{upperStr, lowerStr, 0},
+		{lowerStr, allStr, 0},
+		{lowerStr, lowerStr, 0},
+		{foldStr, allStr, 0},
+	}
+	for _, d := range fns {
+		d := d
+		t.Run(d.Name, func(t *testing.T) {
+			t.Parallel()
+			for i := range tests {
+				i := i
+				tt := tests[i]
+				t.Run(tname(tt.s, tt.sep), func(t *testing.T) {
+					t.Parallel()
+					switch {
+					case d.Index != nil:
+						got := d.Index(tt.s, tt.sep)
+						if got != tt.out {
+							t.Errorf("%d got: %d want: %d", i, got, tt.out)
+						}
+					case d.Contains != nil:
+						got := d.Contains(tt.s, tt.sep)
+						want := (tt.out == 0)
+						if got != want {
+							t.Errorf("%d got: %t want: %t", i, got, want)
+						}
+					default:
+						t.Fatalf("No function defined for test: %+v", d)
+					}
+				})
+			}
+		})
+	}
 }
 
 func IndexUnicode(t *testing.T, fn IndexFunc) {
@@ -1385,81 +1522,149 @@ func CutSuffix(t *testing.T, fn func(s, prefix string) (before string, found boo
 	}
 }
 
-// Helper functions
-////////////////////////////////////////////////////////////////////////////////
-
-// IndexRunesReference is a slow, but accurate case-insensitive version of strings.Index
-func IndexRunesReference(s, sep []rune) int {
-	// TODO: The allocations here count for a lot of the test time so
-	// try to do this without allocating (aka compare the rune slices).
-	if len(s) < len(sep) {
-		return -1
+// Ensure that strings.EqualFold does not match 'İ' (U+0130) and ASCII 'i' or 'I'.
+// This is mostly a sanity check.
+func LatinCapitalLetterIWithDotAbove(t *testing.T, fn IndexFunc) {
+	if strings.EqualFold("İ", "i") {
+		t.Errorf("strings.EqualFold(%q, %q) = true; want: false", "İ", "i")
 	}
-	if len(s) == len(sep) {
-		if strings.EqualFold(string(s), string(sep)) {
-			return 0
-		}
-		return -1
+	if strings.EqualFold("İ", "I") {
+		t.Errorf("strings.EqualFold(%q, %q) = true; want: false", "İ", "I")
 	}
-	rs := append([]rune(nil), s...)
-	rsep := append([]rune(nil), sep...)
-	for i := 0; i < len(rs); i++ {
-		rs[i] = tables.CaseFold(rs[i])
+	if fn("İ", "i") == 0 {
+		t.Errorf("Compare(%q, %q) = true; want: false", "İ", "i")
 	}
-	for i := 0; i < len(rsep); i++ {
-		rsep[i] = tables.CaseFold(rsep[i])
+	if fn("İ", "I") == 0 {
+		t.Errorf("Compare(%q, %q) = true; want: false", "İ", "I")
 	}
-	ss := string(rs)
-	i := strings.Index(ss, string(rsep))
-	if i < 0 {
-		return i
-	}
-	// Case fold conversion can change string length so
-	// figure out the index into the original string s.
-	n := utf8.RuneCountInString(ss[:i])
-	return len(string(s[:n]))
 }
 
-func encodedLen(rs []rune) int {
+func NonLetterASCII(t *testing.T, fn func(s string) bool) {
+	tests := []struct {
+		s    string
+		want bool
+	}{
+		{"", true},
+		{"1234", true},
+		{"1a", false},
+		{"1A", false},
+	}
+	for _, test := range tests {
+		got := fn(test.s)
+		if got != test.want {
+			t.Errorf("nonLetterASCII(%q) = %t; want: %t", test.s, got, test.want)
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////
+// Helper functions
+
+// EqualRune returns if runes sr and tr are equivalent under
+// Unicode-defined simple case folding.
+func EqualRune(sr, tr rune) bool {
+	if sr == tr {
+		return true
+	}
+	// Invalid runes are encoded as RuneError
+	if (sr == utf8.RuneError || !utf8.ValidRune(sr)) &&
+		(tr == utf8.RuneError || !utf8.ValidRune(tr)) {
+		return true
+	}
+	if tr < sr {
+		tr, sr = sr, tr
+	}
+	if tr < utf8.RuneSelf {
+		return 'A' <= sr && sr <= 'Z' && tr == sr+'a'-'A'
+	}
+	return tables.CaseFold(sr) == tables.CaseFold(tr)
+}
+
+// EqualRuneSlice returns if rune slices s1 and s2 are equivalent under
+// Unicode-defined simple case folding.
+func EqualRuneSlice(s1, s2 []rune) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	for i, r := range s1 {
+		if r != s2[i] && !EqualRune(r, s2[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// IndexRunesReference is a slow, but accurate case-insensitive version
+// of strings.Index.
+func IndexRunesReference(s, sep []rune) int {
+	n := len(sep)
+	for i := n; i <= len(s); i++ {
+		if EqualRuneSlice(s[i-n:i], sep) {
+			return EncodedLen(s[:i-n])
+		}
+	}
+	return -1
+}
+
+// TODO: consider renaming
+func hasPrefixRunes(s, prefix []rune) (bool, bool) {
+	if len(s) < len(prefix) {
+		return false, true
+	}
+	var i int
+	for i = 0; i < len(prefix); i++ {
+		if !EqualRune(s[i], prefix[i]) {
+			return false, i == len(s)-1
+		}
+	}
+	return i == len(prefix), i == len(s)
+}
+
+// Very slow, but accurate.
+func indexRegex(s, sep string) int {
+	a := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(sep)).FindStringIndex(s)
+	if len(a) == 2 {
+		return a[0]
+	}
+	return -1
+}
+
+// Very slow, but accurate.
+func lastIndexRegex(s, sep string) int {
+	a := regexp.MustCompile(`(?i)`+regexp.QuoteMeta(sep)).FindAllStringIndex(s, -1)
+	if len(a) > 0 {
+		return a[len(a)-1][0]
+	}
+	return -1
+}
+
+func hasSuffixRegex(s, suffix string) bool {
+	return regexp.MustCompile(`(?i)(` + regexp.QuoteMeta(suffix) + `)$`).MatchString(s)
+}
+
+// EncodedLen returns the UTF-8 encoded length of rune slice rs.
+func EncodedLen(rs []rune) int {
 	i := 0
 	for _, r := range rs {
-		i += utf8.RuneLen(r)
+		n := utf8.RuneLen(r)
+		if n < 0 {
+			n = 3 // Invalid rune (add 3 to encode RuneError)
+		}
+		i += n
 	}
 	return i
 }
 
-// LastIndexRunesReference is a slow, but accurate case-insensitive version of strings.Index
+// LastIndexRunesReference is a slow, but accurate case-insensitive
+// version of strings.Index
 func LastIndexRunesReference(s, sep []rune) int {
 	n := len(sep)
-	switch {
-	case n == 0:
-		return encodedLen(s)
-	case n == len(s):
-		if strings.EqualFold(string(s), string(sep)) {
-			return 0
+	for i := len(s) - n; i >= 0; i-- {
+		if EqualRuneSlice(s[i:i+n], sep) {
+			return EncodedLen(s[:i])
 		}
-		return -1
-	case n > len(s):
-		return -1
-	default:
-		rs := append([]rune(nil), s...)
-		rsep := append([]rune(nil), sep...)
-		for i := 0; i < len(rs); i++ {
-			rs[i] = tables.CaseFold(rs[i])
-		}
-		for i := 0; i < len(rsep); i++ {
-			rsep[i] = tables.CaseFold(rsep[i])
-		}
-		ss := string(rs)
-		i := strings.LastIndex(ss, string(rsep))
-		if i < 0 {
-			return i
-		}
-		// Case fold conversion can change string length so
-		// figure out the index into the original string s.
-		n := utf8.RuneCountInString(ss[:i])
-		return len(string(s[:n]))
 	}
+	return -1
 }
 
 func HasPrefixRunes(s, prefix []rune) (bool, bool) {

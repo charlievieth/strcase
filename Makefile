@@ -1,5 +1,9 @@
 # vim: ts=4 sw=4
 
+# Packages to run exhaustive tests against
+EXHAUSTIVE_PKGS = github.com/charlievieth/strcase \
+	github.com/charlievieth/strcase/bytcase
+
 # Run tests and linters. If this passes then CI tests
 # should also pass.
 .PHONY: all
@@ -24,12 +28,14 @@ testshort: override GO_COVER_FLAGS = ''
 testinvalid: override GO_TEST_FLAGS += -invalid
 testinvalid: override GO_TEST_FLAGS += -run 'Test\w+Fuzz'
 
-# Run exhaustive fuzz tests
-exhaustive: override GO_TEST_FLAGS += -exhaustive
-
-.PHONY: test testshort testverbose testinvalid exhaustive
-test testshort testverbose testinvalid exhaustive:
+.PHONY: test testshort testverbose testinvalid
+test testshort testverbose testinvalid:
 	@GOGC=$(GO_GOGC) $(GO_TEST) ./...
+
+# Run exhaustive fuzz tests
+.PHONY: exhaustive
+exhaustive:
+	@GOGC=$(GO_GOGC) $(GO_TEST) $(EXHAUSTIVE_PKGS) -exhaustive
 
 # Assert that there are no skipped tests
 .PHONY: testskipped
