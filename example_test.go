@@ -103,9 +103,12 @@ func ExampleContains() {
 	fmt.Println(strcase.Contains("SeaFood", ""))
 	fmt.Println(strcase.Contains("", ""))
 	fmt.Println(strcase.Contains("ΑΔΕΛΦΟΣΎΝΗΣ", "αδελφοσύνης"))
+	// All invalid UTF-8 sequences are considered equal
+	fmt.Println(strcase.Contains("\xed\xa0\x80\x80", "\xed\xbf\xbf\x80"))
 	// Output:
 	// true
 	// false
+	// true
 	// true
 	// true
 	// true
@@ -183,11 +186,13 @@ func ExampleIndex() {
 
 	// All invalid UTF-8 sequences are considered equal
 	fmt.Println(strcase.Index("a\xff", string(utf8.RuneError)))
+	fmt.Println(strcase.Index("abc\xed\xa0\x80\x80", "\xed\xbf\xbf\x80"))
 	// Output:
 	// 4
 	// -1
 	// 11
 	// 1
+	// 3
 }
 
 func ExampleIndexAny() {
@@ -269,12 +274,31 @@ func ExampleLastIndexByte() {
 
 func ExampleEqualFold() {
 	fmt.Println(strcase.EqualFold("Go", "go"))
-	fmt.Println(strcase.EqualFold("AB", "ab")) // true because comparison uses simple case-folding
-	fmt.Println(strcase.EqualFold("ß", "ss"))  // false because comparison does not use full case-folding
+	// true because comparison uses simple case-folding
+	fmt.Println(strcase.EqualFold("AB", "ab"))
+	// false because comparison does not use full case-folding
+	fmt.Println(strcase.EqualFold("ß", "ss"))
 	// Output:
 	// true
 	// true
 	// false
+}
+
+func ExampleTrimPrefix() {
+	var s = "¡¡¡Hello, Gophers!!!"
+	s = strcase.TrimPrefix(s, "¡¡¡HELLO, ")
+	s = strcase.TrimPrefix(s, "¡¡¡HOWDY, ")
+	fmt.Println(s)
+
+	// All invalid code points are considered equal. Therefore the
+	// behavior of TrimPrefix is unpredictable if the string contains
+	// invalid UTF-8-encoded runes.
+	//
+	// This also applies to TrimSuffix, Cut, CutPrefix, and CutSuffix.
+	fmt.Println(strcase.TrimPrefix("\xed\xa0\x80\x80foo", "\xed\xbf\xbf\x80"))
+	// Output:
+	// Gophers!!!
+	// foo
 }
 
 func ExampleCut() {
@@ -282,17 +306,41 @@ func ExampleCut() {
 		before, after, found := strcase.Cut(s, sep)
 		fmt.Printf("Cut(%q, %q) = %q, %q, %v\n", s, sep, before, after, found)
 	}
-	show("Gopher", "Go")
-	show("Gopher", "ph")
-	show("Gopher", "er")
+	show("Gopher", "GO")
+	show("Gopher", "Ph")
+	show("Gopher", "Er")
 	show("Gopher", "Badger")
 	show("123 αβδ 456", "ΑΒΔ")
 	// Output:
-	// Cut("Gopher", "Go") = "", "pher", true
-	// Cut("Gopher", "ph") = "Go", "er", true
-	// Cut("Gopher", "er") = "Goph", "", true
+	// Cut("Gopher", "GO") = "", "pher", true
+	// Cut("Gopher", "Ph") = "Go", "er", true
+	// Cut("Gopher", "Er") = "Goph", "", true
 	// Cut("Gopher", "Badger") = "Gopher", "", false
 	// Cut("123 αβδ 456", "ΑΒΔ") = "123 ", " 456", true
+}
+
+func ExampleCutPrefix() {
+	show := func(s, sep string) {
+		after, found := strcase.CutPrefix(s, sep)
+		fmt.Printf("CutPrefix(%q, %q) = %q, %v\n", s, sep, after, found)
+	}
+	show("Gopher", "Go")
+	show("Gopher", "Ph")
+	// Output:
+	// CutPrefix("Gopher", "Go") = "pher", true
+	// CutPrefix("Gopher", "Ph") = "Gopher", false
+}
+
+func ExampleCutSuffix() {
+	show := func(s, sep string) {
+		before, found := strcase.CutSuffix(s, sep)
+		fmt.Printf("CutSuffix(%q, %q) = %q, %v\n", s, sep, before, found)
+	}
+	show("Gopher", "Go")
+	show("Gopher", "Er")
+	// Output:
+	// CutSuffix("Gopher", "Go") = "Gopher", false
+	// CutSuffix("Gopher", "Er") = "Goph", true
 }
 
 func ExampleIndexNonASCII() {

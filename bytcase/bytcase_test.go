@@ -27,6 +27,10 @@ func TestIndexUnicode(t *testing.T) {
 	test.IndexUnicode(t, test.ByteIndexFunc(Index))
 }
 
+func TestIndexInvalid(t *testing.T) {
+	test.IndexInvalid(t, test.ByteIndexFunc(Index))
+}
+
 func TestIndexAllAssigned(t *testing.T) {
 	test.IndexAllAssigned(t,
 		test.TestFunc{Name: "Compare", Index: test.ByteIndexFunc(Compare)},

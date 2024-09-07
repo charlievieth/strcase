@@ -348,10 +348,13 @@ func bruteForceIndexUnicode(s, substr string) int {
 	}
 	switch {
 	case !hasFolds0 && u0 == l0 && !hasFolds1 && u1 == l1:
-		// Fast check for the first rune.
-		i := strings.Index(s, substr[:sz0+sz1])
-		if i < 0 {
-			return -1
+		i := 0
+		// Fast check for the first two runes.
+		if u0 != utf8.RuneError && u1 != utf8.RuneError {
+			i = strings.Index(s, substr[:sz0+sz1])
+			if i < 0 {
+				return -1
+			}
 		}
 		for i < t {
 			var n0 int
@@ -539,7 +542,7 @@ func Index(s, substr string) int {
 	switch {
 	case n == 0:
 		return 0
-	case n == 1:
+	case n == 1 && r != utf8.RuneError:
 		return IndexByte(s, byte(r))
 	case n == size:
 		return IndexRune(s, r)
@@ -607,12 +610,17 @@ func Index(s, substr string) int {
 	} else {
 		u1, sz1 = utf8.DecodeRuneInString(substr[sz0:])
 	}
+
+	// Use Rabin-Karp if either of the first two runes are invalid
+	// this is slower but simplifies the logic below.
+	if u0 == utf8.RuneError || u1 == utf8.RuneError {
+		return indexRabinKarpUnicode(s, substr)
+	}
+
 	// hasFolds{0,1} should be rare so consider optimizing
 	// the no folds case
 	folds0 := tables.FoldMapExcludingUpperLower(u0)
 	folds1 := tables.FoldMapExcludingUpperLower(u1)
-	hasFolds0 := folds0[0] != 0
-	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
 
 	// TODO: we can possibly get rid of the ToUpperLower function
@@ -653,9 +661,9 @@ func Index(s, substr string) int {
 			r0, n0 = utf8.DecodeRuneInString(s[i:])
 		}
 
-		if r0 != u0 && r0 != l0 && (!hasFolds0 || (r0 != folds0[0] && r0 != folds0[1])) {
+		if r0 != u0 && r0 != l0 && (folds0[0] == 0 || (r0 != folds0[0] && r0 != folds0[1])) {
 			var o, sz int
-			if !hasFolds0 {
+			if folds0[0] == 0 {
 				o, sz = indexRune2(s[i+n0:], l0, u0)
 			} else {
 				// TODO: pass folds to indexRune so that we don't have to
@@ -681,7 +689,7 @@ func Index(s, substr string) int {
 			r1, n1 = utf8.DecodeRuneInString(s[i+n0:])
 		}
 
-		if r1 == u1 || r1 == l1 || (hasFolds1 && (r1 == folds1[0] || r1 == folds1[1])) {
+		if r1 == u1 || r1 == l1 || (folds1[0] != 0 && (r1 == folds1[0] || r1 == folds1[1])) {
 			match, exhausted := hasPrefixUnicode(s[i+n0+n1:], needle)
 			if match {
 				return i
