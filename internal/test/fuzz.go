@@ -762,6 +762,7 @@ func (c *testWrapper) check() {
 		} else {
 			c.T.FailNow() // Abort subsequent tests
 		}
+		panic(fmt.Sprintf("aborting test: too many errors: %d", n)) // unreachable
 	}
 }
 

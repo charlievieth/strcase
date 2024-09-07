@@ -563,6 +563,30 @@ func Index(t *testing.T, fn IndexFunc) {
 	runIndexTests(t, fn, "Index", indexTests, false)
 }
 
+// Test Index with invalid UTF-8
+func IndexInvalid(t *testing.T, fn IndexFunc) {
+	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prefix := strings.Repeat("=", 64)
+	var tests []indexTest
+	for i := 0; i < 4; i++ {
+		iterateInvalidSequenceTests(func(s0, s1 string) {
+			for i := 0; i < len(prefix); i++ {
+				prefix := prefix[:rr.Intn(len(prefix))]
+				out := -1
+				if strings.EqualFold(s0, s1) {
+					out = len(prefix)
+				}
+				tests = append(tests, indexTest{
+					s:   prefix + s0,
+					sep: s1,
+					out: out,
+				})
+			}
+		})
+	}
+	runIndexTests(t, fn, "Index", tests, false)
+}
+
 type TestFunc struct {
 	Name     string
 	Index    IndexFunc
@@ -793,14 +817,118 @@ func IndexKelvin(t *testing.T, fn IndexFunc) {
 	})
 }
 
+var invalidSequenceTests = []string{
+	"\xed\xa0\x80\x80", // surrogate min
+	"\xed\xbf\xbf\x80", // surrogate max
+
+	// xx
+	"\x91\x80\x80\x80",
+
+	// s1
+	"\xC2\x7F\x80\x80",
+	"\xC2\xC0\x80\x80",
+	"\xDF\x7F\x80\x80",
+	"\xDF\xC0\x80\x80",
+
+	// s2
+	"\xE0\x9F\xBF\x80",
+	"\xE0\xA0\x7F\x80",
+	"\xE0\xBF\xC0\x80",
+	"\xE0\xC0\x80\x80",
+
+	// s3
+	"\xE1\x7F\xBF\x80",
+	"\xE1\x80\x7F\x80",
+	"\xE1\xBF\xC0\x80",
+	"\xE1\xC0\x80\x80",
+
+	//s4
+	"\xED\x7F\xBF\x80",
+	"\xED\x80\x7F\x80",
+	"\xED\x9F\xC0\x80",
+	"\xED\xA0\x80\x80",
+
+	// s5
+	"\xF0\x8F\xBF\xBF",
+	"\xF0\x90\x7F\xBF",
+	"\xF0\x90\x80\x7F",
+	"\xF0\xBF\xBF\xC0",
+	"\xF0\xBF\xC0\x80",
+	"\xF0\xC0\x80\x80",
+
+	// s6
+	"\xF1\x7F\xBF\xBF",
+	"\xF1\x80\x7F\xBF",
+	"\xF1\x80\x80\x7F",
+	"\xF1\xBF\xBF\xC0",
+	"\xF1\xBF\xC0\x80",
+	"\xF1\xC0\x80\x80",
+
+	// s7
+	"\xF4\x7F\xBF\xBF",
+	"\xF4\x80\x7F\xBF",
+	"\xF4\x80\x80\x7F",
+	"\xF4\x8F\xBF\xC0",
+	"\xF4\x8F\xC0\x80",
+	"\xF4\x90\x80\x80",
+}
+
+func iterateInvalidSequenceTests(fn func(s0, s1 string)) {
+	for i := 0; i < len(invalidSequenceTests)-1; i++ {
+		fn(invalidSequenceTests[i], invalidSequenceTests[i+1])
+	}
+	// All the invalid sequences should be equal so shuffle
+	// them around and iterate again.
+	var a []string
+	for i := 0; i < 4; i++ {
+		a = append(a, invalidSequenceTests...)
+	}
+	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rr.Shuffle(len(a), func(i, j int) {
+		a[i], a[j] = a[j], a[i]
+	})
+	for i := 0; i < len(a)-1; i++ {
+		fn(a[i], a[i+1])
+	}
+}
+
 func Contains(t *testing.T, fn ContainsFunc) {
+	tt := &testWrapper{T: t}
 	for _, test := range indexTests {
 		got := fn(test.s, test.sep)
 		want := test.out >= 0
 		if got != want {
-			t.Errorf("Contains(%q, %q) = %t; want: %t", test.s, test.sep, got, want)
+			tt.Errorf("Contains(%q, %q) = %t; want: %t", test.s, test.sep, got, want)
 		}
 	}
+	// Invalid: equal length
+	iterateInvalidSequenceTests(func(s0, s1 string) {
+		got := fn(s0, s1)
+		want := strings.EqualFold(s0, s1)
+		if got != want {
+			tt.Errorf("Contains(%q, %q) = %t; want: %t", s0, s1, got, want)
+		}
+	})
+	// Invalid: short
+	iterateInvalidSequenceTests(func(s0, s1 string) {
+		want := strings.EqualFold(s0, s1)
+		s0 = "a" + s0
+		got := fn(s0, s1)
+		if got != want {
+			tt.Errorf("Contains(%q, %q) = %t; want: %t", s0, s1, got, want)
+		}
+	})
+	// Invalid long
+	prefix := strings.Repeat("=", 64)
+	iterateInvalidSequenceTests(func(s0, s1 string) {
+		want := strings.EqualFold(s0, s1)
+		s0 = prefix + s0
+		got := fn(s0, s1)
+		// want := strings.Contains(s0, s1)
+		if got != want {
+			tt.Errorf("Contains(%q, %q) = %t; want: %t", s0, s1, got, want)
+		}
+	})
 }
 
 const (
@@ -1223,6 +1351,15 @@ func HasPrefix(t *testing.T, fn PrefixFunc) {
 			t.Error("prefix:", len(test.prefix), utf8.RuneCountInString(test.prefix))
 		}
 	}
+
+	// Invalid
+	iterateInvalidSequenceTests(func(s, prefix string) {
+		got, _ := fn(s, prefix)
+		want := strings.EqualFold(s, prefix)
+		if got != want {
+			t.Errorf("HasPrefix(%q, %q) = %t; want: %t", s, prefix, got, want)
+		}
+	})
 }
 
 func TrimPrefix(t *testing.T, fn TrimFunc) {
@@ -1294,6 +1431,15 @@ func HasSuffix(t *testing.T, fn func(s, suffix string) bool) {
 			t.Errorf("HasSuffix(%q, %q) = %t; want: %t", test.s, test.suffix, out, test.out)
 		}
 	}
+
+	// Invalid
+	iterateInvalidSequenceTests(func(s, suffix string) {
+		got := fn(s, suffix)
+		want := strings.EqualFold(s, suffix)
+		if got != want {
+			t.Errorf("HasSuffix(%q, %q) = %t; want: %t", s, suffix, got, want)
+		}
+	})
 }
 
 func TrimSuffix(t *testing.T, fn TrimFunc) {
