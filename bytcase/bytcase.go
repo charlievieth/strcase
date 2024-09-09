@@ -767,22 +767,22 @@ func Index(s, substr []byte) int {
 // substr is not present in s.
 func LastIndex(s, substr []byte) int {
 	n := len(substr)
-	var u rune
+	var r rune
 	var size int
 	if n > 0 {
 		if substr[n-1] < utf8.RuneSelf {
-			u, size = rune(substr[n-1]), 1
+			r, size = rune(substr[n-1]), 1
 		} else {
-			u, size = utf8.DecodeRune(substr)
+			r, size = utf8.DecodeRune(substr)
 		}
 	}
 	switch {
 	case n == 0:
 		return len(s)
-	case n == 1:
+	case n == 1 && r != utf8.RuneError:
 		return LastIndexByte(s, substr[0])
 	case n == size:
-		return lastIndexRune(s, u)
+		return lastIndexRune(s, r)
 	case n >= len(s):
 		if n > len(s)*3 {
 			return -1

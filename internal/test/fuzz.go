@@ -160,6 +160,9 @@ func invalidRune(rr *rand.Rand) rune {
 func randRune(rr *rand.Rand) (r rune) {
 	switch n := rr.Intn(100); {
 	case n <= 1:
+		if n == 1 {
+			return rr.Int31n(255-utf8.RuneSelf) + utf8.RuneSelf
+		}
 		return invalidRune(rr)
 	case n <= 3: // 1..2
 		// Funky runes 'İ' and 'ı' have upper/lower case forms

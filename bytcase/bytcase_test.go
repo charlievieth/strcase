@@ -31,6 +31,11 @@ func TestIndexInvalid(t *testing.T) {
 	test.IndexInvalid(t, test.ByteIndexFunc(Index))
 }
 
+func TestIndexRuneIndexParity(t *testing.T) {
+	test.IndexRuneIndexParity(t, test.ByteIndexFunc(Index),
+		test.ByteIndexRuneFunc(IndexRune))
+}
+
 func TestIndexAllAssigned(t *testing.T) {
 	test.IndexAllAssigned(t,
 		test.TestFunc{Name: "Compare", Index: test.ByteIndexFunc(Compare)},
@@ -122,6 +127,10 @@ func TestContainsAny(t *testing.T) {
 
 func TestLastIndex(t *testing.T) {
 	test.LastIndex(t, test.ByteIndexFunc(LastIndex))
+}
+
+func TestLastIndexInvalid(t *testing.T) {
+	test.LastIndexInvalid(t, test.ByteIndexFunc(LastIndex))
 }
 
 func TestIndexRune(t *testing.T) {
