@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"math/rand"
 	"regexp"
 	"runtime"
@@ -510,7 +511,7 @@ var lastIndexTests = []indexTest{
 
 // Execute f on each test case.  funcName should be the name of f; it's used
 // in failure reports.
-func runIndexTests(t *testing.T, f IndexFunc, funcName string, testCases []indexTest, noError bool) {
+func runIndexTests(t testing.TB, f IndexFunc, funcName string, testCases []indexTest, noError bool) {
 	t.Helper()
 	fails := 0
 	for _, test := range testCases {
@@ -565,26 +566,114 @@ func Index(t *testing.T, fn IndexFunc) {
 
 // Test Index with invalid UTF-8
 func IndexInvalid(t *testing.T, fn IndexFunc) {
-	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
-	prefix := strings.Repeat("=", 64)
-	var tests []indexTest
-	for i := 0; i < 4; i++ {
-		iterateInvalidSequenceTests(func(s0, s1 string) {
-			for i := 0; i < len(prefix); i++ {
-				prefix := prefix[:rr.Intn(len(prefix))]
-				out := -1
-				if strings.EqualFold(s0, s1) {
-					out = len(prefix)
+	t.Run("Prefix", func(t *testing.T) {
+		rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+		basePrefix := strings.Repeat("=☻", 32)
+		var tests []indexTest
+		for i := 0; i < 4; i++ {
+			iterateInvalidSequenceTests(func(s0, s1 string) {
+				for i := 0; i < 8; i++ {
+					prefix := basePrefix[:rr.Intn(len(basePrefix))]
+					if len(prefix) > 0 && i&1 != 0 {
+						// Make the first rune Unicode
+						prefix = strings.TrimPrefix(prefix, "=")
+					}
+					for len(prefix) > 0 {
+						// Make sure the prefix is valid otherwise we may match the
+						// trailing invalid btytes (since s1 is mostly invalid).
+						if r, _ := utf8.DecodeLastRuneInString(prefix); r != utf8.RuneError {
+							break
+						}
+						prefix = prefix[:len(prefix)-1]
+					}
+					out := -1
+					if strings.EqualFold(s0, s1) {
+						out = len(prefix)
+					}
+					tests = append(tests, indexTest{
+						s:   prefix + s0,
+						sep: s1,
+						out: out,
+					})
 				}
+			})
+		}
+		runIndexTests(&testWrapper{T: t}, fn, "Index", tests, false)
+	})
+
+	t.Run("NeedleLongerThanHaystack", func(t *testing.T) {
+		rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+		suffix := strings.Repeat("=☻", 8)
+		var tests []indexTest
+		iterateInvalidSequenceTests(func(s0, s1 string) {
+			n := rr.Intn(len(suffix)-1) + 1
+			tests = append(tests, indexTest{
+				s:   s0,
+				sep: s1 + suffix[:n],
+				out: -1,
+			})
+		})
+		runIndexTests(&testWrapper{T: t}, fn, "Index", tests, false)
+	})
+
+	// Test that when the inputs are invalid UTF-8 encoded strings our results
+	// match what strings.EqualFold would give.
+	t.Run("EqualFold", func(t *testing.T) {
+		// We cannot use IndexRunesReference here because when invalid UTF-8
+		// is converted to a rune slice each invalid sequence is converted to
+		// RuneError which changes the encoded length and thus the expected
+		// index is incorrect.
+		simpleIndex := func(s, sep string) int {
+			n := len(sep)
+			for i := n; i <= len(s); i++ {
+				if strings.EqualFold(s[i-n:i], sep) {
+					return i - n
+				}
+			}
+			return -1
+		}
+		split := func(s string) (a []string) {
+			for _, b := range bytes.Split([]byte(s), nil) {
+				a = append(a, string(b))
+			}
+			return a
+		}
+		var tests []indexTest
+		iterateInvalidSequenceTests(func(s0, s1 string) {
+			for i := 1; i < len(s1); i++ {
 				tests = append(tests, indexTest{
-					s:   prefix + s0,
-					sep: s1,
-					out: out,
+					s:   s0,
+					sep: s1[:i],
+					out: simpleIndex(s0, s1[:i]),
 				})
 			}
+			s := strings.Join(split(s0), "αβa")
+			sep := strings.Join(split(s1), "ΑΒA")
+			out := -1
+			if strings.EqualFold(s0, s1) {
+				out = 0
+			}
+			tests = append(tests, indexTest{
+				s:   s,
+				sep: sep,
+				out: out,
+			})
 		})
-	}
-	runIndexTests(t, fn, "Index", tests, false)
+		runIndexTests(&testWrapper{T: t}, fn, "Index", tests, false)
+	})
+}
+
+func IndexRuneIndexParity(t *testing.T, index IndexFunc, indexRune IndexRuneFunc) {
+	iterateInvalidSequenceTests(func(s0, s1 string) {
+		for _, c := range []byte(s1) {
+			r := rune(c)
+			i := index(s0, string(r))
+			j := indexRune(s0, r)
+			if i != j {
+				t.Fatalf("Index(%+q, %+q) = %d; want: %d:", s0, r, i, j)
+			}
+		}
+	})
 }
 
 type TestFunc struct {
@@ -874,21 +963,40 @@ var invalidSequenceTests = []string{
 }
 
 func iterateInvalidSequenceTests(fn func(s0, s1 string)) {
+	// Test against self
+	for _, s := range invalidSequenceTests {
+		fn(s, s)
+	}
+
+	// Test against next string
 	for i := 0; i < len(invalidSequenceTests)-1; i++ {
 		fn(invalidSequenceTests[i], invalidSequenceTests[i+1])
 	}
-	// All the invalid sequences should be equal so shuffle
-	// them around and iterate again.
-	var a []string
-	for i := 0; i < 4; i++ {
-		a = append(a, invalidSequenceTests...)
+
+	// Test all possible combinations
+	if *exhaustiveFuzz {
+		for i := 0; i < len(invalidSequenceTests); i++ {
+			for j := 0; j < len(invalidSequenceTests); j++ {
+				if j == i {
+					continue
+				}
+				fn(invalidSequenceTests[i], invalidSequenceTests[j])
+			}
+		}
+		return
 	}
+
+	// All the invalid sequences should be equal so test
+	// random pairs.
 	rr := rand.New(rand.NewSource(time.Now().UnixNano()))
-	rr.Shuffle(len(a), func(i, j int) {
-		a[i], a[j] = a[j], a[i]
-	})
-	for i := 0; i < len(a)-1; i++ {
-		fn(a[i], a[i+1])
+	for i := 0; i < 4; i++ {
+		for i, s := range invalidSequenceTests {
+			j := rr.Intn(len(invalidSequenceTests))
+			for j == i {
+				j = rr.Intn(len(invalidSequenceTests))
+			}
+			fn(s, invalidSequenceTests[j])
+		}
 	}
 }
 
@@ -977,6 +1085,17 @@ func ContainsAny(t *testing.T, fn ContainsFunc) {
 				ct.str, ct.substr, !ct.expected, ct.expected)
 		}
 	}
+
+	// Invalid
+	iterateInvalidSequenceTests(func(s0, s1 string) {
+		for _, s := range []string{s1, string(utf8.RuneError)} {
+			got := fn(s0, s)
+			if !got {
+				t.Errorf("ContainsAny(%s, %s) = %v, want %v",
+					s0, s1, got, true)
+			}
+		}
+	})
 }
 
 func LastIndex(t *testing.T, fn IndexFunc) {
@@ -986,6 +1105,33 @@ func LastIndex(t *testing.T, fn IndexFunc) {
 	runIndexTests(t, reference, "LastIndexReference", lastIndexTests, false)
 
 	runIndexTests(t, fn, "LastIndex", lastIndexTests, false)
+}
+
+func LastIndexInvalid(t *testing.T, fn IndexFunc) {
+	var tests []indexTest
+	iterateInvalidSequenceTests(func(s0, s1 string) {
+		out := -1
+		if strings.EqualFold(s0, s1) {
+			out = 0
+		}
+		tests = append(tests, indexTest{
+			s:   s0,
+			sep: s1,
+			out: out,
+		})
+	})
+
+	tt := &testWrapper{T: t} // Limit number of failures
+
+	reference := func(s, sep string) int {
+		return LastIndexRunesReference([]rune(s), []rune(sep))
+	}
+	runIndexTests(tt, reference, "LastIndexReference", tests, false)
+	if t.Failed() {
+		t.Fatal("invalid test cases")
+	}
+
+	runIndexTests(tt, fn, "LastIndex", tests, false)
 }
 
 type indexRuneTest struct {

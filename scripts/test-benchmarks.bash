@@ -16,28 +16,37 @@ echo '# Testing benchmarks'
 
 # Go packages
 readarray -t PACKAGES < <(go list ./...)
+if (( ${#PACKAGES[@]} == 0 )); then
+    printf '%sFAIL%s\t%s\n' "${RED}" "${RESET}" 'no Go packages'
+    exit 1
+fi
 
 TMP="$(mktemp -d -t 'strcase.XXXXXX')"
 trap 'rm -r "${TMP}"' EXIT
 
-EXIT_CODE=0
-
 for pkg in "${PACKAGES[@]}"; do
-    # echo "# ${pkg}"
     out="${TMP}/${pkg//\//_}"
-    if ! go test -run '^$' -shuffle on -bench . -benchtime 10us "${pkg}" &>"${out}"; then
-        echo ''
-        cat "${out}"
-        echo ''
-        echo "# ${pkg}"
-        grep --color=auto --after-context=1 --extended-regexp -- \
-            '-+ FAIL:.*' "${out}"
-        echo ''
-        printf '%sFAIL%s\t%s\n' "${RED}" "${RESET}" "${pkg}"
-        EXIT_CODE=1
-    else
-        printf '%sok%s\t%s\n' "${GREEN}" "${RESET}" "${pkg}"
-    fi
+    # Run tests in parallel in a sub-shell
+    (
+        if ! go test -run '^$' -shuffle on -bench . -benchtime 1us "${pkg}" &>"${out}"; then
+            echo ''
+            cat "${out}"
+            echo ''
+            echo "# ${pkg}"
+            \grep --color=auto --after-context=1 --extended-regexp -- \
+                '-+ FAIL:.*' "${out}"
+            echo ''
+            printf '%sFAIL%s\t%s\n' "${RED}" "${RESET}" "${pkg}"
+            touch "${TMP}/fail"
+        else
+            printf '%sok%s\t%s\n' "${GREEN}" "${RESET}" "${pkg}"
+        fi
+    ) &
 done
 
-exit $EXIT_CODE
+wait
+
+if [[ -f "${TMP}/fail" ]]; then
+    exit 1
+fi
+exit 0
