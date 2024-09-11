@@ -47,12 +47,14 @@ testskipped:
 		exit 1;                                                             \
 	fi
 
+# TODO: pass arguments to sub-make
+#
 # The gen package is separate from the strcase package (so we don't pollute
 # our go.mod with its dependencies) so we need to cd into its directory to
 # run the tests.
 .PHONY: testgenpkg
 testgenpkg:
-	@cd $(MAKEFILE_DIR)/internal/gen && $(MAKE) --quiet test
+	@$(MAKE) -C $(MAKEFILE_DIR)/internal/gen --quiet test
 
 # Test that `go generate` does not change tables.go
 .PHONY: testgenerate
@@ -74,7 +76,9 @@ testall: exhaustive testskipped testgenerate testgenpkg
 .PHONY: .ci
 .ci: GO = $(RICHGO_TARGET)
 .ci: export RICHGO_FORCE_COLOR=1
-.ci: testverbose
+.ci: test
+.ci: testgenpkg
+.ci: testgenerate
 .ci: testbenchmarks
 
 # Run and colorize verbose tests for CI
@@ -161,4 +165,5 @@ env:
 clean:
 	@rm -f cpu*.out mem*.out
 	@rm -rf DATA bin
-	@$(GO) clean -i -cache
+	@$(GO) -i ./...
+	@cd $(MAKEFILE_DIR)/internal/gen && $(MAKE) --quiet clean

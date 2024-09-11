@@ -32,23 +32,15 @@ endif
 .PHONY: all
 all: bench
 
-.PHONY: xtest
-xtest:
-	benchstat $(BENCHSTAT_ARGS)  stdlib.1723232239.txt strcase.1723232239.txt
-
 # install benchstat tool
 bin/benchstat:
-	@if ! command -v benchstat >/dev/null; then        \
-		mkdir -p $(GOBIN);                             \
-		GOBIN=$(GOBIN) $(GO) install $(BENCHSTAT_PKG); \
-	fi
+	@mkdir -p $(GOBIN);                            \
+	GOBIN=$(GOBIN) $(GO) install $(BENCHSTAT_PKG); \
 
 # install benchcmp tool
 bin/benchcmp:
-	@if ! command -v benchcmp >/dev/null; then        \
-		mkdir -p $(GOBIN);                            \
-		GOBIN=$(GOBIN) $(GO) install $(BENCHCMP_PKG); \
-	fi
+	@mkdir -p $(GOBIN);                           \
+	GOBIN=$(GOBIN) $(GO) install $(BENCHCMP_PKG); \
 
 # Install benchstat and benchcmp
 .PHONY: install-tools
@@ -113,4 +105,4 @@ test:
 .PHONY: clean
 clean:
 	@[[ ! -d $(GOBIN) ]] || rm -r $(GOBIN);
-	@$(GO) clean;
+	@$(GO) clean -i
