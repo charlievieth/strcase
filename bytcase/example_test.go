@@ -103,6 +103,7 @@ func ExampleContains() {
 	fmt.Println(bytcase.Contains([]byte("SeaFood"), []byte("")))
 	fmt.Println(bytcase.Contains([]byte(""), []byte("")))
 	fmt.Println(bytcase.Contains([]byte("ΑΔΕΛΦΟΣΎΝΗΣ"), []byte("αδελφοσύνης")))
+
 	// All invalid UTF-8 sequences are considered equal
 	fmt.Println(bytcase.Contains([]byte("\xed\xa0\x80\x80"), []byte("\xed\xbf\xbf\x80")))
 	// Output:
@@ -183,14 +184,17 @@ func ExampleIndex() {
 	fmt.Println(bytcase.Index([]byte("chicken"), []byte("KEN")))
 	fmt.Println(bytcase.Index([]byte("chicken"), []byte("DMR")))
 	fmt.Println(bytcase.Index([]byte("日a本b語ç日ð本ê語"), []byte("Ç日Ð本Ê")))
-
-	// All invalid UTF-8 sequences are considered equal
-	fmt.Println(bytcase.Index([]byte("a\xff"), []byte(string(utf8.RuneError))))
-	fmt.Println(bytcase.Index([]byte("abc\xed\xa0\x80\x80"), []byte("\xed\xbf\xbf\x80")))
 	// Output:
 	// 4
 	// -1
 	// 11
+}
+
+func ExampleIndex_invalid() {
+	// All invalid UTF-8 sequences are considered equal
+	fmt.Println(bytcase.Index([]byte("a\xff"), []byte(string(utf8.RuneError))))
+	fmt.Println(bytcase.Index([]byte("abc\xed\xa0\x80\x80"), []byte("\xed\xbf\xbf\x80")))
+	// Output:
 	// 1
 	// 3
 }
