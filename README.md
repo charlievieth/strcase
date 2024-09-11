@@ -1,32 +1,44 @@
 [![Tests](https://github.com/charlievieth/strcase/actions/workflows/test.yml/badge.svg)](https://github.com/charlievieth/strcase/actions/workflows/test.yml)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/charlievieth/strcase)
 
-<!-- TODO: emphasize how fucking fast this this is -->
-
 # strcase
 
-Package strcase is a case-insensitive and Unicode aware implementation of the
-Go standard library's [`strings`](https://pkg.go.dev/strings) package that is
-accurate, blazing fast, and never allocates memory.
+Package [strcase](.) and [bytcase](bytcase/README.md) are case-insensitive and
+Unicode aware implementations of the Go standard library's
+[`strings`](https://pkg.go.dev/strings) and [`bytes`](https://pkg.go.dev/bytes)
+packages that are accurate, fast, and never allocate memory.
+
+Note: The bytcase package is analogous to the strcase package, and whatever
+applies to strcase also applies to the bytcase package. For simplicity, the
+below documentation mostly refers to the strcase package, but unless otherwise
+noted all comments also apply to bytecase.
 
 ## Overview
 
-* Drop-in replacement for the strings package that provides case-insensitive
-  matching.
+* Drop-in replacement for the [`strings`](https://pkg.go.dev/strings) and
+  [`bytes`](https://pkg.go.dev/bytes) packages that provides Unicode
+  aware case-insensitive matching.
 * Simple Unicode case-folding is used for all comparisons - making it more
   accurate than using [strings.ToLower](https://pkg.go.dev/strings#ToLower) or
   [strings.ToUpper](https://pkg.go.dev/strings#ToUpper) for case-insensitivity.
 * Fast and optimized for amd64 and arm64. For non-pathological inputs strcase
   is only 25-50% slower than the strings package.
-* Any string matched by strcase will also match with [strings.EqualFold](https://pkg.go.dev/strings#EqualFold)
+* Any string matched by strcase or bytecase will also match with
+  [strings.EqualFold](https://pkg.go.dev/strings#EqualFold) or
+  [bytes.EqualFold](https://pkg.go.dev/bytes#EqualFold)
 
 ## Installation
 
 strcase is available using the standard `go get` command.
 
 Install by running:
+```sh
+# strcase
+go get github.com/charlievieth/strcase
 
-    go get github.com/charlievieth/strcase
+# bytcase
+go get github.com/charlievieth/strcase/bytcase
+```
 
 ## Features
 
@@ -56,10 +68,17 @@ characters that are highly optimized for amd64/arm64:
 
 ## Caveats
 
-All invalid Unicode points and invalid multibyte UTF-8 sequences are considered
-equal. This is because Go converts invalid UTF-8 sequences to the Unicode
-replacement character `0xFFFD`
-([unicode.ReplacementChar](https://pkg.go.dev/unicode#pkg-constants) and
+<!--
+From: regexp
+https://pkg.go.dev/regexp
+
+All characters are UTF-8-encoded code points. Following utf8.DecodeRune,
+each byte of an invalid UTF-8 sequence is treated as if it encoded utf8.RuneError (U+FFFD).
+-->
+
+All invalid UTF-8 sequences are considered equal. This is because Go converts
+invalid UTF-8 sequences to the Unicode replacement character `0xFFFD`
+([unicode.ReplacementChar](https://pkg.go.dev/unicode#pkg-constants) /
 [utf8.RuneError](https://pkg.go.dev/unicode/utf8#pkg-constants)).
 This occurs both when [ranging](https://go.dev/ref/spec#For_statements) over of
 a string or using the [utf8](https://pkg.go.dev/utf8) package's `Decode*`
@@ -102,12 +121,13 @@ tends to within 30-50% of the strings package for non-pathological inputs.
  This is because the [utf8](https://pkg.go.dev/unicode/utf8) package converts
  invalid runes and multibyte UTF-8 sequences to
  [`utf8.RuneError`](https://pkg.go.dev/unicode/utf8#RuneError).
-- 'İ' (LATIN CAPITAL LETTER I WITH DOT ABOVE) does not fold to ASCII 'i' (U+0069)
-   * This matches the behavior os strings.EqualFold
-   * NOTE: see [unicode.org/UCD/CaseFolding.txt](https://www.unicode.org/Public/UCD/latest/ucd/CaseFolding.txt)
-     for an explanation, basically it is normally ignored for non-Turkic languages
-- Kelvin 'K' (U+212A) matches ASCII 'K' and 'k'
-- Latin small letter long S 'ſ' matches ASCII 'S' and 's'
+- `İ` (LATIN CAPITAL LETTER I WITH DOT ABOVE) and `ı`: (LATIN SMALL LETTER DOTLESS
+  I) doe not fold to ASCII `[iI]` (U+0069 / U+0049)
+   * This matches the behavior of [strings.EqualFold](https://pkg.go.dev/strings#EqualFold)
+   * See [unicode.org/UCD/CaseFolding.txt](https://www.unicode.org/Public/UCD/latest/ucd/CaseFolding.txt)
+     for an explanation, basically this folding is normally ignored for non-Turkic languages
+- Kelvin `K` (U+212A) matches ASCII `K` and `k`
+- Latin small letter long S `ſ` matches ASCII `S` and `s`
 
 ## Contributing / Hacking
 

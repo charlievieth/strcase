@@ -103,6 +103,7 @@ func ExampleContains() {
 	fmt.Println(strcase.Contains("SeaFood", ""))
 	fmt.Println(strcase.Contains("", ""))
 	fmt.Println(strcase.Contains("ΑΔΕΛΦΟΣΎΝΗΣ", "αδελφοσύνης"))
+
 	// All invalid UTF-8 sequences are considered equal
 	fmt.Println(strcase.Contains("\xed\xa0\x80\x80", "\xed\xbf\xbf\x80"))
 	// Output:
@@ -184,13 +185,17 @@ func ExampleIndex() {
 	fmt.Println(strcase.Index("chicken", "DMR"))
 	fmt.Println(strcase.Index("日a本b語ç日ð本ê語", "Ç日Ð本Ê"))
 
-	// All invalid UTF-8 sequences are considered equal
-	fmt.Println(strcase.Index("a\xff", string(utf8.RuneError)))
-	fmt.Println(strcase.Index("abc\xed\xa0\x80\x80", "\xed\xbf\xbf\x80"))
 	// Output:
 	// 4
 	// -1
 	// 11
+}
+
+func ExampleIndex_invalid() {
+	// All invalid UTF-8 sequences are considered equal
+	fmt.Println(strcase.Index("a\xff", string(utf8.RuneError)))
+	fmt.Println(strcase.Index("abc\xed\xa0\x80\x80", "\xed\xbf\xbf\x80"))
+	// Output:
 	// 1
 	// 3
 }

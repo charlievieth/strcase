@@ -550,19 +550,18 @@ func nonLetterASCII(s []byte) bool {
 	return true
 }
 
-// TODO: check substr for any folds - this should almost always be faster
-// than our current search - especially since we end up having to scan it
-// multiple times. Maybe: check first rune (and maybe second), then check
-// if substr has any folds.
-//
-// That said this library is meant for dealing with text and this might
-// only with languages that don't have any/few folds.
-//
-// One thing we could do is use the longest prefix that does not have any
-// folds and use the fast string search for that.
-
 // Index returns the index of the first instance of substr in s, or -1 if
-// substr is not present in s.
+// substr is not present in s. Both s and substr are interpreted as UTF-8
+// strings and simple Unicode case-folding is used to check for equality.
+// All invalid UTF-8 encoded runes are considered equal - this matches the
+// behavior of [strings.EqualFold].
+//
+// If substr is a single byte and an invalid UTF-8 sequence (0x80-0xFF) the
+// index of the first invalid rune is returned. This matches the behavior of
+// [IndexRune], but does not match the behavior of [IndexByte], which will
+// return the index of bytes in the range of 0x80-0xFF.
+// This is required because we guarantee that the result of Index would equal
+// if compared with [strings.EqualFold].
 func Index(s, substr []byte) int {
 	n := len(substr)
 	var r rune
@@ -799,12 +798,12 @@ func LastIndex(s, substr []byte) int {
 // or -1 if c is not present in s. Matching is case-insensitive and Unicode
 // simple folding is used which means that ASCII bytes 'K' and 'k' match Kelvin
 // 'K', and ASCII bytes 'S' and 's' match 'ſ' (Latin small letter long S).
-// Therefore, s may be scanned twice when c is [KkSs]
+// Therefore, string s may be scanned twice when c is in [KkSs]
 // (because the optimized assembly is ASCII only).
 //
-// On amd64 and arm64 this is only ~20-25% slower than bytes.IndexByte for
-// small haystacks (<4M) and ~6% slower for larger haystacks.
-// The slowdown for small haystacks is due to some additional function call
+// On amd64 and arm64 this is only ~20-25% slower than strings.IndexByte for
+// small strings (<4M) and ~6% slower for larger strings.
+// The slowdown for small strings is due to additional checks and function call
 // overheard.
 func IndexByte(s []byte, c byte) int {
 	// TODO: the below quick check is only to improve benchmark performance for
