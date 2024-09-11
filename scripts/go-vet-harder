@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+GREEN=$'\E[00;32m'
+RED=$'\E[00;31m'
+RESET=$'\E[0m'
+if [ ! -t 1 ]; then
+    GREEN=''
+    RED=''
+    RESET=''
+fi
+
+VETTOOLS=(
+    # fieldalignment: noisy and not useful here
+    findcall
+    ifaceassert
+    lostcancel
+    nilness
+    shadow
+    stringintconv
+    unmarshal
+    unusedresult
+)
+
+DIR="$(mktemp -d -t 'go-vet-')"
+trap 'rm -r $DIR' EXIT
+
+
+for tool in "${VETTOOLS[@]}"; do
+done
+
+wait
+
+if hash escape-regex 2>/dev/null; then
+    REPLACE="$(escape-regex -s "$(pwd)"/)"
+else
+    REPLACE=''
+fi
+
+VETTOOLS+=(vet)
+ERRORS=0
+for tool in "${VETTOOLS[@]}"; do
+        else
+        fi
+        ERRORS=1
+    else
+    fi
+done
+
