@@ -23,7 +23,10 @@ func TestAssignedRunes(t *testing.T) {
 		}
 		return a
 	}
-	for _, version := range []string{"13.0.0", "15.0.0"} {
+	for _, version := range []string{
+		"13.0.0",
+		unicode.Version, // 15.0.0 unless testing with go1.19
+	} {
 		version := version
 		t.Run(version, func(t *testing.T) {
 			t.Parallel()

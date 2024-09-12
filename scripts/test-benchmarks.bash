@@ -14,6 +14,12 @@ fi
 
 echo '# Testing benchmarks'
 
+if ! command -v readarray &>/dev/null; then
+    printf '%sSKIP%s\t%s\n' "${RED}" "${RESET}" \
+        "readarray not supported by this verison of bash"
+    exit 0
+fi
+
 # Go packages
 readarray -t PACKAGES < <(go list ./...)
 if ((${#PACKAGES[@]} == 0)); then

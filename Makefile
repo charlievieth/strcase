@@ -36,6 +36,12 @@ test testshort testverbose:
 exhaustive:
 	@GOGC=$(GO_GOGC) $(GO_TEST) $(EXHAUSTIVE_PKGS) -exhaustive
 
+# Generate code coverage report for strcase/bytecase
+.PHONY: codecov
+codecov: override GO_COVER_FLAGS =  -covermode=count
+codecov: override GO_COVER_FLAGS += -coverprofile=coverage.txt
+codecov: exhaustive
+
 # Assert that there are no skipped tests
 .PHONY: testskipped
 testskipped:
@@ -46,8 +52,6 @@ testskipped:
 		exit 1;                                                             \
 	fi
 
-# TODO: pass arguments to sub-make
-#
 # The gen package is separate from the strcase package (so we don't pollute
 # our go.mod with its dependencies) so we need to cd into its directory to
 # run the tests.
@@ -74,10 +78,8 @@ testall: exhaustive testskipped testgenerate testgenpkg
 # CI tests
 .PHONY: ci
 ci: test
-ci: testgenpkg
-ci: testgenerate
 ci: testbenchmarks
-ci: lint
+ci: vet
 
 # Calibrate brute-force cutover
 .PHONY: calibrate
@@ -145,7 +147,7 @@ pre-commit: .git/hooks/pre-commit
 
 # Run pre-release tests (excluding: golangci-lint)
 .PHONY: release
-release: test exhaustive testgenpkg testgenerate testbenchmarks calibrate
+release: exhaustive testgenpkg testgenerate testbenchmarks calibrate vet
 
 # Print information about the version of go being used
 .PHONY: env
