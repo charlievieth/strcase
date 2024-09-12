@@ -16,7 +16,7 @@ echo '# Testing benchmarks'
 
 # Go packages
 readarray -t PACKAGES < <(go list ./...)
-if (( ${#PACKAGES[@]} == 0 )); then
+if ((${#PACKAGES[@]} == 0)); then
     printf '%sFAIL%s\t%s\n' "${RED}" "${RESET}" 'no Go packages'
     exit 1
 fi
