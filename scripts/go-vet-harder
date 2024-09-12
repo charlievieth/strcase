@@ -26,8 +26,12 @@ VETTOOLS=(
 DIR="$(mktemp -d -t 'go-vet-')"
 trap 'rm -r $DIR' EXIT
 
+touch "$DIR/vet"
+go vet ./... >"$DIR/vet" 2>&1 &
 
 for tool in "${VETTOOLS[@]}"; do
+    touch "$DIR/$tool"
+    "$tool" ./... >"$DIR/$tool" 2>&1 &
 done
 
 wait
@@ -41,10 +45,17 @@ fi
 VETTOOLS+=(vet)
 ERRORS=0
 for tool in "${VETTOOLS[@]}"; do
+    if [[ -s "$DIR/$tool" ]]; then
+        printf "%s: ${RED}error${RESET}\n" "$tool"
+        if [[ -n $REPLACE ]]; then
+            sed "s/$REPLACE//g" "$DIR/$tool" | pr -o4 -t -
         else
+            pr -o4 -t - "$DIR/$tool"
         fi
         ERRORS=1
     else
+        printf "%s: ${GREEN}pass${RESET}\n" "$tool"
     fi
 done
 
+exit $ERRORS
