@@ -1,5 +1,5 @@
 [![Tests](https://github.com/charlievieth/strcase/actions/workflows/test.yml/badge.svg)](https://github.com/charlievieth/strcase/actions/workflows/test.yml)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/charlievieth/strcase)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/charlievieth/strcase@master)
 [![codecov](https://codecov.io/github/charlievieth/strcase/branch/master/graph/badge.svg?token=ZJ0FTBECVA)](https://codecov.io/github/charlievieth/strcase)
 
 # strcase
