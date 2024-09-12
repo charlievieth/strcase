@@ -175,7 +175,7 @@ endofpage:
 
 avx2:
 #ifndef hasAVX2
-	CMPB internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
+	CMPB golang·org∕x∕sys∕cpu·X86+const_offsetX86HasAVX2(SB), $1
 	JNE  sse
 
 #endif
@@ -323,7 +323,7 @@ endofpage:
 
 avx2:
 #ifndef hasAVX2
-	CMPB internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
+	CMPB golang·org∕x∕sys∕cpu·X86+const_offsetX86HasAVX2(SB), $1
 	JNE  sse
 
 #endif

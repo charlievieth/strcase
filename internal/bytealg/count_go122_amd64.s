@@ -11,7 +11,7 @@
 
 TEXT ·Count(SB), NOSPLIT, $0-40
 #ifndef hasPOPCNT
-	CMPB internal∕cpu·X86+const_offsetX86HasPOPCNT(SB), $1
+	CMPB golang·org∕x∕sys∕cpu·X86+const_offsetX86HasPOPCNT(SB), $1
 	JEQ  2(PC)
 	JMP  ·countGeneric(SB)
 
@@ -38,7 +38,7 @@ count:
 
 TEXT ·CountString(SB), NOSPLIT, $0-32
 #ifndef hasPOPCNT
-	CMPB internal∕cpu·X86+const_offsetX86HasPOPCNT(SB), $1
+	CMPB golang·org∕x∕sys∕cpu·X86+const_offsetX86HasPOPCNT(SB), $1
 	JEQ  2(PC)
 	JMP  ·countGenericString(SB)
 
@@ -228,7 +228,7 @@ endofpage:
 
 avx2:
 #ifndef hasAVX2
-	CMPB internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
+	CMPB golang·org∕x∕sys∕cpu·X86+const_offsetX86HasAVX2(SB), $1
 	JNE  sse
 
 #endif
@@ -456,7 +456,7 @@ endofpage:
 
 avx2:
 #ifndef hasAVX2
-	CMPB internal∕cpu·X86+const_offsetX86HasAVX2(SB), $1
+	CMPB golang·org∕x∕sys∕cpu·X86+const_offsetX86HasAVX2(SB), $1
 	JNE  sse
 
 #endif
