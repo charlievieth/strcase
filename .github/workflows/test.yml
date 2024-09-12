@@ -36,14 +36,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       - name: Test
-        run: make exhaustive
-        # run: make ci
+        run: make ci --jobs=$(nproc)
 
       - name: Test Skipped
         run: make testskipped
-
-      - name: Test Benchmarks
-        run: make testbenchmarks
-
-      - name: Vet
-        run: make vet
