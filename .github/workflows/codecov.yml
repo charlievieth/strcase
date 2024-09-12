@@ -24,7 +24,10 @@ jobs:
           go-version: '>=1.23.x'
 
       - name: Coverage
-        run: go test -covermode=count -coverprofile=coverage.txt ./...
+        run: |
+          go test -covermode=count -coverprofile=coverage.txt \
+            github.com/charlievieth/strcase \
+            github.com/charlievieth/strcase/bytcase
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v4
