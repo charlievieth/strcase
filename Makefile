@@ -24,12 +24,11 @@ testverbose: override GO_TEST_FLAGS += -v
 testshort: override GO_TEST_FLAGS += -short
 testshort: override GO_COVER_FLAGS = ''
 
-# Fuzz test with invalid runes
-testinvalid: override GO_TEST_FLAGS += -invalid
-testinvalid: override GO_TEST_FLAGS += -run 'Test\w+Fuzz'
+# TODO: add back "testinvalid" once we find an easy way
+# to construct fuzz tests with invalid UTF-8 sequences.
 
-.PHONY: test testshort testverbose testinvalid
-test testshort testverbose testinvalid:
+.PHONY: test testshort testverbose
+test testshort testverbose:
 	@GOGC=$(GO_GOGC) $(GO_TEST) ./...
 
 # Run exhaustive fuzz tests
@@ -72,27 +71,20 @@ testbenchmarks:
 .PHONY: testall
 testall: exhaustive testskipped testgenerate testgenpkg
 
-# Actual ci target (separate because so that we can override GO)
-.PHONY: .ci
-.ci: GO = $(RICHGO_TARGET)
-.ci: export RICHGO_FORCE_COLOR=1
-.ci: test
-.ci: testgenpkg
-.ci: testgenerate
-.ci: testbenchmarks
-
-# Run and colorize verbose tests for CI
+# CI tests
 .PHONY: ci
-ci: bin/richgo
-ci: vet
-ci: .ci
+ci: test
+ci: testgenpkg
+ci: testgenerate
+ci: testbenchmarks
+ci: lint
 
 # Calibrate brute-force cutover
 .PHONY: calibrate
 calibrate: GO_COVER_FLAGS =
 calibrate: GO_TEST_FLAGS += -v
 calibrate:
-	@$(GO_TEST) -run Calibrate -calibrate
+	@$(GO_TEST) -run 'Test.*Calibrate' -calibrate
 
 .PHONY: vet-strcase
 vet-strcase:
@@ -151,15 +143,14 @@ generate:
 # TODO: omit on Windows ???
 pre-commit: .git/hooks/pre-commit
 
-# Run pre-release tests
+# Run pre-release tests (excluding: golangci-lint)
 .PHONY: release
-release: exhaustive testinvalid testgenerate lint
+release: test exhaustive testgenpkg testgenerate testbenchmarks calibrate
 
 # Print information about the version of go being used
 .PHONY: env
 env:
 	@$(GO) env
-
 
 .PHONY: clean
 clean:
