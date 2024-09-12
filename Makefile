@@ -1,4 +1,4 @@
-# vim: ts=4 sw=4
+# vim: ts=4 sw=4 ft=make
 
 # Packages to run exhaustive tests against
 EXHAUSTIVE_PKGS = github.com/charlievieth/strcase \

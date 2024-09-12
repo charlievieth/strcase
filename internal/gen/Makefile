@@ -1,4 +1,4 @@
-# vim: ts=4 sw=4
+# vim: ts=4 sw=4 ft=make
 
 MAKEFILE_PATH := $(realpath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_DIR  := $(abspath $(dir $(MAKEFILE_PATH)))
