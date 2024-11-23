@@ -115,6 +115,15 @@ func ExampleContains() {
 	// true
 }
 
+func ExampleContains_invalid() {
+	// All invalid UTF-8 sequences are considered equal
+	fmt.Println(bytcase.Contains([]byte("a\xff"), []byte(string(utf8.RuneError))))
+	fmt.Println(bytcase.Contains([]byte("abc\xed\xa0\x80\x80"), []byte("\xed\xbf\xbf\x80")))
+	// Output:
+	// true
+	// true
+}
+
 func ExampleContainsAny() {
 	fmt.Println(bytcase.ContainsAny([]byte("team"), []byte("I")))
 	fmt.Println(bytcase.ContainsAny([]byte("fail"), []byte("UI")))
