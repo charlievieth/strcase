@@ -1,9 +1,12 @@
 package benchtest
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
+	"regexp"
+	"regexp/syntax"
 	"strings"
 	"testing"
 	"unicode"
@@ -17,6 +20,31 @@ var benchStdLib = flag.Bool("stdlib", false,
 
 var benchLower = flag.Bool("stdlib-case", false,
 	"Convert case with strings.ToUpper before using the stdlib's strings package")
+
+var benchRegexp = flag.Bool("regexp", false,
+	"Use the regexp package for matching (for comparison).")
+
+func recoverCompileError(b *testing.B) {
+	if e := recover(); e != nil {
+		err, ok := e.(error)
+		if !ok {
+			panic(fmt.Sprintf("HERE: %#v\n", e))
+		}
+		var serr *syntax.Error
+		if !errors.As(err, &serr) {
+			panic(e)
+		}
+		b.Skip("skipping: error compiling regexp:", serr)
+	}
+}
+
+func mustCompile(b *testing.B, expr string) *regexp.Regexp {
+	re, err := regexp.Compile(expr)
+	if err != nil {
+		b.Skip("skipping: cannot compile regexp:", err)
+	}
+	return re
+}
 
 func benchIndexRune(b *testing.B, s string, r rune) {
 	n := strings.IndexRune(s, r)
@@ -36,6 +64,11 @@ func benchIndexRune(b *testing.B, s string, r rune) {
 	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.IndexRune(strings.ToUpper(s), unicode.ToUpper(r))
+		}
+	case *benchRegexp:
+		defer recoverCompileError(b)
+		for i := 0; i < b.N; i++ {
+			mustCompile(b, `(?i)`+string(r)).FindStringIndex(s)
 		}
 	default:
 		for i := 0; i < b.N; i++ {
@@ -69,6 +102,11 @@ func benchIndex(b *testing.B, s, substr string) {
 		for i := 0; i < b.N; i++ {
 			strings.Index(strings.ToUpper(s), strings.ToUpper(substr))
 		}
+	case *benchRegexp:
+		defer recoverCompileError(b)
+		for i := 0; i < b.N; i++ {
+			mustCompile(b, `(?i)`+regexp.QuoteMeta(substr)).FindStringIndex(s)
+		}
 	default:
 		setBytes(strcase.Index)
 		for i := 0; i < b.N; i++ {
@@ -96,6 +134,8 @@ func benchIndexByte(b *testing.B, s string, c byte) {
 		for i := 0; i < b.N; i++ {
 			strings.IndexByte(strings.ToUpper(s), byte(unicode.ToUpper(rune(c))))
 		}
+	case *benchRegexp:
+		b.Skip("skipping: benchmark not supported with -regexp flag")
 	default:
 		for i := 0; i < b.N; i++ {
 			strcase.IndexByte(s, c)
@@ -122,6 +162,8 @@ func benchLastIndex(b *testing.B, s, substr string) {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndex(strings.ToUpper(s), strings.ToUpper(substr))
 		}
+	case *benchRegexp:
+		b.Skip("skipping: benchmark not supported with -regexp flag")
 	default:
 		for i := 0; i < b.N; i++ {
 			strcase.LastIndex(s, substr)
@@ -146,6 +188,11 @@ func benchEqualFold(b *testing.B, s1, s2 string) {
 		}
 	case *benchLower:
 		b.Skip("skipping: benchmark not relevant with -stdlib-case flag")
+	case *benchRegexp:
+		defer recoverCompileError(b)
+		for i := 0; i < b.N; i++ {
+			mustCompile(b, `(?i)^`+regexp.QuoteMeta(s1)+`$`).FindStringIndex(s2)
+		}
 	default:
 		for i := 0; i < b.N; i++ {
 			strcase.EqualFold(s1, s2)
@@ -167,6 +214,11 @@ func benchCount(b *testing.B, s, substr string) {
 		for i := 0; i < b.N; i++ {
 			strings.Count(strings.ToUpper(s), strings.ToUpper(substr))
 		}
+	case *benchRegexp:
+		defer recoverCompileError(b)
+		for i := 0; i < b.N; i++ {
+			mustCompile(b, `(?i)`+regexp.QuoteMeta(substr)).FindAllStringSubmatchIndex(s, -1)
+		}
 	default:
 		for i := 0; i < b.N; i++ {
 			strcase.Count(s, substr)
@@ -186,6 +238,14 @@ func benchIndexAny(b *testing.B, s, cutset string) {
 	case *benchLower:
 		for i := 0; i < b.N; i++ {
 			strings.IndexAny(strings.ToUpper(s), strings.ToUpper(cutset))
+		}
+	case *benchRegexp:
+		defer recoverCompileError(b)
+		for i := 0; i < b.N; i++ {
+			// Convert cutset "abc" => `(a|b|c)`
+			mustCompile(b,
+				`(?i)(`+strings.Join(strings.Split(cutset, ""), "|")+`)`,
+			).FindStringIndex(s)
 		}
 	default:
 		for i := 0; i < b.N; i++ {
@@ -207,6 +267,8 @@ func benchLastIndexAny(b *testing.B, s, cutset string) {
 		for i := 0; i < b.N; i++ {
 			strings.LastIndexAny(strings.ToUpper(s), strings.ToUpper(cutset))
 		}
+	case *benchRegexp:
+		b.Skip("skipping: benchmark not supported with -regexp flag")
 	default:
 		for i := 0; i < b.N; i++ {
 			strcase.LastIndexAny(s, cutset)
