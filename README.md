@@ -35,7 +35,9 @@ packages.
   [bytes.EqualFold](https://pkg.go.dev/bytes#EqualFold)
 * Fast and optimized for amd64 and arm64. For non-pathological inputs strcase
   is only 25-50% slower than the strings package.
-* A few orders of magnitude faster than using a case-insensitive [regexp.Regexp](https://pkg.go.dev/regexp#Regexp).
+* On average strcase/bytcase are 25x faster than using than using a case-insensitive
+  [regexp.Regexp](https://pkg.go.dev/regexp#Regexp) (see the below
+  [benchmarks](#benchmarks) section).
 
 ## Installation
 
@@ -155,6 +157,307 @@ The following benchmarks were created using
 [internal/benchtest](https://github.com/charlievieth/strcase/tree/master/internal/benchtest).
 Additional, processor specific benchmarks can be found in
 [internal/benchtest/results](https://github.com/charlievieth/strcase/tree/master/internal/benchtest/results).
+
+<details>
+<summary>regexp vs. strcase</summary>
+
+```
+goos: darwin
+goarch: arm64
+pkg: github.com/charlievieth/strcase/internal/benchtest
+cpu: Apple M1 Max
+                                 │  regexp.10.txt   │             strcase.10.txt             │
+                                 │      sec/op      │    sec/op     vs base                  │
+IndexRune-10                          587.45n ±  2%   11.15n ±  1%  -98.10% (p=0.000 n=10)
+IndexRuneLongString-10                584.15n ±  2%   12.67n ±  1%  -97.83% (p=0.000 n=10)
+IndexRuneFastPath-10                 673.300n ±  6%   5.130n ±  3%  -99.24% (p=0.000 n=10)
+Index-10                             671.900n ±  2%   4.982n ±  1%  -99.26% (p=0.000 n=10)
+EqualFold/ASCII-10                  2920.500n ±  1%   9.418n ±  2%  -99.68% (p=0.000 n=10)
+EqualFold/UnicodePrefix-10           3892.00n ±  1%   32.35n ±  2%  -99.17% (p=0.000 n=10)
+EqualFold/UnicodeSuffix-10           3885.50n ±  2%   26.17n ±  1%  -99.33% (p=0.000 n=10)
+IndexHard1-10                          334.1µ ±  0%   340.4µ ±  0%   +1.90% (p=0.000 n=10)
+IndexHard2-10                          9.963m ±  6%   1.362m ±  1%  -86.33% (p=0.000 n=10)
+IndexHard3-10                         10.727m ±  0%   1.369m ±  1%  -87.24% (p=0.000 n=10)
+IndexHard4-10                         10.385m ±  0%   1.361m ±  1%  -86.89% (p=0.000 n=10)
+CountHard1-10                          338.1µ ±  1%   336.4µ ±  1%        ~ (p=0.218 n=10)
+CountHard2-10                          9.844m ±  1%   1.365m ±  1%  -86.13% (p=0.000 n=10)
+CountHard3-10                         10.684m ±  0%   1.362m ±  1%  -87.25% (p=0.000 n=10)
+IndexTorture-10                     27787.99µ ±  1%   18.04µ ±  2%  -99.94% (p=0.000 n=10)
+CountTorture-10                     27631.25µ ±  1%   17.86µ ±  2%  -99.94% (p=0.000 n=10)
+CountTortureOverlapping-10         14204.297m ±  2%   4.058m ±  1%  -99.97% (p=0.000 n=10)
+CountByte/10-10                      570.100n ±  1%   7.684n ±  1%  -98.65% (p=0.000 n=10)
+CountByte/32-10                      964.050n ±  2%   4.501n ±  1%  -99.53% (p=0.000 n=10)
+CountByte/4K-10                      63123.0n ±  1%   103.1n ±  0%  -99.84% (p=0.000 n=10)
+CountByte/4M-10                     87646.31µ ±  0%   96.02µ ±  7%  -99.89% (p=0.000 n=10)
+CountByte/64M-10                    1433.190m ±  1%   1.574m ±  1%  -99.89% (p=0.000 n=10)
+IndexAnyASCII/1:1-10                 742.800n ±  2%   5.513n ±  1%  -99.26% (p=0.000 n=10)
+IndexAnyASCII/1:2-10                 915.150n ±  2%   7.462n ±  0%  -99.18% (p=0.000 n=10)
+IndexAnyASCII/1:4-10                1031.500n ±  7%   7.453n ±  0%  -99.28% (p=0.000 n=10)
+IndexAnyASCII/1:8-10                1217.000n ±  2%   7.397n ±  0%  -99.39% (p=0.000 n=10)
+IndexAnyASCII/1:16-10               1802.000n ±  2%   7.710n ±  1%  -99.57% (p=0.000 n=10)
+IndexAnyASCII/1:32-10               3100.000n ±  4%   7.711n ±  0%  -99.75% (p=0.000 n=10)
+IndexAnyASCII/1:64-10               5183.500n ±  2%   8.037n ±  0%  -99.84% (p=0.000 n=10)
+IndexAnyASCII/16:1-10                731.000n ±  4%   5.457n ±  0%  -99.25% (p=0.000 n=10)
+IndexAnyASCII/16:2-10                1096.00n ±  2%   13.44n ±  1%  -98.77% (p=0.000 n=10)
+IndexAnyASCII/16:4-10                1231.00n ±  4%   15.39n ±  3%  -98.75% (p=0.000 n=10)
+IndexAnyASCII/16:8-10                1429.50n ±  2%   19.38n ±  1%  -98.64% (p=0.000 n=10)
+IndexAnyASCII/16:16-10               2009.50n ±  3%   34.40n ±  1%  -98.29% (p=0.000 n=10)
+IndexAnyASCII/16:32-10               3325.00n ±  1%   61.90n ±  0%  -98.14% (p=0.000 n=10)
+IndexAnyASCII/16:64-10                5380.5n ±  1%   124.8n ±  3%  -97.68% (p=0.000 n=10)
+IndexAnyASCII/256:1-10               727.600n ±  2%   8.571n ±  3%  -98.82% (p=0.000 n=10)
+IndexAnyASCII/256:2-10                4038.5n ±  1%   153.7n ±  0%  -96.19% (p=0.000 n=10)
+IndexAnyASCII/256:4-10                4167.5n ±  1%   156.2n ±  1%  -96.25% (p=0.000 n=10)
+IndexAnyASCII/256:8-10                4356.0n ±  1%   161.6n ±  0%  -96.29% (p=0.000 n=10)
+IndexAnyASCII/256:16-10               4953.0n ±  1%   176.3n ±  3%  -96.44% (p=0.000 n=10)
+IndexAnyASCII/256:32-10               6819.5n ±  4%   207.5n ±  1%  -96.96% (p=0.000 n=10)
+IndexAnyASCII/256:64-10               8949.5n ±  6%   271.9n ±  0%  -96.96% (p=0.000 n=10)
+IndexAnyUTF8/1:16-10                1860.500n ±  1%   7.296n ±  0%  -99.61% (p=0.000 n=10)
+IndexAnyUTF8/16:16-10                2100.50n ±  1%   86.67n ±  0%  -95.87% (p=0.000 n=10)
+IndexAnyUTF8/256:16-10                5902.0n ±  1%   119.8n ±  1%  -97.97% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic2-10      1451.35µ ±  1%   84.06µ ±  0%  -94.21% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic4-10      1529.07µ ±  1%   83.80µ ±  0%  -94.52% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic8-10      1349.62µ ± 18%   83.59µ ±  1%  -93.81% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic16-10     1234.51µ ±  1%   64.12µ ±  1%  -94.81% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic32-10     1196.96µ ±  1%   30.81µ ±  1%  -97.43% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic64-10     1169.90µ ±  8%   14.68µ ±  0%  -98.75% (p=0.000 n=10)
+IndexByte_Bytes/10-10                  4.517n ± 20%
+IndexByte_Bytes/32-10                  4.518n ±  1%
+IndexByte_Bytes/4K-10                  81.42n ±  2%
+IndexByte_Bytes/4M-10                  74.80µ ±  1%
+IndexByte_Bytes/64M-10                 1.237m ±  5%
+IndexRune_Bytes/10-10                  12.56n ±  1%   12.32n ±  0%   -1.91% (p=0.000 n=10)
+IndexRune_Bytes/32-10                  12.59n ±  1%   12.32n ±  0%   -2.10% (p=0.000 n=10)
+IndexRune_Bytes/4K-10                  85.06n ±  1%   83.56n ±  0%   -1.76% (p=0.000 n=10)
+IndexRune_Bytes/4M-10                  65.05µ ±  1%   64.33µ ±  0%   -1.11% (p=0.030 n=10)
+IndexRune_Bytes/64M-10                 1.149m ±  4%   1.169m ±  5%        ~ (p=0.089 n=10)
+IndexRuneASCII_Bytes/10-10             6.439n ±  1%   6.388n ±  0%   -0.79% (p=0.025 n=10)
+IndexRuneASCII_Bytes/32-10             6.462n ±  1%   6.369n ±  1%   -1.43% (p=0.000 n=10)
+IndexRuneASCII_Bytes/4K-10             83.87n ±  0%   83.49n ± 11%        ~ (p=0.210 n=10)
+IndexRuneASCII_Bytes/4M-10             75.19µ ±  2%   74.01µ ±  1%   -1.57% (p=0.023 n=10)
+IndexRuneASCII_Bytes/64M-10            1.256m ±  5%   1.300m ±  2%        ~ (p=0.218 n=10)
+IndexNonASCII_Bytes/10-10              3.063n ±  0%   2.967n ±  0%   -3.13% (p=0.000 n=10)
+IndexNonASCII_Bytes/32-10              3.835n ±  2%   3.759n ±  0%   -1.98% (p=0.027 n=10)
+IndexNonASCII_Bytes/4K-10              80.74n ±  1%   79.59n ±  0%   -1.44% (p=0.016 n=10)
+IndexNonASCII_Bytes/4M-10              74.47µ ±  1%   74.51µ ±  1%        ~ (p=0.529 n=10)
+IndexNonASCII_Bytes/64M-10             1.271m ±  4%   1.307m ±  2%        ~ (p=0.089 n=10)
+geomean                                12.78µ         595.2n        -96.26%                ¹
+¹ benchmark set differs from baseline; geomeans may not be comparable
+
+                                 │ regexp.10.txt │                 strcase.10.txt                 │
+                                 │      B/s      │       B/s         vs base                      │
+IndexRune-10                       27.60Mi ±  2%    1454.81Mi ±  1%    +5171.18% (p=0.000 n=10)
+IndexRuneLongString-10             191.0Mi ±  2%     8802.1Mi ±  1%    +4508.17% (p=0.000 n=10)
+IndexRuneFastPath-10               25.50Mi ±  5%    3346.27Mi ±  3%   +13024.42% (p=0.000 n=10)
+Index-10                                              3.365Gi ±  1%
+EqualFold/ASCII-10                 3.920Mi ±  1%   1215.096Mi ±  2%   +30900.49% (p=0.000 n=10)
+EqualFold/UnicodePrefix-10         4.411Mi ±  1%    530.591Mi ±  2%   +11929.51% (p=0.000 n=10)
+EqualFold/UnicodeSuffix-10         4.416Mi ±  2%    656.018Mi ±  1%   +14757.13% (p=0.000 n=10)
+IndexHard1-10                                         2.869Gi ±  0%
+IndexHard2-10                                         734.1Mi ±  1%
+IndexHard3-10                                         730.6Mi ±  1%
+IndexHard4-10                                         734.5Mi ±  1%
+CountHard1-10                      2.888Gi ±  1%      2.903Gi ±  1%            ~ (p=0.218 n=10)
+CountHard2-10                      101.6Mi ±  1%      732.6Mi ±  1%     +621.19% (p=0.000 n=10)
+CountHard3-10                      93.59Mi ±  0%     734.10Mi ±  1%     +684.35% (p=0.000 n=10)
+IndexTorture-10                                       325.0Mi ±  2%
+CountTorture-10                    214.8Ki ±  0%   336108.4Ki ±  2%  +156343.18% (p=0.000 n=10)
+CountTortureOverlapping-10         214.8Ki ±  5%   756987.3Ki ±  1%  +352243.18% (p=0.000 n=10)
+CountByte/10-10                    16.73Mi ±  1%    1240.98Mi ±  1%    +7318.84% (p=0.000 n=10)
+CountByte/32-10                    31.66Mi ±  2%    6780.62Mi ±  1%   +21318.89% (p=0.000 n=10)
+CountByte/4K-10                    61.88Mi ±  1%   37908.26Mi ±  0%   +61157.04% (p=0.000 n=10)
+CountByte/4M-10                    45.64Mi ±  0%   41657.45Mi ±  7%   +91177.83% (p=0.000 n=10)
+CountByte/64M-10                   44.66Mi ±  1%   40660.56Mi ±  1%   +90953.26% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic2-10                       743.5Mi ±  0%
+IndexPeriodic/IndexPeriodic4-10                       745.8Mi ±  0%
+IndexPeriodic/IndexPeriodic8-10                       747.7Mi ±  1%
+IndexPeriodic/IndexPeriodic16-10                      974.8Mi ±  1%
+IndexPeriodic/IndexPeriodic32-10                      1.981Gi ±  1%
+IndexPeriodic/IndexPeriodic64-10                      4.159Gi ±  0%
+IndexByte_Bytes/10-10              2.062Gi ± 17%
+IndexByte_Bytes/32-10              6.598Gi ±  1%
+IndexByte_Bytes/4K-10              46.85Gi ±  2%
+IndexByte_Bytes/4M-10              52.23Gi ±  1%
+IndexByte_Bytes/64M-10             50.52Gi ±  5%
+IndexRune_Bytes/10-10              759.2Mi ±  1%      773.8Mi ±  0%       +1.93% (p=0.000 n=10)
+IndexRune_Bytes/32-10              2.367Gi ±  1%      2.418Gi ±  0%       +2.17% (p=0.000 n=10)
+IndexRune_Bytes/4K-10              44.85Gi ±  1%      45.65Gi ±  0%       +1.79% (p=0.000 n=10)
+IndexRune_Bytes/4M-10              60.05Gi ±  1%      60.72Gi ±  0%       +1.12% (p=0.035 n=10)
+IndexRune_Bytes/64M-10             54.38Gi ±  4%      53.46Gi ±  5%            ~ (p=0.089 n=10)
+IndexRuneASCII_Bytes/10-10         1.446Gi ±  1%      1.458Gi ±  0%       +0.80% (p=0.023 n=10)
+IndexRuneASCII_Bytes/32-10         4.612Gi ±  1%      4.679Gi ±  1%       +1.46% (p=0.000 n=10)
+IndexRuneASCII_Bytes/4K-10         45.48Gi ±  0%      45.69Gi ± 10%            ~ (p=0.218 n=10)
+IndexRuneASCII_Bytes/4M-10         51.95Gi ±  2%      52.78Gi ±  1%       +1.60% (p=0.023 n=10)
+IndexRuneASCII_Bytes/64M-10        49.75Gi ±  5%      48.09Gi ±  3%            ~ (p=0.218 n=10)
+IndexNonASCII_Bytes/10-10          3.040Gi ±  0%      3.138Gi ±  0%       +3.23% (p=0.000 n=10)
+IndexNonASCII_Bytes/32-10          7.772Gi ±  2%      7.928Gi ±  0%       +2.01% (p=0.023 n=10)
+IndexNonASCII_Bytes/4K-10          47.24Gi ±  1%      47.93Gi ±  0%       +1.46% (p=0.019 n=10)
+IndexNonASCII_Bytes/4M-10          52.46Gi ±  1%      52.43Gi ±  1%            ~ (p=0.529 n=10)
+IndexNonASCII_Bytes/64M-10         49.19Gi ±  4%      47.81Gi ±  2%            ~ (p=0.089 n=10)
+geomean                            832.0Mi            3.764Gi          +1121.52%                ¹
+¹ benchmark set differs from baseline; geomeans may not be comparable
+
+                                 │  regexp.10.txt   │               strcase.10.txt                │
+                                 │       B/op       │     B/op      vs base                       │
+IndexRune-10                           811.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+IndexRuneLongString-10                 811.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+IndexRuneFastPath-10                   791.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+Index-10                               791.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+EqualFold/ASCII-10                   4.658Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+EqualFold/UnicodePrefix-10           6.480Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+EqualFold/UnicodeSuffix-10           6.480Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexHard1-10                          914.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+IndexHard2-10                        1.433Ki ± 4%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexHard3-10                        3.665Ki ± 1%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexHard4-10                        6.977Ki ± 1%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+CountHard1-10                          914.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+CountHard2-10                        1.427Ki ± 3%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+CountHard3-10                        3.668Ki ± 1%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexTorture-10                      647.6Ki ± 6%       0.0Ki ± 0%  -100.00% (p=0.000 n=10)
+CountTorture-10                      647.6Ki ± 6%       0.0Ki ± 0%  -100.00% (p=0.000 n=10)
+CountTortureOverlapping-10         4424.21Ki ± 0%     10.53Ki ± 1%   -99.76% (p=0.000 n=10)
+CountByte/10-10                        765.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+CountByte/32-10                       1021.0 ± 0%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+CountByte/4K-10                      19.36Ki ± 0%      0.00Ki ± 0%  -100.00% (p=0.000 n=10)
+CountByte/4M-10                      27.79Mi ± 0%      0.00Mi ± 0%  -100.00% (p=0.000 n=10)
+CountByte/64M-10                     421.2Mi ± 0%       0.0Mi ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:1-10                 1.255Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:2-10                 1.524Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:4-10                 1.556Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:8-10                 1.635Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:16-10                1.849Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:32-10                2.358Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:64-10                3.119Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:1-10                1.255Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:2-10                1.522Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:4-10                1.554Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:8-10                1.635Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:16-10               1.851Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:32-10               2.360Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:64-10               3.122Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:1-10               1.255Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:2-10               1.515Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:4-10               1.547Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:8-10               1.628Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:16-10              1.844Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:32-10              2.352Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:64-10              3.112Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyUTF8/1:16-10                 1.890Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyUTF8/16:16-10                1.889Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyUTF8/256:16-10               1.877Ki ± 0%     0.000Ki ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic2-10      984.000 ± 1%       4.000 ± 0%   -99.59% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic4-10      987.500 ± 1%       4.000 ± 0%   -99.59% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic8-10      975.500 ± 1%       4.000 ± 0%   -99.59% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic16-10     971.000 ± 1%       3.000 ± 0%   -99.69% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic32-10     963.000 ± 1%       1.000 ± 0%   -99.90% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic64-10       967.0 ± 1%         0.0 ± 0%  -100.00% (p=0.000 n=10)
+IndexByte_Bytes/10-10                  0.000 ± 0%
+IndexByte_Bytes/32-10                  0.000 ± 0%
+IndexByte_Bytes/4K-10                  0.000 ± 0%
+IndexByte_Bytes/4M-10                  261.0 ± 1%
+IndexByte_Bytes/64M-10               69.35Ki ± 5%
+IndexRune_Bytes/10-10                  0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/32-10                  0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/4K-10                  0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/4M-10                  226.0 ± 1%       224.0 ± 0%    -0.88% (p=0.001 n=10)
+IndexRune_Bytes/64M-10               64.47Ki ± 2%     64.75Ki ± 8%         ~ (p=1.000 n=10)
+IndexRuneASCII_Bytes/10-10             0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/32-10             0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/4K-10             0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/4M-10             260.5 ± 2%       258.0 ± 1%    -0.96% (p=0.011 n=10)
+IndexRuneASCII_Bytes/64M-10          73.51Ki ± 5%     73.26Ki ± 3%         ~ (p=0.896 n=10)
+IndexNonASCII_Bytes/10-10              0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/32-10              0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/4K-10              0.000 ± 0%       0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/4M-10              258.5 ± 1%       260.0 ± 1%         ~ (p=0.343 n=10)
+IndexNonASCII_Bytes/64M-10           72.14Ki ± 4%     71.55Ki ± 4%         ~ (p=0.305 n=10)
+geomean                                           ²                 ?                       ³ ² ⁴
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ benchmark set differs from baseline; geomeans may not be comparable
+⁴ ratios must be >0 to compute geomean
+
+                                 │ regexp.10.txt  │               strcase.10.txt               │
+                                 │   allocs/op    │  allocs/op   vs base                       │
+IndexRune-10                        13.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexRuneLongString-10              13.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexRuneFastPath-10                11.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+Index-10                            11.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+EqualFold/ASCII-10                  71.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+EqualFold/UnicodePrefix-10          82.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+EqualFold/UnicodeSuffix-10          82.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexHard1-10                       14.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexHard2-10                       18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexHard3-10                       22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexHard4-10                       24.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+CountHard1-10                       14.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+CountHard2-10                       18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+CountHard3-10                       22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexTorture-10                     255.0 ± 47%        0.0 ± 0%  -100.00% (p=0.000 n=10)
+CountTorture-10                     255.0 ± 47%        0.0 ± 0%  -100.00% (p=0.000 n=10)
+CountTortureOverlapping-10         3.141k ±  0%     0.000k ± 0%  -100.00% (p=0.000 n=10)
+CountByte/10-10                     10.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+CountByte/32-10                     12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+CountByte/4K-10                     202.0 ±  0%        0.0 ± 0%  -100.00% (p=0.000 n=10)
+CountByte/4M-10                    190.7k ±  0%       0.0k ± 0%  -100.00% (p=0.000 n=10)
+CountByte/64M-10                   3.051M ±  0%     0.000M ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:1-10                16.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:2-10                18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:4-10                18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:8-10                18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:16-10               20.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:32-10               22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/1:64-10               22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:1-10               16.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:2-10               18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:4-10               18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:8-10               18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:16-10              20.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:32-10              22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/16:64-10              22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:1-10              16.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:2-10              18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:4-10              18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:8-10              18.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:16-10             20.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:32-10             22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyASCII/256:64-10             22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyUTF8/1:16-10                22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyUTF8/16:16-10               22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexAnyUTF8/256:16-10              22.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic2-10     12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic4-10     12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic8-10     12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic16-10    12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic32-10    12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexPeriodic/IndexPeriodic64-10    12.00 ±  0%       0.00 ± 0%  -100.00% (p=0.000 n=10)
+IndexByte_Bytes/10-10               0.000 ±  0%
+IndexByte_Bytes/32-10               0.000 ±  0%
+IndexByte_Bytes/4K-10               0.000 ±  0%
+IndexByte_Bytes/4M-10               0.000 ±  0%
+IndexByte_Bytes/64M-10              0.000 ±  0%
+IndexRune_Bytes/10-10               0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/32-10               0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/4K-10               0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/4M-10               0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRune_Bytes/64M-10              0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/10-10          0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/32-10          0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/4K-10          0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/4M-10          0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexRuneASCII_Bytes/64M-10         0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/10-10           0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/32-10           0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/4K-10           0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/4M-10           0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+IndexNonASCII_Bytes/64M-10          0.000 ±  0%      0.000 ± 0%         ~ (p=1.000 n=10) ¹
+geomean                                         ²                ?                       ³ ² ⁴
+¹ all samples are equal
+² summaries must be >0 to compute geomean
+³ benchmark set differs from baseline; geomeans may not be comparable
+⁴ ratios must be >0 to compute geomean
+```
+
+</details>
 
 <details>
 <summary>arm64</summary>
