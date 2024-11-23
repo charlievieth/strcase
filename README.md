@@ -9,10 +9,17 @@ Unicode aware implementations of the Go standard library's
 [`strings`](https://pkg.go.dev/strings) and [`bytes`](https://pkg.go.dev/bytes)
 packages that are accurate, fast, and never allocate memory.
 
-Note: The bytcase package is analogous to the strcase package, and whatever
-applies to strcase also applies to the bytcase package. For simplicity, the
-below documentation mostly refers to the strcase package, but unless otherwise
-noted all comments also apply to bytecase.
+Simple Unicode case-folding is used for all comparisons. This matches the behavior
+of [strings.EqualFold](https://pkg.go.dev/strings#EqualFold) and [regexp.Regexp](https://pkg.go.dev/regexp#Regexp)
+(when the pattern is compiled with the case-insensitive flag `(?i)`) and is more
+accurate (and significantly more efficient) than using [strings.ToLower](https://pkg.go.dev/strings#ToLower) or
+[strings.ToUpper](https://pkg.go.dev/strings#ToUpper) to normalize the needle /
+haystack before searching.
+
+**Note:** The bytcase package is analogous to the strcase package; whatever
+applies to strcase also applies to bytcase. For simplicity, the documentation
+primarily refers to strcase. Unless otherwise noted, all comments apply to both
+packages.
 
 ## Overview
 
@@ -22,11 +29,13 @@ noted all comments also apply to bytecase.
 * Simple Unicode case-folding is used for all comparisons - making it more
   accurate than using [strings.ToLower](https://pkg.go.dev/strings#ToLower) or
   [strings.ToUpper](https://pkg.go.dev/strings#ToUpper) for case-insensitivity.
-* Fast and optimized for amd64 and arm64. For non-pathological inputs strcase
-  is only 25-50% slower than the strings package.
-* Any string matched by strcase or bytecase will also match with
+  <!-- TODO: note the equivalent using the regexp package `(?i)` -->
+* Any string matched by strcase or bytcase will also match with
   [strings.EqualFold](https://pkg.go.dev/strings#EqualFold) or
   [bytes.EqualFold](https://pkg.go.dev/bytes#EqualFold)
+* Fast and optimized for amd64 and arm64. For non-pathological inputs strcase
+  is only 25-50% slower than the strings package.
+* A few orders of magnitude faster than using a case-insensitive [regexp.Regexp](https://pkg.go.dev/regexp#Regexp).
 
 ## Installation
 
@@ -81,7 +90,7 @@ All invalid UTF-8 sequences are considered equal. This is because Go converts
 invalid UTF-8 sequences to the Unicode replacement character `0xFFFD`
 ([unicode.ReplacementChar](https://pkg.go.dev/unicode#pkg-constants) /
 [utf8.RuneError](https://pkg.go.dev/unicode/utf8#pkg-constants)).
-This occurs both when [ranging](https://go.dev/ref/spec#For_statements) over of
+This occurs both when [ranging](https://go.dev/ref/spec#For_statements) over
 a string or using the [utf8](https://pkg.go.dev/utf8) package's `Decode*`
 functions.
 
@@ -98,22 +107,24 @@ with valid UTF-8 strings and not arbitrary binary data.
 
 strcase aims to be seriously fast and can beat or match the performance of the
 strings package in some benchmarks (EqualFold and IndexRune). Overall, strcase
-tends to within 30-50% of the strings package for non-pathological inputs.
+tends to be only 30-50% slower than the strings package for non-pathological inputs.
 
 #### Optimizations
 
-* Instead of using the standard library's Unicode package, which uses a binary
+- Instead of using the standard library's Unicode package, which uses a binary
   search for its lookup tables, strcase uses multiplicative hashing for its
   lookup tables. This is 10x faster at the cost of larger tables.
-* Searching for runes (IndexRune) is a big determinant of strcase's performance.
-  Instead of searching for runes by their first byte (like the strings package)
-  strcase searches for the second byte, which is more unique, then looks
-  backwards/forwards to complete the match.
-* Package strcase is optimized for amd64 and arm64 and includes assembly
+- Searching for runes (IndexRune) is a big determinant of the strcase packages
+  performance. Instead of searching for runes by their first byte (like the
+  strings package) strcase searches for the second byte, which is more unique,
+  then looks backwards/forwards to complete the match.
+   * **NB:** [CL 539116](https://go-review.googlesource.com/c/go/+/539116) added
+   this logic to Go's strings/bytes packages and is available starting with Go 1.23.
+- Package strcase is optimized for amd64 and arm64 and includes assembly
   implementations of `IndexByte`, `CountByte` and `IndexNonASCII` that
   leverage the same SIMD technologies used in the standard library (SSE, AVX2,
   NEON).
-* On armv7l (Raspberry Pi), which we do not optimize for, the average
+- On armv7l (Raspberry Pi), which we do not optimize for, the average
   performance penalty is only ~30%.
 
 ## Notes:
@@ -122,6 +133,7 @@ tends to within 30-50% of the strings package for non-pathological inputs.
  This is because the [utf8](https://pkg.go.dev/unicode/utf8) package converts
  invalid runes and multibyte UTF-8 sequences to
  [`utf8.RuneError`](https://pkg.go.dev/unicode/utf8#RuneError).
+  * This matches the behavior of [strings.EqualFold](https://pkg.go.dev/strings#EqualFold).
 - `İ` (LATIN CAPITAL LETTER I WITH DOT ABOVE) and `ı`: (LATIN SMALL LETTER DOTLESS
   I) doe not fold to ASCII `[iI]` (U+0069 / U+0049)
    * This matches the behavior of [strings.EqualFold](https://pkg.go.dev/strings#EqualFold)
