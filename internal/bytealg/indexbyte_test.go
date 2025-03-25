@@ -182,7 +182,8 @@ func testIndexByteASCII(t *testing.T, name string, fn func(s []byte, c byte) int
 	s1 := make([]byte, 0, 256) // forward
 	for i := 0; i < 256; i++ {
 		c := byte(i)
-		if !('a' <= c && c <= 'z') {
+		if c < 'a' || 'z' < c {
+			// Exclude lower-case
 			s1 = append(s1, c)
 		}
 	}
