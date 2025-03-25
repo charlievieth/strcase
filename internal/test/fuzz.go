@@ -756,7 +756,7 @@ type testWrapper struct {
 }
 
 func (c *testWrapper) check() {
-	c.T.Helper()
+	c.Helper()
 	if n := atomic.AddInt32(&c.fails, 1); n >= 10 {
 		// We run tests in parallel so only call Fatal on the
 		// test that crossed the threshold.
@@ -770,37 +770,37 @@ func (c *testWrapper) check() {
 }
 
 func (c *testWrapper) Error(args ...any) {
-	c.T.Helper()
+	c.Helper()
 	c.T.Error(args...)
 	c.check()
 }
 
 func (c *testWrapper) Errorf(format string, args ...any) {
-	c.T.Helper()
+	c.Helper()
 	c.T.Errorf(format, args...)
 	c.check()
 }
 
 func (c *testWrapper) Fail() {
-	c.T.Helper()
+	c.Helper()
 	c.T.Fail()
 	c.check()
 }
 
 func (c *testWrapper) FailNow() {
-	c.T.Helper()
+	c.Helper()
 	c.T.FailNow()
 	c.check()
 }
 
 func (c *testWrapper) Fatal(args ...any) {
-	c.T.Helper()
+	c.Helper()
 	c.T.Fatal(args...)
 	c.check()
 }
 
 func (c *testWrapper) Fatalf(format string, args ...any) {
-	c.T.Helper()
+	c.Helper()
 	c.T.Fatalf(format, args...)
 	c.check()
 }
