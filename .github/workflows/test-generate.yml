@@ -20,7 +20,7 @@ jobs:
         path: ${{ github.workspace }}/internal/gen/gentables/DATA
         key: ${{ runner.os }}-data-${{ hashFiles('${{ github.workspace }}/**/*.txt') }}
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: '>=1.24.x'
     # Test the gen package
