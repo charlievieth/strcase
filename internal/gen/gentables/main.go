@@ -126,7 +126,8 @@ func loadCaseFolds() {
 
 var buildTags = map[string]struct{ version, buildTags, filename string }{
 	"13.0.0": {"13.0.0", "go1.16,!go1.21", "tables_go116.go"},
-	"15.0.0": {"15.0.0", "go1.21", "tables_go121.go"},
+	"15.0.0": {"15.0.0", "go1.21,!go1.27", "tables_go121.go"},
+	"17.0.0": {"17.0.0", "go1.27", "tables_go127.go"},
 }
 
 // tablesFileName is the names of the file to generate and is based off
