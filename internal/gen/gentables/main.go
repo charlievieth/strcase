@@ -754,10 +754,16 @@ func genFoldTable(w *bytes.Buffer, firstValidHash bool) {
 	runes := make(map[rune][]rune)
 	rangetable.Visit(categories, func(r rune) {
 		ff := folds(r)
-		if len(ff) > 2 {
-			runes[r] = append(runes[r], ff...)
-		}
-		if len(ff) == 1 && toUpper(r) != toLower(r) {
+		switch n := len(ff); {
+		case n > 2:
+			fallthrough
+		case n == 2 && ff[1] != toUpper(r) && ff[1] != toLower(r):
+			// A two-element fold orbit is normally covered by the _UpperLower
+			// table, but when the other rune is neither the upper nor lower
+			// case form of r it cannot be represented there and must be
+			// stored in _FoldMap.
+			fallthrough
+		case n == 1 && toUpper(r) != toLower(r):
 			runes[r] = append(runes[r], ff...)
 		}
 	})

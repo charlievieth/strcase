@@ -4,14 +4,11 @@
         "unicode_version": "13.0.0",
         "cldr_version": "32",
         "case_fold_hash": "3ab0454d1a85064a4c401b9a0c7162bd08a306ebd0dc34065b25701e6d38dba9",
-        "gen_go_hash": "d69f8528e3a2cd51a9d878ad8b7d037d48c17c124f3da4b5aa288406f116ff95",
+        "gen_go_hash": "67c0d8fc37411fd8e96fe4833c129d9aa21b6e15190a05b3e62d0156d3b285bc",
         "table_hashes": {
             "CaseFolds": 2422855,
             "FoldMap": 2521300993,
-            "UpperLower": 1793588629,
-            "_CaseFolds": 2422855,
-            "_FoldMap": 2521300993,
-            "_UpperLower": 1793588629
+            "UpperLower": 1793588629
         }
     },
     "tables_go121.go": {
@@ -19,14 +16,11 @@
         "unicode_version": "15.0.0",
         "cldr_version": "32",
         "case_fold_hash": "26ed8b8eee3e8fb11d5bc828b898e9b714fed8d34dea08089dde133d0b10fb04",
-        "gen_go_hash": "d69f8528e3a2cd51a9d878ad8b7d037d48c17c124f3da4b5aa288406f116ff95",
+        "gen_go_hash": "67c0d8fc37411fd8e96fe4833c129d9aa21b6e15190a05b3e62d0156d3b285bc",
         "table_hashes": {
             "CaseFolds": 4292873350,
             "FoldMap": 2521300993,
-            "UpperLower": 1793588629,
-            "_CaseFolds": 4292873350,
-            "_FoldMap": 4263480156,
-            "_UpperLower": 4290248538
+            "UpperLower": 1793588629
         }
     },
     "tables_go127.go": {
@@ -34,10 +28,10 @@
         "unicode_version": "17.0.0",
         "cldr_version": "32",
         "case_fold_hash": "dc6cc7a02620578ced5f7cff096043d463046a068304443aba325dfc5b3e3f03",
-        "gen_go_hash": "d69f8528e3a2cd51a9d878ad8b7d037d48c17c124f3da4b5aa288406f116ff95",
+        "gen_go_hash": "67c0d8fc37411fd8e96fe4833c129d9aa21b6e15190a05b3e62d0156d3b285bc",
         "table_hashes": {
             "CaseFolds": 4292873350,
-            "FoldMap": 2521300993,
+            "FoldMap": 935790141,
             "UpperLower": 1333264157
         }
     }
