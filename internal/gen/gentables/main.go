@@ -1274,6 +1274,9 @@ var category = map[string]bool{
 	"S": true, // Sm Sc Sk So
 	"Z": true, // Zs Zl Zp
 	"C": true, // Cc Cf Cs Co Cn
+	// Multi-letter group categories added in go1.27.
+	"LC": true, // Lu Ll Lt (Cased_Letter)
+	"Cn": true, // Unassigned code points
 }
 
 // This contains only the properties we're interested in.
@@ -1370,10 +1373,24 @@ func loadCategoryTables() map[string]*unicode.RangeTable {
 		if _, ok := category[name]; !ok {
 			log.Fatal("unknown category", name)
 		}
+		// Previously, we only distinguished between "unified" and all other
+		// categories. Since go1.27, we need to also handle the "LC" (cased
+		// letter) and "Cn" (unassigned) categories. This code does that.
 		var rt *unicode.RangeTable
-		if len(name) == 1 { // unified categories
+		switch {
+		case name == "LC": // cased letter
+			rt = dumpRange(func(code rune) bool {
+				switch chars[code].category {
+				case "Lu", "Ll", "Lt":
+					return true
+				}
+				return false
+			})
+		case name == "Cn": // unassigned: no general category
+			rt = dumpRange(func(code rune) bool { return chars[code].category == "" })
+		case len(name) == 1: // unified categories
 			rt = dumpRange(func(code rune) bool { return categoryOp(code, name[0]) })
-		} else {
+		default:
 			rt = dumpRange(func(code rune) bool { return chars[code].category == name })
 		}
 		cats[name] = rt
