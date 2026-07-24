@@ -1,5 +1,5 @@
 module github.com/charlievieth/strcase
 
-go 1.19
+go 1.25.0
 
-require golang.org/x/sys v0.30.0
+require golang.org/x/sys v0.47.0
