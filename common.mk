@@ -29,7 +29,7 @@ GREP_COMMENTS  ?= --line-number --extended-regexp --recursive \
 xgrep          := $(GREP) $(GREP_COLOR)
 
 # Arguments for `golangci-lint run`
-GOLANGCI_VERSION       ?= v1.64.5
+GOLANGCI_VERSION       ?= v2.12.2
 GOLANGCI_SORT          ?= --sort-results
 GOLANGCI_COLOR         ?= --color=always
 GOLANGCI_CONFIG        ?= --config=$(MAKEFILE_DIR)/.golangci.yaml
@@ -72,7 +72,7 @@ bin/golangci-lint:
 		echo '$(yellow)INFO:$(term-reset) Installing golangci-lint version: $(GOLANGCI_VERSION)';  \
 		mkdir -p $(GOBIN);                                                                         \
 		GOBIN=$(GOBIN) $(GO) install                                                               \
-			github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_VERSION);               \
+			github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION);            \
 	fi
 
 # Build gen
