@@ -87,6 +87,14 @@ func TestUpperLower(t *testing.T) {
 		u0, l0, _ := ToUpperLower(r)
 		u1 := unicode.ToUpper(r)
 		l1 := unicode.ToLower(r)
+		// 'İ' (U+0130) and 'ı' (U+0131) are special: their upper/lower-case
+		// forms are not part of their simple case-folding orbit
+		// (ToLower('İ') == 'i' and ToUpper('ı') == 'I'), so ToUpperLower
+		// intentionally maps them to themselves to preserve simple folding
+		// semantics. See genUpperLowerTable in internal/gen/gentables.
+		if r == 'İ' || r == 'ı' {
+			u1, l1 = r, r
+		}
 		if u0 != u1 || l0 != l1 {
 			t.Errorf("ToUpperLower(0x%04X) = 0x%04X, 0x%04X want: 0x%04X, 0x%04X",
 				r, u0, l0, u1, l1)

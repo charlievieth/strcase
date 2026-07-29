@@ -322,24 +322,12 @@ func bruteForceIndexUnicode(s, substr string) int {
 	hasFolds1 := folds1[0] != 0
 	needle := substr[sz0+sz1:]
 
-	// Ugly hack
+	// 'İ' (U+0130) and 'ı' (U+0131) map to themselves in the _UpperLower
+	// table (see internal/gen/gentables), so ToUpperLower handles them
+	// correctly without any special casing here.
 	var l0, l1 rune
-	switch u0 {
-	case 'İ':
-		l0 = 'İ'
-	case 'ı':
-		l0 = 'ı'
-	default:
-		u0, l0, _ = tables.ToUpperLower(u0)
-	}
-	switch u1 {
-	case 'İ':
-		l1 = 'İ'
-	case 'ı':
-		l1 = 'ı'
-	default:
-		u1, l1, _ = tables.ToUpperLower(u1)
-	}
+	u0, l0, _ = tables.ToUpperLower(u0)
+	u1, l1, _ = tables.ToUpperLower(u1)
 
 	// Limit search space.
 	t := len(s) - len(substr)/3 + 2
@@ -637,24 +625,12 @@ func Index(s, substr string) int {
 	// and table since it's not always on the critical path and it
 	// adds a a lot to the size of this package
 
-	// Ugly hack
+	// 'İ' (U+0130) and 'ı' (U+0131) map to themselves in the _UpperLower
+	// table (see internal/gen/gentables), so ToUpperLower handles them
+	// correctly without any special casing here.
 	var l0, l1 rune
-	switch u0 {
-	case 'İ':
-		l0 = 'İ'
-	case 'ı':
-		l0 = 'ı'
-	default:
-		u0, l0, _ = tables.ToUpperLower(u0)
-	}
-	switch u1 {
-	case 'İ':
-		l1 = 'İ'
-	case 'ı':
-		l1 = 'ı'
-	default:
-		u1, l1, _ = tables.ToUpperLower(u1)
-	}
+	u0, l0, _ = tables.ToUpperLower(u0)
+	u1, l1, _ = tables.ToUpperLower(u1)
 
 	fails := 0
 	// TODO: see if we can stop sooner.

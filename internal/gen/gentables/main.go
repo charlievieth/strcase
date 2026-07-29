@@ -62,14 +62,11 @@ func initLogs() {
 	log.SetOutput(os.Stdout) // use stdout instead of stderr
 }
 
-// WARN: we need to include 'İ' (0x0130) and 'ı' (0x0131) in _FoldMap because
-// we don't want to fallback to using toUpperLower() since we don't accept the
-// upper/lower-case variants of these runes (breaks simple folding semantics).
-//
-// We should remove these runes and any other runes in _FoldMap from _UpperLower
-// and maybe remove 'İ' and 'ı' from _FoldMap as well.
-//
-// TODO: remove İ (0x0130) from _UpperLower and fix tests
+// 'İ' (U+0130) and 'ı' (U+0131) are special: their upper/lower-case forms are
+// not part of their simple case-folding orbit (see genUpperLowerTable), so they
+// are excluded from _UpperLower and instead map to themselves. This lets the
+// runtime call ToUpperLower for these runes like any other, without special
+// casing them.
 
 // TODO: consider renaming the generated tables
 const (
@@ -767,9 +764,8 @@ func genFoldTable(w *bytes.Buffer, firstValidHash bool) {
 			runes[r] = append(runes[r], ff...)
 		}
 	})
-	// FIXME: fix the below since we have to work around it in the code
-	// WARN: we should not need to add this manually
-	runes['İ'] = append(runes['İ'], 'İ')
+	// 'ß' (U+00DF) folds to 'ẞ' (U+1E9E, capital sharp S), which is neither
+	// its upper or lower-case form, so add it manually.
 	runes['ß'] = append(runes['ß'], 'ẞ')
 
 	keys := make([]uint32, 0, len(runes))
@@ -910,6 +906,23 @@ func genUpperLowerTable(w *bytes.Buffer, firstValidHash bool) {
 		}
 		l := toLower(r)
 		u := toUpper(r)
+		// The uppercase and lowercase forms of a rune are normally part of
+		// its simple case-folding orbit, but for 'İ' (U+0130) and 'ı'
+		// (U+0131) they are not: ToLower('İ') == 'i' and ToUpper('ı') == 'I',
+		// neither of which case-folds back to the original rune. Storing
+		// those forms here would make ToUpperLower (and therefore the
+		// case-insensitive search) treat 'İ' as matching ASCII 'i' and 'ı'
+		// as matching ASCII 'I', which is wrong for simple folding. Map any
+		// such out-of-orbit case form back to r so these runes only match
+		// themselves and no runtime special-casing is required. As of
+		// Unicode 17.0.0 'İ' and 'ı' are the only two runes affected.
+		orbit := folds(r)
+		if u != r && !slices.Contains(orbit, u) {
+			u = r
+		}
+		if l != r && !slices.Contains(orbit, l) {
+			l = r
+		}
 		if r != l || r != u {
 			if r == l || r == u {
 				cases = append(cases, Case{Rune: r, Upper: u, Lower: l})
